@@ -104,6 +104,7 @@ impl TcpListener {
         Ok(TcpStream {
             fd: unsafe { OwnedFd::from_raw_fd(fd) },
             slot: Cell::new(None),
+            detached: crate::reactor::DetachedState::new(),
         })
     }
 }
@@ -126,6 +127,7 @@ impl AsRawFd for TcpListener {
 pub struct TcpStream {
     fd: OwnedFd,
     slot: Cell<Option<usize>>,
+    detached: std::rc::Rc<crate::reactor::DetachedState>,
 }
 
 impl TcpStream {
@@ -134,6 +136,7 @@ impl TcpStream {
         TcpStream {
             fd: s.into(),
             slot: Cell::new(None),
+            detached: crate::reactor::DetachedState::new(),
         }
     }
 
@@ -164,6 +167,7 @@ impl TcpStream {
             fd: self.fd.as_raw_fd(),
             slot: &self.slot,
             out: buf,
+            detached: &self.detached,
         }
     }
 
@@ -175,6 +179,35 @@ impl TcpStream {
     /// Send all of `buf`, re-issuing on short writes, and hand it back.
     pub async fn send_all(&self, buf: Vec<u8>) -> (io::Result<()>, Vec<u8>) {
         op::send_all(self.fd.as_raw_fd(), buf).await
+    }
+
+    /// Send `buf` without waiting for the completion: the buffer goes to the
+    /// runtime's pool when the kernel is done, and this call returns as soon as
+    /// the send is submitted. Saves a task wake per response. Backpressure:
+    /// with [`op::MAX_DETACHED`] sends already in flight it waits for one. A
+    /// failed or short detached send is reported by the next `recv` (or the
+    /// next `send_detached`) as an error. Get buffers from
+    /// [`TcpStream::take_buffer`] to reuse pooled ones.
+    pub fn send_detached(&self, buf: Vec<u8>) -> op::SendDetached<'_> {
+        op::SendDetached {
+            fd: self.fd.as_raw_fd(),
+            buf: Some(buf),
+            owner: &self.detached,
+        }
+    }
+
+    /// Wait until every detached send on this stream has completed. Call it
+    /// before dropping a stream whose last responses must reach the peer.
+    pub fn flush(&self) -> op::Flush<'_> {
+        op::Flush {
+            owner: &self.detached,
+        }
+    }
+
+    /// An empty buffer with at least `min_capacity`, from the pool that
+    /// detached sends return to, or newly allocated.
+    pub fn take_buffer(min_capacity: usize) -> Vec<u8> {
+        crate::reactor::Reactor::with(|r| r.take_buffer(min_capacity))
     }
 
     /// The remote address.

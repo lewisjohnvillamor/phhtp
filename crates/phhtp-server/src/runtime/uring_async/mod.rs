@@ -81,11 +81,14 @@ fn worker(listener: TcpListener, app: Arc<App>, log: bool) -> io::Result<()> {
     })?
 }
 
-/// Same shape as `tokio_rt::serve_connection`; the socket closes when `stream` drops.
+/// Same shape as `tokio_rt::serve_connection`, except that responses are sent
+/// *detached*: the buffer goes to the runtime's pool when the kernel is done
+/// and the task goes straight back to `recv`, saving one wake per request.
+/// The socket closes when `stream` drops.
 async fn serve_connection(app: Arc<App>, stream: TcpStream) {
     let max_in = conn::max_inbuf(&app);
     let mut inbuf: Vec<u8> = Vec::with_capacity(READ_CHUNK);
-    let mut outbuf: Vec<u8> = Vec::with_capacity(READ_CHUNK);
+    let mut outbuf: Vec<u8> = TcpStream::take_buffer(READ_CHUNK);
 
     loop {
         match stream.recv(&mut inbuf).await {
@@ -101,14 +104,14 @@ async fn serve_connection(app: Arc<App>, stream: TcpStream) {
                 ringrt::time::sleep(Duration::from_millis(ms)).await;
             }
             if !outbuf.is_empty() {
-                let (r, b) = stream.send_all(outbuf).await;
-                outbuf = b;
-                outbuf.clear();
-                if r.is_err() {
+                let full = std::mem::replace(&mut outbuf, TcpStream::take_buffer(READ_CHUNK));
+                if stream.send_detached(full).await.is_err() {
                     return;
                 }
             }
             if step.flow == Flow::Close {
+                // Let the in-flight responses drain before the fd closes.
+                let _ = stream.flush().await;
                 return;
             }
             if step.delay_ms.is_none() || inbuf.is_empty() {

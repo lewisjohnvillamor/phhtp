@@ -8,7 +8,8 @@
 #
 # Env knobs: RUNTIMES, CONNS (64), SLEEP_CONNS (256), DURATION (10), WARMUP (2), REPS (1),
 # PORT (8080), WORKERS (runtime default), OUT (bench/results/<timestamp>.jsonl),
-# SCENARIOS (space separated subset of: plaintext json sign compute sleep).
+# SCENARIOS (space separated subset of: plaintext json sign compute sleep blob churn openloop),
+# RATE (50000, the open-loop target used by the openloop scenario).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -19,7 +20,7 @@ DURATION=${DURATION:-10}
 WARMUP=${WARMUP:-2}
 REPS=${REPS:-1}
 PORT=${PORT:-8080}
-SCENARIOS=${SCENARIOS:-"plaintext json sign compute sleep"}
+SCENARIOS=${SCENARIOS:-"plaintext json sign compute sleep blob churn"}
 OUT=${OUT:-bench/results/$(date +%Y%m%d-%H%M%S).jsonl}
 TARGET=${TARGET:-}
 BENCH_THREADS=${BENCH_THREADS:-}
@@ -48,6 +49,9 @@ run_scenario() {
     sign)      "$BENCH" run "$base/sign" -X POST --body-size 256 -c "$CONNS" -d "$DURATION" -w "$WARMUP" --label "$label" --json "${extra[@]}" ;;
     compute)   "$BENCH" run "$base/compute?n=2000" -c "$CONNS"      -d "$DURATION" -w "$WARMUP" --label "$label" --json "${extra[@]}" ;;
     sleep)     "$BENCH" run "$base/sleep?ms=5"    -c "$SLEEP_CONNS" -d "$DURATION" -w "$WARMUP" --label "$label" --json "${extra[@]}" ;;
+    blob)      "$BENCH" run "$base/blob?n=16384"  -c "$CONNS"       -d "$DURATION" -w "$WARMUP" --label "$label" --json "${extra[@]}" ;;
+    churn)     "$BENCH" run "$base/"  --close     -c "$CONNS"       -d "$DURATION" -w "$WARMUP" --label "$label" --json "${extra[@]}" ;;
+    openloop)  "$BENCH" run "$base/json" --rate "${RATE:-50000}" -c "$CONNS" -d "$DURATION" -w "$WARMUP" --label "$label" --json "${extra[@]}" ;;
     *) echo "unknown scenario $name" >&2; return 1 ;;
   esac
 }

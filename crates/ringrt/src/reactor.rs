@@ -13,9 +13,10 @@
 //!   is recycled immediately, so no user memory is ever lent to the kernel.
 
 use std::any::Any;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::io;
+use std::rc::Rc;
 use std::task::Waker;
 
 use crate::bufring::BufRing;
@@ -58,6 +59,30 @@ enum Slot {
         keep: Option<Box<dyn Any>>,
     },
     Multi(Box<Multi>),
+    /// A fire-and-forget send: the buffer returns to the pool on completion
+    /// and the owning stream's in-flight count drops (waking it if it waits).
+    Detached {
+        buf: Vec<u8>,
+        owner: Rc<DetachedState>,
+    },
+}
+
+/// Per-stream bookkeeping for detached sends.
+pub struct DetachedState {
+    pub in_flight: Cell<usize>,
+    pub waker: RefCell<Option<Waker>>,
+    /// First error seen on a detached send, reported by the next `recv`.
+    pub error: Cell<Option<i32>>,
+}
+
+impl DetachedState {
+    pub fn new() -> Rc<DetachedState> {
+        Rc::new(DetachedState {
+            in_flight: Cell::new(0),
+            waker: RefCell::new(None),
+            error: Cell::new(None),
+        })
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,7 +127,12 @@ pub struct Reactor {
     in_flight: usize,
     multishot_accept: bool,
     multishot_recv: bool,
+    /// Buffers handed back by completed detached sends, for reuse.
+    pool: Vec<Vec<u8>>,
 }
+
+/// Most buffers kept in the pool; beyond this they are freed.
+const POOL_MAX: usize = 1024;
 
 thread_local! {
     static REACTOR: RefCell<Option<Reactor>> = const { RefCell::new(None) };
@@ -143,6 +173,7 @@ impl Reactor {
                 in_flight: 0,
                 multishot_accept: !no_multishot,
                 multishot_recv,
+                pool: Vec::new(),
             })
         });
         Ok(())
@@ -217,6 +248,49 @@ impl Reactor {
         self.in_flight += 1;
         self.push(sqe);
         slot
+    }
+
+    /// Take a buffer from the pool (empty, capacity retained) or a new one.
+    pub fn take_buffer(&mut self, min_capacity: usize) -> Vec<u8> {
+        match self.pool.pop() {
+            Some(mut b) => {
+                b.clear();
+                if b.capacity() < min_capacity {
+                    b.reserve(min_capacity);
+                }
+                b
+            }
+            None => Vec::with_capacity(min_capacity),
+        }
+    }
+
+    /// Return a buffer to the pool.
+    pub fn give_buffer(&mut self, buf: Vec<u8>) {
+        if self.pool.len() < POOL_MAX {
+            self.pool.push(buf);
+        }
+    }
+
+    /// Submit a send whose completion nobody awaits. The buffer lives in the
+    /// slot until the kernel is done, then returns to the pool.
+    pub fn submit_detached_send(&mut self, fd: i32, buf: Vec<u8>, owner: &Rc<DetachedState>) {
+        let slot = self.alloc_slot();
+        let sqe = Sqe {
+            opcode: sys::OP_SEND,
+            fd,
+            addr: buf.as_ptr() as u64,
+            len: buf.len() as u32,
+            op_flags: libc::MSG_NOSIGNAL as u32,
+            user_data: slot as u64,
+            ..Default::default()
+        };
+        owner.in_flight.set(owner.in_flight.get() + 1);
+        self.slots[slot] = Slot::Detached {
+            buf,
+            owner: Rc::clone(owner),
+        };
+        self.in_flight += 1;
+        self.push(sqe);
     }
 
     pub fn poll_slot(&mut self, slot: usize, waker: &Waker) -> Option<i32> {
@@ -402,8 +476,14 @@ impl Reactor {
             };
             if !staged.is_empty() {
                 let n = staged.len();
-                out.extend_from_slice(staged);
-                staged.clear();
+                if out.is_empty() {
+                    // Hand the staged bytes over without copying: the caller's
+                    // (empty) Vec becomes the new staging buffer.
+                    std::mem::swap(out, staged);
+                } else {
+                    out.extend_from_slice(staged);
+                    staged.clear();
+                }
                 return Some(Ok(n));
             }
             match m.ended {
@@ -449,6 +529,29 @@ impl Reactor {
             let slot = cqe.user_data as usize;
             match &mut self.slots[slot] {
                 Slot::Multi(_) => recycled |= self.on_multi(slot, cqe),
+                Slot::Detached { .. } => {
+                    self.in_flight -= 1;
+                    let Slot::Detached { buf, owner } =
+                        std::mem::replace(&mut self.slots[slot], Slot::Free)
+                    else {
+                        unreachable!()
+                    };
+                    self.free.push(slot);
+                    owner.in_flight.set(owner.in_flight.get() - 1);
+                    // A short send of a detached buffer cannot be resumed; treat
+                    // it like an error and let the next recv report it.
+                    if cqe.res < 0 {
+                        if owner.error.get().is_none() {
+                            owner.error.set(Some(-cqe.res));
+                        }
+                    } else if (cqe.res as usize) < buf.len() && owner.error.get().is_none() {
+                        owner.error.set(Some(libc::EPIPE));
+                    }
+                    if let Some(w) = owner.waker.borrow_mut().take() {
+                        w.wake();
+                    }
+                    self.give_buffer(buf);
+                }
                 _ => {
                     self.in_flight -= 1;
                     match std::mem::replace(&mut self.slots[slot], Slot::Done { res: cqe.res }) {
@@ -589,7 +692,10 @@ impl Drop for Reactor {
         // 2. Cancel everything in flight and wait for the kernel to confirm,
         //    so no buffer is released while a write into it may be pending.
         for slot in 0..self.slots.len() {
-            if matches!(self.slots[slot], Slot::Orphan { .. } | Slot::Multi(_)) {
+            if matches!(
+                self.slots[slot],
+                Slot::Orphan { .. } | Slot::Multi(_) | Slot::Detached { .. }
+            ) {
                 self.cancel(slot);
             }
         }

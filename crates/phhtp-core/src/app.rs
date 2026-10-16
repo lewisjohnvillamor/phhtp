@@ -13,6 +13,7 @@
 //! | GET    | `/compute?n=N`   | N chained SHA-256 rounds (CPU-bound, N ≤ 100000)     |
 //! | GET    | `/sleep?ms=M`    | responds after M ms (simulated upstream I/O, ≤ 10 s) |
 //! | GET    | `/stats`         | the server process's CPU, RSS, context switches, disk I/O (from `/proc/self`) |
+//! | GET    | `/blob?n=N`      | N bytes of payload (default 16384, ≤ 1 MiB): the send-side test |
 
 use serde::Serialize;
 
@@ -77,6 +78,7 @@ struct ErrorBody {
 
 const MAX_COMPUTE: u32 = 100_000;
 const MAX_SLEEP_MS: u64 = 10_000;
+const MAX_BLOB: usize = 1024 * 1024;
 
 impl App {
     pub fn new(secret: impl Into<Vec<u8>>, runtime: impl Into<String>) -> Self {
@@ -176,6 +178,17 @@ impl App {
                     )
                 }
                 _ => allow("GET"),
+            },
+            "/blob" => match m {
+                Get | Head => {
+                    let n = req
+                        .query_param("n")
+                        .and_then(|v| v.parse::<usize>().ok())
+                        .unwrap_or(16 * 1024)
+                        .min(MAX_BLOB);
+                    Response::new(200, "application/octet-stream", Body::Owned(vec![b'x'; n]))
+                }
+                _ => allow("GET, HEAD"),
             },
             "/stats" => match m {
                 Get | Head => Response::json(200, &crate::stats::sample()),

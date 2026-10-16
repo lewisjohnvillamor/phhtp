@@ -46,12 +46,16 @@ pub struct Recv<'a> {
     pub(crate) fd: i32,
     pub(crate) slot: &'a Cell<Option<usize>>,
     pub(crate) out: &'a mut Vec<u8>,
+    pub(crate) detached: &'a std::rc::Rc<crate::reactor::DetachedState>,
 }
 
 impl Future for Recv<'_> {
     type Output = io::Result<usize>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.get_mut();
+        if let Some(e) = this.detached.error.get() {
+            return Poll::Ready(Err(io::Error::from_raw_os_error(e)));
+        }
         let slot = match this.slot.get() {
             Some(s) => s,
             None => {
@@ -154,6 +158,59 @@ pub async fn send_all(fd: i32, buf: Vec<u8>) -> (io::Result<()>, Vec<u8>) {
         }
     }
     (Ok(()), buf)
+}
+
+// ---------------------------------------------------------------- detached send
+
+/// Most detached sends a stream may have in flight before `send_detached`
+/// waits for one to complete (backpressure for peers that stop reading).
+pub const MAX_DETACHED: usize = 8;
+
+pub struct SendDetached<'a> {
+    pub(crate) fd: i32,
+    pub(crate) buf: Option<Vec<u8>>,
+    pub(crate) owner: &'a std::rc::Rc<crate::reactor::DetachedState>,
+}
+
+impl Future for SendDetached<'_> {
+    type Output = io::Result<()>;
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if let Some(e) = self.owner.error.get() {
+            return Poll::Ready(Err(io::Error::from_raw_os_error(e)));
+        }
+        if self.owner.in_flight.get() >= MAX_DETACHED {
+            *self.owner.waker.borrow_mut() = Some(cx.waker().clone());
+            return Poll::Pending;
+        }
+        let buf = self.buf.take().expect("polled after completion");
+        if buf.is_empty() {
+            Reactor::with(|r| r.give_buffer(buf));
+            return Poll::Ready(Ok(()));
+        }
+        let fd = self.fd;
+        let owner = self.owner;
+        Reactor::with(|r| r.submit_detached_send(fd, buf, owner));
+        Poll::Ready(Ok(()))
+    }
+}
+
+/// Resolves once every detached send on the stream has completed.
+pub struct Flush<'a> {
+    pub(crate) owner: &'a std::rc::Rc<crate::reactor::DetachedState>,
+}
+
+impl Future for Flush<'_> {
+    type Output = io::Result<()>;
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if self.owner.in_flight.get() == 0 {
+            return Poll::Ready(match self.owner.error.get() {
+                Some(e) => Err(io::Error::from_raw_os_error(e)),
+                None => Ok(()),
+            });
+        }
+        *self.owner.waker.borrow_mut() = Some(cx.waker().clone());
+        Poll::Pending
+    }
 }
 
 // ---------------------------------------------------------------- sleep

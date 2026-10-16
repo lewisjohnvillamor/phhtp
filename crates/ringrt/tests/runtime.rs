@@ -200,3 +200,43 @@ fn many_sequential_accepts_and_large_transfer() {
     })
     .unwrap();
 }
+
+#[test]
+fn detached_sends_arrive_in_order_and_flush_waits() {
+    if skip() {
+        return;
+    }
+    let rt = Runtime::new().unwrap();
+    rt.block_on(async {
+        let listener = TcpListener::bind("127.0.0.1:0".parse().unwrap()).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client = std::thread::spawn(move || {
+            let mut s = std::net::TcpStream::connect(addr).unwrap();
+            let mut got = Vec::new();
+            let mut tmp = [0u8; 65536];
+            loop {
+                match s.read(&mut tmp) {
+                    Ok(0) => break,
+                    Ok(n) => got.extend_from_slice(&tmp[..n]),
+                    Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                    Err(e) => panic!("{e}"),
+                }
+            }
+            got
+        });
+        let stream = listener.accept().await.unwrap();
+        let mut expected = Vec::new();
+        for i in 0..64u32 {
+            let mut b = ringrt::net::TcpStream::take_buffer(64 * 1024);
+            b.extend(std::iter::repeat_n(b'a' + (i % 26) as u8, 40_000));
+            expected.extend_from_slice(&b);
+            stream.send_detached(b).await.unwrap();
+        }
+        stream.flush().await.unwrap();
+        drop(stream);
+        let got = client.join().unwrap();
+        assert_eq!(got.len(), expected.len());
+        assert!(got == expected, "bytes arrived out of order or corrupted");
+    })
+    .unwrap();
+}

@@ -83,6 +83,16 @@ struct RunArgs {
     /// yourself; one run on a shared box can be ±15% off.
     #[arg(long, default_value_t = 1)]
     reps: usize,
+    /// Open-loop mode: target total request rate (req/s) spread evenly over the
+    /// connections. Latency is measured from the *intended* send time, so a
+    /// stalled server shows up in the tail instead of being hidden by the
+    /// client waiting (coordinated omission). 0 = closed loop (default).
+    #[arg(long, default_value_t = 0)]
+    rate: u64,
+    /// Connection churn: send `Connection: close`, open a new connection for
+    /// every request, and include the connect in the measured latency.
+    #[arg(long)]
+    close: bool,
     /// Do not fetch the server's `/stats` (CPU, RSS, context switches, disk)
     /// at the edges of the measured window. Fetched by default; silently
     /// skipped when the server does not serve it.
@@ -124,6 +134,13 @@ struct Summary {
     /// Server-side resource deltas over the measured window, from `/stats`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     server: Option<ServerUse>,
+    /// This load generator's own CPU over the window, to show it is not the ceiling.
+    #[serde(default)]
+    client_cpu_pct: f64,
+    #[serde(default)]
+    client_us_per_req: f64,
+    #[serde(default)]
+    mode: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -208,6 +225,9 @@ fn build_request(args: &RunArgs, host: &str, port: u16, path: &str) -> Vec<u8> {
         "{} {} HTTP/1.1\r\nHost: {}:{}\r\nUser-Agent: phhtp-bench\r\nAccept: */*\r\n",
         args.method, path, host, port
     );
+    if args.close {
+        req.push_str("Connection: close\r\n");
+    }
     let mut has_ct = false;
     for h in &args.headers {
         req.push_str(h);
@@ -281,10 +301,23 @@ fn measure(
     addr: SocketAddr,
     request: &Arc<Vec<u8>>,
 ) -> Summary {
-    let (total, server) = rt.block_on(async {
+    let (total, server, client_cpu_s) = rt.block_on(async {
         let start = Instant::now();
         let warm_end = start + Duration::from_secs(args.warmup);
         let deadline = warm_end + Duration::from_secs(args.duration);
+        let interval = if args.rate > 0 {
+            Some(Duration::from_secs_f64(
+                args.connections as f64 / args.rate as f64,
+            ))
+        } else {
+            None
+        };
+        let cpu_task = tokio::spawn(async move {
+            tokio::time::sleep_until(tokio::time::Instant::from_std(warm_end)).await;
+            let a = self_cpu_seconds();
+            tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)).await;
+            self_cpu_seconds() - a
+        });
         let stats_task = if args.no_stats {
             None
         } else {
@@ -303,14 +336,16 @@ fn measure(
         let mut tasks = Vec::with_capacity(args.connections);
         for _ in 0..args.connections {
             let req = Arc::clone(request);
-            tasks.push(tokio::spawn(worker(
+            tasks.push(tokio::spawn(worker(WorkerCfg {
                 addr,
                 req,
                 warm_end,
                 deadline,
-                Duration::from_secs(args.timeout),
-                Arc::clone(&gate),
-            )));
+                timeout: Duration::from_secs(args.timeout),
+                gate: Arc::clone(&gate),
+                interval,
+                close: args.close,
+            })));
         }
         let mut total = WorkerOut {
             hist: Histogram::new_with_bounds(1, 60_000_000, 3).unwrap(),
@@ -335,7 +370,8 @@ fn measure(
                 .map(|(a, b)| server_use(&a, &b, total.requests)),
             None => None,
         };
-        (total, server)
+        let client_cpu_s = cpu_task.await.unwrap_or(0.0);
+        (total, server, client_cpu_s)
     });
 
     let h = &total.hist;
@@ -361,6 +397,34 @@ fn measure(
         max_us: h.max(),
         mean_us: h.mean(),
         server,
+        client_cpu_pct: client_cpu_s / args.duration as f64 * 100.0,
+        client_us_per_req: client_cpu_s * 1e6 / total.requests.max(1) as f64,
+        mode: format!(
+            "{}{}",
+            if args.rate > 0 {
+                format!("open-loop {} req/s", args.rate)
+            } else {
+                "closed-loop".into()
+            },
+            if args.close {
+                ", connection per request"
+            } else {
+                ", keep-alive"
+            }
+        ),
+    }
+}
+
+/// User + system CPU seconds of this process (getrusage).
+fn self_cpu_seconds() -> f64 {
+    // SAFETY: plain getrusage into a zeroed struct.
+    unsafe {
+        let mut ru: libc::rusage = std::mem::zeroed();
+        libc::getrusage(libc::RUSAGE_SELF, &mut ru);
+        ru.ru_utime.tv_sec as f64
+            + ru.ru_utime.tv_usec as f64 / 1e6
+            + ru.ru_stime.tv_sec as f64
+            + ru.ru_stime.tv_usec as f64 / 1e6
     }
 }
 
@@ -490,14 +554,28 @@ impl Summary {
     }
 }
 
-async fn worker(
+struct WorkerCfg {
     addr: SocketAddr,
     req: Arc<Vec<u8>>,
     warm_end: Instant,
     deadline: Instant,
     timeout: Duration,
     gate: Arc<tokio::sync::Semaphore>,
-) -> WorkerOut {
+    interval: Option<Duration>,
+    close: bool,
+}
+
+async fn worker(cfg: WorkerCfg) -> WorkerOut {
+    let WorkerCfg {
+        addr,
+        req,
+        warm_end,
+        deadline,
+        timeout,
+        gate,
+        interval,
+        close,
+    } = cfg;
     let mut out = WorkerOut {
         hist: Histogram::new_with_bounds(1, 60_000_000, 3).unwrap(),
         requests: 0,
@@ -507,12 +585,39 @@ async fn worker(
     };
     let mut stream: Option<TcpStream> = None;
     let mut buf: Vec<u8> = Vec::with_capacity(64 * 1024);
+    // Open loop: each connection has its own schedule of intended send times.
+    let next_intended = Instant::now();
+    let mut seq: u64 = 0;
 
     loop {
         let now = Instant::now();
         if now >= deadline {
             break;
         }
+        // In open-loop mode wait for the intended time; `intended` is the
+        // timestamp latency is measured from, whether we were late or not.
+        let intended = if let Some(iv) = interval {
+            let t = next_intended + iv.mul_f64(seq as f64);
+            if t > now {
+                // Tokio's timer has 1 ms resolution; sleep to just short of the
+                // intended time, then yield-spin the last stretch so client
+                // lateness does not masquerade as server latency.
+                let coarse = t.checked_sub(Duration::from_micros(1500)).unwrap_or(t);
+                if coarse > Instant::now() {
+                    tokio::time::sleep_until(tokio::time::Instant::from_std(coarse)).await;
+                }
+                while Instant::now() < t {
+                    tokio::task::yield_now().await;
+                }
+            }
+            seq += 1;
+            t
+        } else {
+            now
+        };
+        // Churn mode: the connect is part of the request.
+        let t_connect = if close { Some(Instant::now()) } else { None };
+        let _ = t_connect;
         let s = match stream.as_mut() {
             Some(s) => s,
             None => {
@@ -534,7 +639,15 @@ async fn worker(
             }
         };
 
-        let t0 = Instant::now();
+        // Latency clock: intended time (open loop) or the moment before
+        // connect (churn) or the moment before the write (closed loop).
+        let t0 = if interval.is_some() {
+            intended
+        } else if close {
+            t_connect.unwrap_or(now)
+        } else {
+            Instant::now()
+        };
         if s.write_all(&req).await.is_err() {
             stream = None;
             if t0 >= warm_end {
@@ -645,7 +758,7 @@ fn print_human(s: &Summary) {
     } else {
         format!("[{}] ", s.label)
     };
-    println!("{label}{} {}", s.method, s.url);
+    println!("{label}{} {}   [{}]", s.method, s.url, s.mode);
     println!(
         "  connections {:<6} duration {}s   threads(client) {}",
         s.connections,
@@ -668,6 +781,10 @@ fn print_human(s: &Summary) {
             s.reps, s.rps_min, s.rps_max
         );
     }
+    println!(
+        "  client      cpu {:.0}% of a core   {:.1} µs CPU/req (the load generator itself)",
+        s.client_cpu_pct, s.client_us_per_req
+    );
     if let Some(u) = &s.server {
         println!(
             "  server      cpu {:.0}% of a core ({:.2}s user + {:.2}s sys)   {:.1} µs CPU/req   ctx {:.2}+{:.2}/req   RSS {:.1} MB (peak {:.1})   threads {}   disk r/w {}/{} B   faults {}/{}",
