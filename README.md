@@ -4,8 +4,9 @@ An HTTP/1.1 server written from scratch in Rust, built to answer one question:
 **on a $12/month DigitalOcean droplet, which I/O model gives the best p50 and p90
 latency — and is Tokio worth it?**
 
-The same protocol engine runs under seven different runtimes, so the only variable
-in the benchmark is how the sockets are driven.
+The same protocol engine runs under eleven runtimes, seven written here and four
+open-source io_uring runtimes pulled in for comparison, so the only variable in
+the benchmark is how the sockets are driven.
 
 | `--runtime` | Model | Threads |
 |---|---|---|
@@ -16,6 +17,15 @@ in the benchmark is how the sockets are driven.
 | `tokio-st` | Tokio current-thread scheduler | 1 |
 | `uring`    | **io_uring on raw syscalls**: hand-laid-out SQE/CQE structs, mmap'd rings, multishot accept, `RECV`/`SEND`/`TIMEOUT` ops, one ring per worker, `SO_REUSEPORT`. No io_uring crate. | `--workers` (default cores) |
 | `uring-async` | **Our own `async`/`await` runtime** on the same raw ring: a `std::task` executor with an `Rc`-backed waker, a reactor mapping completions to wakers, and `accept`/`recv`/`send`/`sleep` futures. The Tokio replacement candidate. | `--workers` (default cores) |
+| `monoio`   | [ByteDance's monoio](https://github.com/bytedance/monoio) 0.2, thread-per-core on io_uring, owned buffers | `--workers` (default cores) |
+| `compio`   | [compio](https://github.com/compio-rs/compio) 0.19, completion-based thread-per-core (io_uring on Linux), the runtime Apache Iggy moved to | `--workers` (default cores) |
+| `glommio`  | [Datadog's glommio](https://github.com/DataDog/glommio) 0.9, thread-per-core on io_uring, `futures` traits | `--workers` (default cores) |
+| `tokio-uring` | [tokio-uring](https://github.com/tokio-rs/tokio-uring) 0.5, tokio current-thread with an io_uring driver, one runtime per worker | `--workers` (default cores) |
+
+The four external runtimes live in `crates/phhtp-server/src/runtime/ext/` behind
+the default `ext` cargo feature (`--no-default-features` skips their compile
+time). Each drives the identical `process()` with a `serve_connection` of the
+same shape as ours, one runtime and one `SO_REUSEPORT` listener per worker.
 
 Built on: [`httparse`](https://crates.io/crates/httparse) (request parsing),
 [`serde_json`](https://crates.io/crates/serde_json) (JSON endpoints),
@@ -47,15 +57,17 @@ crates/
     src/app.rs      router + handlers
     src/sig.rs      HMAC-SHA256 sign / constant-time verify, SHA-256 chain
     src/date.rs     cached Date: header
-  phhtp-server/   the `phhtp` binary and the seven runtimes (src/runtime/*)
+  phhtp-server/   the `phhtp` binary and the eleven runtimes (src/runtime/*)
     src/runtime/mio_loop.rs      edge-triggered epoll loop
     src/runtime/uring/mod.rs     callback-style loop on ringrt::raw (the ring alone)
     src/runtime/uring_async/mod.rs  async fn serve_connection on ringrt, same shape as tokio
+    src/runtime/ext/             monoio, compio, glommio, tokio-uring (feature `ext`)
     tests/runtimes.rs   boots every runtime and checks identical behaviour on a real socket
   phhtp-bench/    the `phhtp-bench` load generator (keep-alive, HDR histogram, p50/p90/p99)
 scripts/bench.sh  runs the runtime × endpoint matrix and prints a Markdown table
 scripts/scale.sh  connection-count and worker-count sweeps with server RSS/threads
 scripts/stress.sh fd exhaustion, thread exhaustion, CPU overload, with recovery probes
+scripts/report.py renders the JSONL dataset as an HTML report of charts (+ SVGs)
 deploy/           systemd unit and sysctl for the droplet
 bench/results/    sample results
 docs/LANDSCAPE.md the study: existing io_uring runtimes, and what ringrt trades off
@@ -97,7 +109,8 @@ curl -s -X POST --data 'hello' localhost:8080/sign
 ```
 
 ```
-phhtp --runtime <threads|pool|mio|tokio|tokio-st|uring|uring-async> [--bind ADDR] [--workers N]
+phhtp --runtime <threads|pool|mio|tokio|tokio-st|uring|uring-async|monoio|compio|glommio|tokio-uring>
+      [--bind ADDR] [--workers N]
       [--secret S | PHHTP_SECRET=S] [--max-body BYTES] [--max-head BYTES]
 ```
 
@@ -203,7 +216,8 @@ TARGET=http://<droplet-ip>:8080 scripts/bench.sh   # drive a remote server
 Scenarios (override with `SCENARIOS=...`): `plaintext` (`GET /`), `json`, `sign`
 (POST, 256-byte body), `compute` (`n=2000`), `sleep` (`ms=5`, `SLEEP_CONNS=256`
 connections). All others use `CONNS=64` keep-alive connections, one request in
-flight per connection.
+flight per connection. `REPS=3` repeats every measurement and records medians
+(identical runs on a shared box differ by up to ±15 %).
 
 Or drive it by hand:
 

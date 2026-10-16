@@ -6,17 +6,18 @@
 #   WORKERS=1 scripts/bench.sh             # pin every runtime to 1 worker (emulates 1 vCPU)
 #   TARGET=http://10.0.0.5:8080 scripts/bench.sh   # bench a remote server (does not start one)
 #
-# Env knobs: RUNTIMES, CONNS (64), SLEEP_CONNS (256), DURATION (10), WARMUP (2),
+# Env knobs: RUNTIMES, CONNS (64), SLEEP_CONNS (256), DURATION (10), WARMUP (2), REPS (1),
 # PORT (8080), WORKERS (runtime default), OUT (bench/results/<timestamp>.jsonl),
 # SCENARIOS (space separated subset of: plaintext json sign compute sleep).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-RUNTIMES=${RUNTIMES:-"threads pool mio tokio tokio-st uring uring-async"}
+RUNTIMES=${RUNTIMES:-"threads pool mio tokio tokio-st uring uring-async monoio compio glommio tokio-uring"}
 CONNS=${CONNS:-64}
 SLEEP_CONNS=${SLEEP_CONNS:-256}
 DURATION=${DURATION:-10}
 WARMUP=${WARMUP:-2}
+REPS=${REPS:-1}
 PORT=${PORT:-8080}
 SCENARIOS=${SCENARIOS:-"plaintext json sign compute sleep"}
 OUT=${OUT:-bench/results/$(date +%Y%m%d-%H%M%S).jsonl}
@@ -39,7 +40,7 @@ wait_port() {
 
 run_scenario() {
   local label=$1 base=$2 name=$3
-  local extra=()
+  local extra=(--reps "$REPS")
   [[ -n "$BENCH_THREADS" ]] && extra+=(--threads "$BENCH_THREADS")
   case $name in
     plaintext) "$BENCH" run "$base/"              -c "$CONNS"       -d "$DURATION" -w "$WARMUP" --label "$label" --json "${extra[@]}" ;;

@@ -30,6 +30,11 @@ Two facts frame everything below:
   gives the kernel ownership of the buffer until the completion lands, and a
   task that may migrate threads mid-operation makes that ownership unexpressible.
 
+All four active runtimes above (`monoio`, `compio`, `glommio`, `tokio-uring`)
+are now wired into this repository's server as `--runtime` options, driving the
+same handler code as ours, so §3's numbers no longer rest on their own
+benchmarks. See the README charts and `bench/report.html`.
+
 ## 2. Where `ringrt` sits
 
 `ringrt` is ~1 600 lines, one dependency (`libc`), and makes the same two

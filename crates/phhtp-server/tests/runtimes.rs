@@ -21,6 +21,14 @@ fn all_runtimes() -> Vec<Runtime> {
     if phhtp_server::runtime::uring::available() {
         v.push(Runtime::Uring);
         v.push(Runtime::UringAsync);
+        if cfg!(feature = "ext") {
+            v.extend([
+                Runtime::Monoio,
+                Runtime::Compio,
+                Runtime::Glommio,
+                Runtime::TokioUring,
+            ]);
+        }
     } else {
         eprintln!("io_uring unavailable here; skipping the uring runtime");
     }

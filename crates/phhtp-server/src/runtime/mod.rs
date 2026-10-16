@@ -1,4 +1,6 @@
 pub mod blocking;
+#[cfg(feature = "ext")]
+pub mod ext;
 pub mod mio_loop;
 pub mod net;
 pub mod pool;

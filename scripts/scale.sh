@@ -12,13 +12,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 MODE=${MODE:-both}
-RUNTIMES=${RUNTIMES:-"threads pool mio tokio tokio-st uring uring-async"}
+RUNTIMES=${RUNTIMES:-"threads pool mio tokio tokio-st uring uring-async monoio compio glommio tokio-uring"}
 CONNS_LIST=${CONNS_LIST:-"64 1024 4096 16000"}
 WORKERS_LIST=${WORKERS_LIST:-"1 2 4"}
 WORKERS_CONNS=${WORKERS_CONNS:-1024}
 PATH_=${ENDPOINT:-/}
 DURATION=${DURATION:-4}
 WARMUP=${WARMUP:-3}
+REPS=${REPS:-1}
 PORT=${PORT:-8080}
 SERVER_CPUS=${SERVER_CPUS:-0-1}
 CLIENT_CPUS=${CLIENT_CPUS:-2-3}
@@ -58,7 +59,7 @@ run_case() {
   ( sleep $((WARMUP + DURATION / 2)); awk '/VmRSS/ {r=$2} /Threads/ {t=$2} END {print r, t}' "/proc/$pid/status" > "$sample" 2>/dev/null ) &
   local sampler=$!
   local line
-  line=$("${PIN_C[@]}" "$BENCH" run "http://127.0.0.1:$PORT$PATH_" -c "$conns" -d "$DURATION" -w "$WARMUP" --timeout 5 --label "$rt" --note "$note" --json)
+  line=$("${PIN_C[@]}" "$BENCH" run "http://127.0.0.1:$PORT$PATH_" -c "$conns" -d "$DURATION" -w "$WARMUP" --timeout 5 --reps "$REPS" --label "$rt" --note "$note" --json)
   wait "$sampler" 2>/dev/null || true
   local rss threads
   read -r rss threads < "$sample" || { rss=0; threads=0; }

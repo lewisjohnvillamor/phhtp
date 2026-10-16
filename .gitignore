@@ -1,4 +1,5 @@
 /target
 bench/results/*.jsonl
+!bench/results/dataset/
 bench/results/*.log
 *.log

@@ -28,6 +28,14 @@ pub enum Runtime {
     Uring,
     /// Our own async/await executor + reactor on raw io_uring (no tokio, no futures crate).
     UringAsync,
+    /// ByteDance's monoio (thread-per-core, io_uring). Needs the `ext` feature.
+    Monoio,
+    /// compio (thread-per-core, completion-based). Needs the `ext` feature.
+    Compio,
+    /// Datadog's glommio (thread-per-core, io_uring). Needs the `ext` feature.
+    Glommio,
+    /// tokio-uring (tokio current-thread + io_uring driver). Needs the `ext` feature.
+    TokioUring,
 }
 
 impl Runtime {
@@ -40,6 +48,10 @@ impl Runtime {
             Runtime::TokioSt => "tokio-st",
             Runtime::Uring => "uring",
             Runtime::UringAsync => "uring-async",
+            Runtime::Monoio => "monoio",
+            Runtime::Compio => "compio",
+            Runtime::Glommio => "glommio",
+            Runtime::TokioUring => "tokio-uring",
         }
     }
 }
@@ -92,7 +104,14 @@ pub fn default_workers(rt: Runtime) -> usize {
     match rt {
         Runtime::Threads => 0,
         Runtime::Pool => (16 * cores()).max(64),
-        Runtime::Mio | Runtime::Tokio | Runtime::Uring | Runtime::UringAsync => cores(),
+        Runtime::Mio
+        | Runtime::Tokio
+        | Runtime::Uring
+        | Runtime::UringAsync
+        | Runtime::Monoio
+        | Runtime::Compio
+        | Runtime::Glommio
+        | Runtime::TokioUring => cores(),
         Runtime::TokioSt => 1,
     }
 }
@@ -107,5 +126,17 @@ pub fn serve(rt: Runtime, cfg: Config, app: Arc<App>) -> std::io::Result<()> {
         Runtime::TokioSt => runtime::tokio_rt::run(cfg, app, false),
         Runtime::Uring => runtime::uring::run(cfg, app),
         Runtime::UringAsync => runtime::uring_async::run(cfg, app),
+        #[cfg(feature = "ext")]
+        Runtime::Monoio => runtime::ext::monoio_rt::run(cfg, app),
+        #[cfg(feature = "ext")]
+        Runtime::Compio => runtime::ext::compio_rt::run(cfg, app),
+        #[cfg(feature = "ext")]
+        Runtime::Glommio => runtime::ext::glommio_rt::run(cfg, app),
+        #[cfg(feature = "ext")]
+        Runtime::TokioUring => runtime::ext::tokio_uring_rt::run(cfg, app),
+        #[cfg(not(feature = "ext"))]
+        Runtime::Monoio | Runtime::Compio | Runtime::Glommio | Runtime::TokioUring => {
+            Err(std::io::Error::other("built without the `ext` feature"))
+        }
     }
 }
