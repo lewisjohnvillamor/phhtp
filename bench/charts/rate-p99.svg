@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" class="viz" viewBox="0 0 800 440" width="100%" style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fcfcfb" style="max-width:800px" role="img" aria-label="GET /json p99 vs. offered rate"><style>
+.x{ color-scheme: light; --surface:#fcfcfb; --surface-2:#f3f2ef; --text:#0b0b0b; --text-2:#52514e; --muted:#8a8984; --grid:#e6e5e1;
+  --io_uring:#2a78d6; --epoll:#eb6834; --blocking:#1baf7a; --ord-0:#86b6ef; --ord-1:#2a78d6; --ord-2:#104281; }
+@media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) { color-scheme: dark; --surface:#1a1a19; --surface-2:#242422; --text:#f0efec; --text-2:#c3c2b7; --muted:#8e8d86; --grid:#333331;
+  --io_uring:#3987e5; --epoll:#d95926; --blocking:#199e70; --ord-0:#6da7ec; --ord-1:#3987e5; --ord-2:#184f95; } }
+:root[data-theme="dark"] { color-scheme: dark; --surface:#1a1a19; --surface-2:#242422; --text:#f0efec; --text-2:#c3c2b7; --muted:#8e8d86; --grid:#333331;
+  --io_uring:#3987e5; --epoll:#d95926; --blocking:#199e70; --ord-0:#6da7ec; --ord-1:#3987e5; --ord-2:#184f95; }
+
+.t-title { font-size: 15px; font-weight: 600; fill: #0b0b0b; } .t-sub { font-size: 12px; fill: #52514e; }
+.t-label { font-size: 12px; fill: #0b0b0b; } .t-ours { font-weight: 600; }
+.t-value { font-size: 11.5px; fill: #52514e; font-variant-numeric: tabular-nums; }
+.t-tick { font-size: 11px; fill: #8a8984; font-variant-numeric: tabular-nums; }
+.grid { stroke: #e6e5e1; stroke-width: 1; } .axis { stroke: #e6e5e1; stroke-width: 1; }
+.bar.fam-io_uring { fill: #2a78d6; } .bar.fam-epoll { fill: #eb6834; } .bar.fam-blocking { fill: #1baf7a; }
+.line { fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+.line.fam-io_uring { stroke: #2a78d6; } .line.fam-epoll { stroke: #eb6834; } .line.fam-blocking { stroke: #1baf7a; }
+.dot { stroke: #fcfcfb; stroke-width: 2; } .dot.fam-io_uring { fill: #2a78d6; } .dot.fam-epoll { fill: #eb6834; } .dot.fam-blocking { fill: #1baf7a; }
+.hit { fill: transparent; } .row:hover .bar, .pt:hover .dot { filter: brightness(0.85); }</style>
+<text x="0" y="16" class="t-title">GET /json p99 vs. offered rate</text>
+<text x="0" y="32" class="t-sub">ms · clipped at 50 · x = req/s offered · 256 connections</text>
+<text x="40" y="54" class="t-label t-ours">◆ uring-async</text>
+<line x1="40" y1="146.0" x2="156" y2="146.0" class="grid"/>
+<text x="36" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="104.0" x2="156" y2="104.0" class="grid"/>
+<text x="36" y="107.0" class="t-tick" text-anchor="end">25</text>
+<line x1="40" y1="62.0" x2="156" y2="62.0" class="grid"/>
+<text x="36" y="65.0" class="t-tick" text-anchor="end">50</text>
+<path d="M40.0,144.7 L63.2,145.1 L86.4,144.8 L109.6,141.5 L132.8,140.0 L156.0,130.6" class="line fam-io_uring"/>
+<g class="pt" data-tip="uring-async · 10000 req/s · 1"><circle cx="40.0" cy="144.7" r="12" class="hit"/><circle cx="40.0" cy="144.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 25000 req/s · 1"><circle cx="63.2" cy="145.1" r="12" class="hit"/><circle cx="63.2" cy="145.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 50000 req/s · 1"><circle cx="86.4" cy="144.8" r="12" class="hit"/><circle cx="86.4" cy="144.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 75000 req/s · 3"><circle cx="109.6" cy="141.5" r="12" class="hit"/><circle cx="109.6" cy="141.5" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 100000 req/s · 4"><circle cx="132.8" cy="140.0" r="12" class="hit"/><circle cx="132.8" cy="140.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 125000 req/s · 9"><circle cx="156.0" cy="130.6" r="12" class="hit"/><circle cx="156.0" cy="130.6" r="4" class="dot fam-io_uring"/></g>
+<text x="164.0" y="134.6" class="t-value">9</text>
+<text x="40.0" y="160" class="t-tick" text-anchor="middle">10k</text>
+<text x="63.2" y="160" class="t-tick" text-anchor="middle">25k</text>
+<text x="86.4" y="160" class="t-tick" text-anchor="middle">50k</text>
+<text x="109.6" y="160" class="t-tick" text-anchor="middle">75k</text>
+<text x="132.8" y="160" class="t-tick" text-anchor="middle">100k</text>
+<text x="156.0" y="160" class="t-tick" text-anchor="middle">125k</text>
+<text x="240" y="54" class="t-label t-ours">◆ uring</text>
+<line x1="240" y1="146.0" x2="356" y2="146.0" class="grid"/>
+<text x="236" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="104.0" x2="356" y2="104.0" class="grid"/>
+<text x="236" y="107.0" class="t-tick" text-anchor="end">25</text>
+<line x1="240" y1="62.0" x2="356" y2="62.0" class="grid"/>
+<text x="236" y="65.0" class="t-tick" text-anchor="end">50</text>
+<path d="M240.0,144.3 L263.2,142.7 L286.4,142.9 L309.6,105.1 L332.8,139.3 L356.0,62.0" class="line fam-io_uring"/>
+<g class="pt" data-tip="uring · 10000 req/s · 1"><circle cx="240.0" cy="144.3" r="12" class="hit"/><circle cx="240.0" cy="144.3" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 25000 req/s · 2"><circle cx="263.2" cy="142.7" r="12" class="hit"/><circle cx="263.2" cy="142.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 50000 req/s · 2"><circle cx="286.4" cy="142.9" r="12" class="hit"/><circle cx="286.4" cy="142.9" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 75000 req/s · 24"><circle cx="309.6" cy="105.1" r="12" class="hit"/><circle cx="309.6" cy="105.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 100000 req/s · 4"><circle cx="332.8" cy="139.3" r="12" class="hit"/><circle cx="332.8" cy="139.3" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 125000 req/s · 50"><circle cx="356.0" cy="62.0" r="12" class="hit"/><circle cx="356.0" cy="62.0" r="4" class="dot fam-io_uring"/></g>
+<text x="364.0" y="66.0" class="t-value">50</text>
+<text x="240.0" y="160" class="t-tick" text-anchor="middle">10k</text>
+<text x="263.2" y="160" class="t-tick" text-anchor="middle">25k</text>
+<text x="286.4" y="160" class="t-tick" text-anchor="middle">50k</text>
+<text x="309.6" y="160" class="t-tick" text-anchor="middle">75k</text>
+<text x="332.8" y="160" class="t-tick" text-anchor="middle">100k</text>
+<text x="356.0" y="160" class="t-tick" text-anchor="middle">125k</text>
+<text x="440" y="54" class="t-label">monoio</text>
+<line x1="440" y1="146.0" x2="556" y2="146.0" class="grid"/>
+<text x="436" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="104.0" x2="556" y2="104.0" class="grid"/>
+<text x="436" y="107.0" class="t-tick" text-anchor="end">25</text>
+<line x1="440" y1="62.0" x2="556" y2="62.0" class="grid"/>
+<text x="436" y="65.0" class="t-tick" text-anchor="end">50</text>
+<path d="M440.0,144.2 L463.2,144.2 L486.4,144.1 L509.6,62.0 L532.8,62.0 L556.0,62.0" class="line fam-io_uring"/>
+<g class="pt" data-tip="monoio · 10000 req/s · 1"><circle cx="440.0" cy="144.2" r="12" class="hit"/><circle cx="440.0" cy="144.2" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 25000 req/s · 1"><circle cx="463.2" cy="144.2" r="12" class="hit"/><circle cx="463.2" cy="144.2" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 50000 req/s · 1"><circle cx="486.4" cy="144.1" r="12" class="hit"/><circle cx="486.4" cy="144.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 75000 req/s · 50"><circle cx="509.6" cy="62.0" r="12" class="hit"/><circle cx="509.6" cy="62.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 100000 req/s · 50"><circle cx="532.8" cy="62.0" r="12" class="hit"/><circle cx="532.8" cy="62.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 125000 req/s · 50"><circle cx="556.0" cy="62.0" r="12" class="hit"/><circle cx="556.0" cy="62.0" r="4" class="dot fam-io_uring"/></g>
+<text x="564.0" y="66.0" class="t-value">50</text>
+<text x="440.0" y="160" class="t-tick" text-anchor="middle">10k</text>
+<text x="463.2" y="160" class="t-tick" text-anchor="middle">25k</text>
+<text x="486.4" y="160" class="t-tick" text-anchor="middle">50k</text>
+<text x="509.6" y="160" class="t-tick" text-anchor="middle">75k</text>
+<text x="532.8" y="160" class="t-tick" text-anchor="middle">100k</text>
+<text x="556.0" y="160" class="t-tick" text-anchor="middle">125k</text>
+<text x="640" y="54" class="t-label">compio</text>
+<line x1="640" y1="146.0" x2="756" y2="146.0" class="grid"/>
+<text x="636" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="640" y1="104.0" x2="756" y2="104.0" class="grid"/>
+<text x="636" y="107.0" class="t-tick" text-anchor="end">25</text>
+<line x1="640" y1="62.0" x2="756" y2="62.0" class="grid"/>
+<text x="636" y="65.0" class="t-tick" text-anchor="end">50</text>
+<path d="M640.0,144.8 L663.2,144.6 L686.4,142.5 L709.6,137.8 L732.8,131.0 L756.0,62.0" class="line fam-io_uring"/>
+<g class="pt" data-tip="compio · 10000 req/s · 1"><circle cx="640.0" cy="144.8" r="12" class="hit"/><circle cx="640.0" cy="144.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 25000 req/s · 1"><circle cx="663.2" cy="144.6" r="12" class="hit"/><circle cx="663.2" cy="144.6" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 50000 req/s · 2"><circle cx="686.4" cy="142.5" r="12" class="hit"/><circle cx="686.4" cy="142.5" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 75000 req/s · 5"><circle cx="709.6" cy="137.8" r="12" class="hit"/><circle cx="709.6" cy="137.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 100000 req/s · 9"><circle cx="732.8" cy="131.0" r="12" class="hit"/><circle cx="732.8" cy="131.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 125000 req/s · 50"><circle cx="756.0" cy="62.0" r="12" class="hit"/><circle cx="756.0" cy="62.0" r="4" class="dot fam-io_uring"/></g>
+<text x="764.0" y="66.0" class="t-value">50</text>
+<text x="640.0" y="160" class="t-tick" text-anchor="middle">10k</text>
+<text x="663.2" y="160" class="t-tick" text-anchor="middle">25k</text>
+<text x="686.4" y="160" class="t-tick" text-anchor="middle">50k</text>
+<text x="709.6" y="160" class="t-tick" text-anchor="middle">75k</text>
+<text x="732.8" y="160" class="t-tick" text-anchor="middle">100k</text>
+<text x="756.0" y="160" class="t-tick" text-anchor="middle">125k</text>
+<text x="40" y="184" class="t-label">glommio</text>
+<line x1="40" y1="276.0" x2="156" y2="276.0" class="grid"/>
+<text x="36" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="234.0" x2="156" y2="234.0" class="grid"/>
+<text x="36" y="237.0" class="t-tick" text-anchor="end">25</text>
+<line x1="40" y1="192.0" x2="156" y2="192.0" class="grid"/>
+<text x="36" y="195.0" class="t-tick" text-anchor="end">50</text>
+<path d="M40.0,275.1 L63.2,273.7 L86.4,270.4 L109.6,259.0 L132.8,192.0 L156.0,192.0" class="line fam-io_uring"/>
+<g class="pt" data-tip="glommio · 10000 req/s · 1"><circle cx="40.0" cy="275.1" r="12" class="hit"/><circle cx="40.0" cy="275.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 25000 req/s · 1"><circle cx="63.2" cy="273.7" r="12" class="hit"/><circle cx="63.2" cy="273.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 50000 req/s · 3"><circle cx="86.4" cy="270.4" r="12" class="hit"/><circle cx="86.4" cy="270.4" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 75000 req/s · 10"><circle cx="109.6" cy="259.0" r="12" class="hit"/><circle cx="109.6" cy="259.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 100000 req/s · 50"><circle cx="132.8" cy="192.0" r="12" class="hit"/><circle cx="132.8" cy="192.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 125000 req/s · 50"><circle cx="156.0" cy="192.0" r="12" class="hit"/><circle cx="156.0" cy="192.0" r="4" class="dot fam-io_uring"/></g>
+<text x="164.0" y="196.0" class="t-value">50</text>
+<text x="40.0" y="290" class="t-tick" text-anchor="middle">10k</text>
+<text x="63.2" y="290" class="t-tick" text-anchor="middle">25k</text>
+<text x="86.4" y="290" class="t-tick" text-anchor="middle">50k</text>
+<text x="109.6" y="290" class="t-tick" text-anchor="middle">75k</text>
+<text x="132.8" y="290" class="t-tick" text-anchor="middle">100k</text>
+<text x="156.0" y="290" class="t-tick" text-anchor="middle">125k</text>
+<text x="240" y="184" class="t-label">tokio-uring</text>
+<line x1="240" y1="276.0" x2="356" y2="276.0" class="grid"/>
+<text x="236" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="234.0" x2="356" y2="234.0" class="grid"/>
+<text x="236" y="237.0" class="t-tick" text-anchor="end">25</text>
+<line x1="240" y1="192.0" x2="356" y2="192.0" class="grid"/>
+<text x="236" y="195.0" class="t-tick" text-anchor="end">50</text>
+<path d="M240.0,273.7 L263.2,274.8 L286.4,273.7 L309.6,265.6 L332.8,203.1 L356.0,192.0" class="line fam-io_uring"/>
+<g class="pt" data-tip="tokio-uring · 10000 req/s · 1"><circle cx="240.0" cy="273.7" r="12" class="hit"/><circle cx="240.0" cy="273.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 25000 req/s · 1"><circle cx="263.2" cy="274.8" r="12" class="hit"/><circle cx="263.2" cy="274.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 50000 req/s · 1"><circle cx="286.4" cy="273.7" r="12" class="hit"/><circle cx="286.4" cy="273.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 75000 req/s · 6"><circle cx="309.6" cy="265.6" r="12" class="hit"/><circle cx="309.6" cy="265.6" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 100000 req/s · 43"><circle cx="332.8" cy="203.1" r="12" class="hit"/><circle cx="332.8" cy="203.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 125000 req/s · 50"><circle cx="356.0" cy="192.0" r="12" class="hit"/><circle cx="356.0" cy="192.0" r="4" class="dot fam-io_uring"/></g>
+<text x="364.0" y="196.0" class="t-value">50</text>
+<text x="240.0" y="290" class="t-tick" text-anchor="middle">10k</text>
+<text x="263.2" y="290" class="t-tick" text-anchor="middle">25k</text>
+<text x="286.4" y="290" class="t-tick" text-anchor="middle">50k</text>
+<text x="309.6" y="290" class="t-tick" text-anchor="middle">75k</text>
+<text x="332.8" y="290" class="t-tick" text-anchor="middle">100k</text>
+<text x="356.0" y="290" class="t-tick" text-anchor="middle">125k</text>
+<text x="440" y="184" class="t-label t-ours">◆ tokio</text>
+<line x1="440" y1="276.0" x2="556" y2="276.0" class="grid"/>
+<text x="436" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="234.0" x2="556" y2="234.0" class="grid"/>
+<text x="436" y="237.0" class="t-tick" text-anchor="end">25</text>
+<line x1="440" y1="192.0" x2="556" y2="192.0" class="grid"/>
+<text x="436" y="195.0" class="t-tick" text-anchor="end">50</text>
+<path d="M440.0,274.8 L463.2,274.7 L486.4,275.2 L509.6,274.3 L532.8,271.6 L556.0,226.4" class="line fam-epoll"/>
+<g class="pt" data-tip="tokio · 10000 req/s · 1"><circle cx="440.0" cy="274.8" r="12" class="hit"/><circle cx="440.0" cy="274.8" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 25000 req/s · 1"><circle cx="463.2" cy="274.7" r="12" class="hit"/><circle cx="463.2" cy="274.7" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 50000 req/s · 0"><circle cx="486.4" cy="275.2" r="12" class="hit"/><circle cx="486.4" cy="275.2" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 75000 req/s · 1"><circle cx="509.6" cy="274.3" r="12" class="hit"/><circle cx="509.6" cy="274.3" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 100000 req/s · 3"><circle cx="532.8" cy="271.6" r="12" class="hit"/><circle cx="532.8" cy="271.6" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 125000 req/s · 30"><circle cx="556.0" cy="226.4" r="12" class="hit"/><circle cx="556.0" cy="226.4" r="4" class="dot fam-epoll"/></g>
+<text x="564.0" y="230.4" class="t-value">30</text>
+<text x="440.0" y="290" class="t-tick" text-anchor="middle">10k</text>
+<text x="463.2" y="290" class="t-tick" text-anchor="middle">25k</text>
+<text x="486.4" y="290" class="t-tick" text-anchor="middle">50k</text>
+<text x="509.6" y="290" class="t-tick" text-anchor="middle">75k</text>
+<text x="532.8" y="290" class="t-tick" text-anchor="middle">100k</text>
+<text x="556.0" y="290" class="t-tick" text-anchor="middle">125k</text>
+<text x="640" y="184" class="t-label t-ours">◆ tokio-st</text>
+<line x1="640" y1="276.0" x2="756" y2="276.0" class="grid"/>
+<text x="636" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="640" y1="234.0" x2="756" y2="234.0" class="grid"/>
+<text x="636" y="237.0" class="t-tick" text-anchor="end">25</text>
+<line x1="640" y1="192.0" x2="756" y2="192.0" class="grid"/>
+<text x="636" y="195.0" class="t-tick" text-anchor="end">50</text>
+<path d="M640.0,274.4 L663.2,275.0 L686.4,273.3 L709.6,272.6 L732.8,192.0 L756.0,192.0" class="line fam-epoll"/>
+<g class="pt" data-tip="tokio-st · 10000 req/s · 1"><circle cx="640.0" cy="274.4" r="12" class="hit"/><circle cx="640.0" cy="274.4" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 25000 req/s · 1"><circle cx="663.2" cy="275.0" r="12" class="hit"/><circle cx="663.2" cy="275.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 50000 req/s · 2"><circle cx="686.4" cy="273.3" r="12" class="hit"/><circle cx="686.4" cy="273.3" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 75000 req/s · 2"><circle cx="709.6" cy="272.6" r="12" class="hit"/><circle cx="709.6" cy="272.6" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 100000 req/s · 50"><circle cx="732.8" cy="192.0" r="12" class="hit"/><circle cx="732.8" cy="192.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 125000 req/s · 50"><circle cx="756.0" cy="192.0" r="12" class="hit"/><circle cx="756.0" cy="192.0" r="4" class="dot fam-epoll"/></g>
+<text x="764.0" y="196.0" class="t-value">50</text>
+<text x="640.0" y="290" class="t-tick" text-anchor="middle">10k</text>
+<text x="663.2" y="290" class="t-tick" text-anchor="middle">25k</text>
+<text x="686.4" y="290" class="t-tick" text-anchor="middle">50k</text>
+<text x="709.6" y="290" class="t-tick" text-anchor="middle">75k</text>
+<text x="732.8" y="290" class="t-tick" text-anchor="middle">100k</text>
+<text x="756.0" y="290" class="t-tick" text-anchor="middle">125k</text>
+<text x="40" y="314" class="t-label t-ours">◆ mio</text>
+<line x1="40" y1="406.0" x2="156" y2="406.0" class="grid"/>
+<text x="36" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="364.0" x2="156" y2="364.0" class="grid"/>
+<text x="36" y="367.0" class="t-tick" text-anchor="end">25</text>
+<line x1="40" y1="322.0" x2="156" y2="322.0" class="grid"/>
+<text x="36" y="325.0" class="t-tick" text-anchor="end">50</text>
+<path d="M40.0,402.4 L63.2,322.0 L86.4,403.5 L109.6,403.0 L132.8,383.4 L156.0,384.7" class="line fam-epoll"/>
+<g class="pt" data-tip="mio · 10000 req/s · 2"><circle cx="40.0" cy="402.4" r="12" class="hit"/><circle cx="40.0" cy="402.4" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 25000 req/s · 50"><circle cx="63.2" cy="322.0" r="12" class="hit"/><circle cx="63.2" cy="322.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 50000 req/s · 1"><circle cx="86.4" cy="403.5" r="12" class="hit"/><circle cx="86.4" cy="403.5" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 75000 req/s · 2"><circle cx="109.6" cy="403.0" r="12" class="hit"/><circle cx="109.6" cy="403.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 100000 req/s · 13"><circle cx="132.8" cy="383.4" r="12" class="hit"/><circle cx="132.8" cy="383.4" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 125000 req/s · 13"><circle cx="156.0" cy="384.7" r="12" class="hit"/><circle cx="156.0" cy="384.7" r="4" class="dot fam-epoll"/></g>
+<text x="164.0" y="388.7" class="t-value">13</text>
+<text x="40.0" y="420" class="t-tick" text-anchor="middle">10k</text>
+<text x="63.2" y="420" class="t-tick" text-anchor="middle">25k</text>
+<text x="86.4" y="420" class="t-tick" text-anchor="middle">50k</text>
+<text x="109.6" y="420" class="t-tick" text-anchor="middle">75k</text>
+<text x="132.8" y="420" class="t-tick" text-anchor="middle">100k</text>
+<text x="156.0" y="420" class="t-tick" text-anchor="middle">125k</text>
+<text x="240" y="314" class="t-label t-ours">◆ threads</text>
+<line x1="240" y1="406.0" x2="356" y2="406.0" class="grid"/>
+<text x="236" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="364.0" x2="356" y2="364.0" class="grid"/>
+<text x="236" y="367.0" class="t-tick" text-anchor="end">25</text>
+<line x1="240" y1="322.0" x2="356" y2="322.0" class="grid"/>
+<text x="236" y="325.0" class="t-tick" text-anchor="end">50</text>
+<path d="M240.0,404.8 L263.2,404.9 L286.4,400.5 L309.6,322.0 L332.8,322.0 L356.0,322.0" class="line fam-blocking"/>
+<g class="pt" data-tip="threads · 10000 req/s · 1"><circle cx="240.0" cy="404.8" r="12" class="hit"/><circle cx="240.0" cy="404.8" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 25000 req/s · 1"><circle cx="263.2" cy="404.9" r="12" class="hit"/><circle cx="263.2" cy="404.9" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 50000 req/s · 3"><circle cx="286.4" cy="400.5" r="12" class="hit"/><circle cx="286.4" cy="400.5" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 75000 req/s · 50"><circle cx="309.6" cy="322.0" r="12" class="hit"/><circle cx="309.6" cy="322.0" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 100000 req/s · 50"><circle cx="332.8" cy="322.0" r="12" class="hit"/><circle cx="332.8" cy="322.0" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 125000 req/s · 50"><circle cx="356.0" cy="322.0" r="12" class="hit"/><circle cx="356.0" cy="322.0" r="4" class="dot fam-blocking"/></g>
+<text x="364.0" y="326.0" class="t-value">50</text>
+<text x="240.0" y="420" class="t-tick" text-anchor="middle">10k</text>
+<text x="263.2" y="420" class="t-tick" text-anchor="middle">25k</text>
+<text x="286.4" y="420" class="t-tick" text-anchor="middle">50k</text>
+<text x="309.6" y="420" class="t-tick" text-anchor="middle">75k</text>
+<text x="332.8" y="420" class="t-tick" text-anchor="middle">100k</text>
+<text x="356.0" y="420" class="t-tick" text-anchor="middle">125k</text>
+<text x="440" y="314" class="t-label t-ours">◆ pool</text>
+<line x1="440" y1="406.0" x2="556" y2="406.0" class="grid"/>
+<text x="436" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="364.0" x2="556" y2="364.0" class="grid"/>
+<text x="436" y="367.0" class="t-tick" text-anchor="end">25</text>
+<line x1="440" y1="322.0" x2="556" y2="322.0" class="grid"/>
+<text x="436" y="325.0" class="t-tick" text-anchor="end">50</text>
+<path d="M440.0,403.7 L463.2,403.2 L486.4,405.4 L509.6,405.5 L532.8,405.3 L556.0,405.1" class="line fam-blocking"/>
+<g class="pt" data-tip="pool · 10000 req/s · 1"><circle cx="440.0" cy="403.7" r="12" class="hit"/><circle cx="440.0" cy="403.7" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 25000 req/s · 2"><circle cx="463.2" cy="403.2" r="12" class="hit"/><circle cx="463.2" cy="403.2" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 50000 req/s · 0"><circle cx="486.4" cy="405.4" r="12" class="hit"/><circle cx="486.4" cy="405.4" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 75000 req/s · 0"><circle cx="509.6" cy="405.5" r="12" class="hit"/><circle cx="509.6" cy="405.5" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 100000 req/s · 0"><circle cx="532.8" cy="405.3" r="12" class="hit"/><circle cx="532.8" cy="405.3" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 125000 req/s · 1"><circle cx="556.0" cy="405.1" r="12" class="hit"/><circle cx="556.0" cy="405.1" r="4" class="dot fam-blocking"/></g>
+<text x="564.0" y="409.1" class="t-value">1</text>
+<text x="440.0" y="420" class="t-tick" text-anchor="middle">10k</text>
+<text x="463.2" y="420" class="t-tick" text-anchor="middle">25k</text>
+<text x="486.4" y="420" class="t-tick" text-anchor="middle">50k</text>
+<text x="509.6" y="420" class="t-tick" text-anchor="middle">75k</text>
+<text x="532.8" y="420" class="t-tick" text-anchor="middle">100k</text>
+<text x="556.0" y="420" class="t-tick" text-anchor="middle">125k</text>
+</svg>

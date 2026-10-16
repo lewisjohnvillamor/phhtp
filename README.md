@@ -373,6 +373,31 @@ not any runtime; `threads` is the only model that degrades from ~1 000
 connections; `pool` fails silently by never serving connections beyond its
 size; nothing crashes any more.
 
+### Expanded load shapes, syscall counts, and what is different
+
+[`docs/EXPANDED.md`](docs/EXPANDED.md) adds pipelining, 10 000 stalled
+(slowloris) connections, mixed paths, a noisy co-tenant on one server core,
+20 s tail windows (p99.9 / p99.99), an open-loop rate sweep to 125 k req/s,
+and system calls per request from `strace -c`. Headlines:
+
+* **0.17 syscalls per request** on ringrt (multishot recv, provided buffers)
+  against 2.05 on every epoll runtime; glommio and tokio-uring, both io_uring,
+  still make 2.2 because they go through readiness paths.
+* **Pipelining makes the I/O model irrelevant**: 1.7–1.9 M req/s on all of
+  mio, Tokio and ringrt at ~1 µs server CPU per request; the parser is the cost.
+* **Work stealing wins under a noisy neighbour**: with a busy loop on one of
+  the two server cores every thread-per-core runtime, ours included, shows the
+  same 4.5 ms p99 (the scheduler's time slice); Tokio keeps 1.2 ms by moving
+  tasks to the free core. ringrt still has the highest throughput there.
+* **At 125 k req/s open loop, `uring-async` is the only runtime under 10 ms
+  p99** (9.2 ms; Tokio 29.5 ms; the external io_uring runtimes have fallen over).
+* **10 000 stalled connections**: `pool` is the one runtime that fails (all
+  workers parked); ringrt holds the lowest memory (133–160 MB vs 254 MB for
+  Tokio) but a longer tail (§3 and §8 of the doc).
+* An animated explainer of the three request paths, with these numbers, is in
+  [`bench/video/`](bench/video/) (page and MP4) and at
+  <https://claude.ai/artifact/RmVvvakW3vJDN3H5xCMiZx>.
+
 ## Deploying to a $12 DigitalOcean droplet
 
 The $12/month Basic droplet is **1 vCPU, 2 GB RAM**. Implications:

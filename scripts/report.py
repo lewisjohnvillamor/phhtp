@@ -583,6 +583,28 @@ def main():
                       for rt in sorted(pts, key=lambda x: RUNTIME_ORDER.index(x) if x in RUNTIME_ORDER else 99)]
             with open(os.path.join(a.svg_dir, "conns-rps.svg"), "w") as f:
                 f.write(static_svg(small_multiples_lines("GET / throughput vs. connections", "req/s · 2-core server · connects paced", series, xcats, k)))
+        erows = [r for r in rows if r.get("note", "").startswith("expand=")]
+        for key, (title, _) in EXPAND.items():
+            sel = OrderedDict((r["label"], r) for r in erows if r["note"].split()[0] == f"expand={key}")
+            if not sel:
+                continue
+            mk = lambda fn: [dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, tip=tip_for(r), value=fn(r)) for rt, r in sel.items()]
+            with open(os.path.join(a.svg_dir, f"expand-{key}-rps.svg"), "w") as f:
+                f.write(static_svg(hbar_chart(f"{title} — throughput", "higher is better", mk(lambda r: r["rps"]), k, "req/s")))
+            q = ("p999_us", "p99.9") if key == "tail" else ("p99_us", "p99")
+            with open(os.path.join(a.svg_dir, f"expand-{key}-{q[1].replace('.', '')}.svg"), "w") as f:
+                f.write(static_svg(hbar_chart(f"{title} — {q[1]} latency", "lower is better", mk(lambda r: r[q[0]] / 1000), lambda v: f"{v:.1f}", "ms", sorted_desc=False)))
+        rrows = [r for r in rows if r.get("note", "").startswith("sweep=rate")]
+        if rrows:
+            rate_of = lambda r: int(r["note"].split("rate=")[1].split()[0])
+            xcats = sorted({rate_of(r) for r in rrows})
+            p99 = defaultdict(dict)
+            for r in rrows:
+                p99[r["label"]][rate_of(r)] = min(r["p99_us"] / 1000, 50)
+            series = [dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, points=p99[rt])
+                      for rt in sorted(p99, key=lambda x: RUNTIME_ORDER.index(x) if x in RUNTIME_ORDER else 99)]
+            with open(os.path.join(a.svg_dir, "rate-p99.svg"), "w") as f:
+                f.write(static_svg(small_multiples_lines("GET /json p99 vs. offered rate", "ms · clipped at 50 · x = req/s offered · 256 connections", series, xcats, lambda v: f"{v:.0f}", xlabel="req/s")))
         print(f"wrote SVGs to {a.svg_dir}")
 
 

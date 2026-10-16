@@ -34,7 +34,7 @@ th { position: sticky; top: 0; background: var(--surface-2); cursor: pointer; te
 td:first-child, th:first-child, td:nth-child(2), th:nth-child(2), td:nth-child(18), th:nth-child(18), td:nth-child(19), th:nth-child(19) { text-align: left; }
 code { background: var(--surface-2); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
 </style></head><body><main><h1>phhtp runtime benchmarks</h1>
-<p class="meta">162 measurements · 2 source files · medians of 3 repetitions where noted · identical runs on the shared benchmark box differ by up to ±15%, so treat smaller gaps as noise</p>
+<p class="meta">283 measurements · 3 source files · medians of 3 repetitions where noted · identical runs on the shared benchmark box differ by up to ±15%, so treat smaller gaps as noise</p>
 <div class="legend"><span style="--c:var(--io_uring)">io_uring (completion)</span><span style="--c:var(--epoll)">epoll / readiness</span><span style="--c:var(--blocking)">blocking threads</span><span style="--c:transparent">◆ built in this repository (uring / uring-async are the from-scratch runtimes)</span></div>
 <section id="matrix"><h2>Endpoint matrix</h2>
 <p class="lead">Throughput, tail latency, and the server process's own CPU and memory per endpoint, every runtime on the same handler code. CPU per request is user + system time of the server divided by requests served, read from its <code>/stats</code> endpoint at the edges of the measured window. Bars are sorted; color is the I/O model family, the name is the runtime, ◆ marks the runtimes built in this repository.</p>
@@ -3057,8 +3057,1068 @@ code { background: var(--surface-2); padding: 1px 4px; border-radius: 3px; font-
 <text x="222" y="251" class="t-tick">4 workers</text>
 </svg>
 </section>
+<section id="expand"><h2>Expanded load shapes</h2>
+<p class="lead">Five shapes the endpoint matrix does not cover. Same handler code, same 2-core pinning as the sweeps.</p>
+<h3>HTTP/1.1 pipelining</h3><p class="lead">16 requests per write on 64 connections. The parser answers a whole batch in one pass; the runtime decides how many syscalls or ring operations that costs.</p>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="HTTP/1.1 pipelining — throughput">
+<text x="0" y="16" class="t-title">HTTP/1.1 pipelining — throughput</text>
+<text x="0" y="32" class="t-sub">higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">500k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">1000k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">1500k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">2000k</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="mio · GET /json · 64 conns · 1870k req/s · p50 0.55 ms · p90 0.85 ms · p99 1.24 ms · CPU 174% · 0.9 µs CPU/req · ctx 0.00/req · RSS 5.7 MB · disk 0 B · median of 2 (1784k–1870k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,49.0 h343.8801152 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-343.8801152 z" class="bar fam-epoll"/>
+<text x="471.9" y="62.0" class="t-value">1870k</text>
+</g>
+<g class="row" data-tip="tokio · GET /json · 64 conns · 1826k req/s · p50 0.55 ms · p90 0.82 ms · p99 1.20 ms · CPU 187% · 1.0 µs CPU/req · ctx 0.00/req · RSS 6.1 MB · disk 0 B · median of 2 (1787k–1826k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,77.0 h335.64254719999997 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-335.64254719999997 z" class="bar fam-epoll"/>
+<text x="463.6" y="90.0" class="t-value">1826k</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 64 conns · 1739k req/s · p50 0.59 ms · p90 0.88 ms · p99 1.29 ms · CPU 172% · 1.0 µs CPU/req · ctx 0.00/req · RSS 7.9 MB · disk 0 B · median of 2 (1663k–1739k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,105.0 h319.49060479999997 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-319.49060479999997 z" class="bar fam-io_uring"/>
+<text x="447.5" y="118.0" class="t-value">1739k</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 64 conns · 1669k req/s · p50 0.63 ms · p90 0.98 ms · p99 1.73 ms · CPU 171% · 1.1 µs CPU/req · ctx 0.00/req · RSS 8.6 MB · disk 0 B · median of 2 (1507k–1669k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,133.0 h306.489056 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-306.489056 z" class="bar fam-io_uring"/>
+<text x="434.5" y="146.0" class="t-value">1669k</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 64 conns · 1495k req/s · p50 0.71 ms · p90 1.23 ms · p99 2.28 ms · CPU 187% · 1.4 µs CPU/req · ctx 0.00/req · RSS 7.1 MB · disk 0 B · median of 2 (1288k–1495k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,161.0 h274.142912 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-274.142912 z" class="bar fam-blocking"/>
+<text x="402.1" y="174.0" class="t-value">1495k</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 64 conns · 1456k req/s · p50 0.69 ms · p90 1.06 ms · p99 1.64 ms · CPU 194% · 1.3 µs CPU/req · ctx 0.00/req · RSS 5.8 MB · disk 0 B · median of 2 (1444k–1456k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,189.0 h266.86897280000005 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-266.86897280000005 z" class="bar fam-io_uring"/>
+<text x="394.9" y="202.0" class="t-value">1456k</text>
+</g>
+<g class="row" data-tip="pool · GET /json · 64 conns · 1437k req/s · p50 0.66 ms · p90 1.23 ms · p99 2.59 ms · median of 2 (1328k–1437k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,217.0 h263.2287296 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-263.2287296 z" class="bar fam-blocking"/>
+<text x="391.2" y="230.0" class="t-value">1437k</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 64 conns · 1373k req/s · p50 0.74 ms · p90 1.16 ms · p99 1.75 ms · CPU 189% · 1.5 µs CPU/req · ctx 0.00/req · RSS 5.5 MB · disk 0 B · median of 2 (1293k–1373k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,245.0 h251.293184 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-251.293184 z" class="bar fam-io_uring"/>
+<text x="379.3" y="258.0" class="t-value">1373k</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 64 conns · 1300k req/s · p50 0.79 ms · p90 1.33 ms · p99 2.27 ms · CPU 185% · 1.6 µs CPU/req · ctx 0.00/req · RSS 6.4 MB · disk 0 B · median of 2 (1193k–1300k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,273.0 h237.74345599999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-237.74345599999998 z" class="bar fam-io_uring"/>
+<text x="365.7" y="286.0" class="t-value">1300k</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 64 conns · 1122k req/s · p50 0.89 ms · p90 1.44 ms · p99 1.94 ms · CPU 197% · 1.8 µs CPU/req · ctx 0.00/req · RSS 26.7 MB · disk 0 B · median of 2 (1103k–1122k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,301.0 h204.68069119999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-204.68069119999998 z" class="bar fam-io_uring"/>
+<text x="332.7" y="314.0" class="t-value">1122k</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 64 conns · 1001k req/s · p50 0.95 ms · p90 2.01 ms · p99 2.64 ms · CPU 99% · 1.1 µs CPU/req · ctx 0.00/req · RSS 6.4 MB · disk 0 B · median of 2 (892k–1001k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,329.0 h182.15296640000003 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-182.15296640000003 z" class="bar fam-epoll"/>
+<text x="310.2" y="342.0" class="t-value">1001k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 350" width="100%" style="max-width:560px" role="img" aria-label="HTTP/1.1 pipelining — server CPU per request">
+<text x="0" y="16" class="t-title">HTTP/1.1 pipelining — server CPU per request</text>
+<text x="0" y="32" class="t-sub">lower is better · µs</text>
+<line x1="118.0" y1="44" x2="118.0" y2="324" class="grid"/>
+<text x="118.0" y="340" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="324" class="grid"/>
+<text x="211.0" y="340" class="t-tick" text-anchor="middle">0.5</text>
+<line x1="304.0" y1="44" x2="304.0" y2="324" class="grid"/>
+<text x="304.0" y="340" class="t-tick" text-anchor="middle">1.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="324" class="grid"/>
+<text x="397.0" y="340" class="t-tick" text-anchor="middle">1.5</text>
+<line x1="490.0" y1="44" x2="490.0" y2="324" class="grid"/>
+<text x="490.0" y="340" class="t-tick" text-anchor="middle">2.0</text>
+<line x1="118" y1="44" x2="118" y2="324" class="axis"/>
+<g class="row" data-tip="mio · GET /json · 64 conns · 1870k req/s · p50 0.55 ms · p90 0.85 ms · p99 1.24 ms · CPU 174% · 0.9 µs CPU/req · ctx 0.00/req · RSS 5.7 MB · disk 0 B · median of 2 (1784k–1870k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,49.0 h169.2385076547198 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-169.2385076547198 z" class="bar fam-epoll"/>
+<text x="297.2" y="62.0" class="t-value">0.9</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 64 conns · 1739k req/s · p50 0.59 ms · p90 0.88 ms · p99 1.29 ms · CPU 172% · 1.0 µs CPU/req · ctx 0.00/req · RSS 7.9 MB · disk 0 B · median of 2 (1663k–1739k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,77.0 h188.12066467732905 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-188.12066467732905 z" class="bar fam-io_uring"/>
+<text x="316.1" y="90.0" class="t-value">1.0</text>
+</g>
+<g class="row" data-tip="tokio · GET /json · 64 conns · 1826k req/s · p50 0.55 ms · p90 0.82 ms · p99 1.20 ms · CPU 187% · 1.0 µs CPU/req · ctx 0.00/req · RSS 6.1 MB · disk 0 B · median of 2 (1787k–1826k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,105.0 h190.82786713530876 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-190.82786713530876 z" class="bar fam-epoll"/>
+<text x="318.8" y="118.0" class="t-value">1.0</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 64 conns · 1669k req/s · p50 0.63 ms · p90 0.98 ms · p99 1.73 ms · CPU 171% · 1.1 µs CPU/req · ctx 0.00/req · RSS 8.6 MB · disk 0 B · median of 2 (1507k–1669k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,133.0 h200.34093123674504 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-200.34093123674504 z" class="bar fam-io_uring"/>
+<text x="328.3" y="146.0" class="t-value">1.1</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 64 conns · 1001k req/s · p50 0.95 ms · p90 2.01 ms · p99 2.64 ms · CPU 99% · 1.1 µs CPU/req · ctx 0.00/req · RSS 6.4 MB · disk 0 B · median of 2 (892k–1001k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,161.0 h202.0098076847191 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-202.0098076847191 z" class="bar fam-epoll"/>
+<text x="330.0" y="174.0" class="t-value">1.1</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 64 conns · 1456k req/s · p50 0.69 ms · p90 1.06 ms · p99 1.64 ms · CPU 194% · 1.3 µs CPU/req · ctx 0.00/req · RSS 5.8 MB · disk 0 B · median of 2 (1444k–1456k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,189.0 h245.71458656617165 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-245.71458656617165 z" class="bar fam-io_uring"/>
+<text x="373.7" y="202.0" class="t-value">1.3</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 64 conns · 1495k req/s · p50 0.71 ms · p90 1.23 ms · p99 2.28 ms · CPU 187% · 1.4 µs CPU/req · ctx 0.00/req · RSS 7.1 MB · disk 0 B · median of 2 (1288k–1495k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,217.0 h256.7376249059247 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-256.7376249059247 z" class="bar fam-blocking"/>
+<text x="384.7" y="230.0" class="t-value">1.4</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 64 conns · 1373k req/s · p50 0.74 ms · p90 1.16 ms · p99 1.75 ms · CPU 189% · 1.5 µs CPU/req · ctx 0.00/req · RSS 5.5 MB · disk 0 B · median of 2 (1293k–1373k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,245.0 h267.2572872229865 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-267.2572872229865 z" class="bar fam-io_uring"/>
+<text x="395.3" y="258.0" class="t-value">1.5</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 64 conns · 1300k req/s · p50 0.79 ms · p90 1.33 ms · p99 2.27 ms · CPU 185% · 1.6 µs CPU/req · ctx 0.00/req · RSS 6.4 MB · disk 0 B · median of 2 (1193k–1300k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,273.0 h284.9433930898386 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-284.9433930898386 z" class="bar fam-io_uring"/>
+<text x="412.9" y="286.0" class="t-value">1.6</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 64 conns · 1122k req/s · p50 0.89 ms · p90 1.44 ms · p99 1.94 ms · CPU 197% · 1.8 µs CPU/req · ctx 0.00/req · RSS 26.7 MB · disk 0 B · median of 2 (1103k–1122k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,301.0 h327.5617447113473 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-327.5617447113473 z" class="bar fam-io_uring"/>
+<text x="455.6" y="314.0" class="t-value">1.8</text>
+</g>
+</svg>
+</div>
+<h3>10 000 stalled connections</h3><p class="lead">Each idle socket sent half a request line and then went silent (slowloris) while 64 hot connections were measured. A runtime that holds a thread per connection runs out of threads; a pool runs out of pool.</p>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="10 000 stalled connections — throughput">
+<text x="0" y="16" class="t-title">10 000 stalled connections — throughput</text>
+<text x="0" y="32" class="t-sub">higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">50k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">100k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">150k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">200k</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="tokio · GET /json · 64 conns · 189k req/s · p50 0.33 ms · p90 0.50 ms · p99 0.73 ms · CPU 174% · 9.5 µs CPU/req · ctx 0.00/req · RSS 253.9 MB · disk 0 B · median of 2 (183k–189k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,49.0 h347.688056 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-347.688056 z" class="bar fam-epoll"/>
+<text x="475.7" y="62.0" class="t-value">189k</text>
+</g>
+<g class="row" data-tip="mio · GET /json · 64 conns · 168k req/s · p50 0.39 ms · p90 0.62 ms · p99 0.90 ms · CPU 138% · 8.4 µs CPU/req · ctx 0.00/req · RSS 232.0 MB · disk 0 B · median of 2 (156k–168k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,77.0 h308.92937600000005 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-308.92937600000005 z" class="bar fam-epoll"/>
+<text x="436.9" y="90.0" class="t-value">168k</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 64 conns · 155k req/s · p50 0.38 ms · p90 0.63 ms · p99 1.95 ms · CPU 142% · 9.2 µs CPU/req · ctx 0.00/req · RSS 159.6 MB · disk 0 B · median of 2 (154k–155k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,105.0 h283.95850399999995 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-283.95850399999995 z" class="bar fam-io_uring"/>
+<text x="412.0" y="118.0" class="t-value">155k</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 64 conns · 150k req/s · p50 0.40 ms · p90 0.62 ms · p99 0.94 ms · CPU 98% · 6.6 µs CPU/req · ctx 0.00/req · RSS 352.3 MB · disk 0 B · median of 2 (149k–150k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,133.0 h274.783868 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-274.783868 z" class="bar fam-epoll"/>
+<text x="402.8" y="146.0" class="t-value">150k</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 64 conns · 139k req/s · p50 0.45 ms · p90 0.70 ms · p99 1.04 ms · CPU 185% · 13.7 µs CPU/req · ctx 0.00/req · RSS 190.9 MB · disk 0 B · median of 2 (135k–139k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,161.0 h254.58836000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-254.58836000000002 z" class="bar fam-io_uring"/>
+<text x="382.6" y="174.0" class="t-value">139k</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 64 conns · 137k req/s · p50 0.41 ms · p90 0.94 ms · p99 4.52 ms · CPU 136% · 9.9 µs CPU/req · ctx 0.00/req · RSS 133.2 MB · disk 0 B · median of 2 (107k–137k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,189.0 h250.573364 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-250.573364 z" class="bar fam-io_uring"/>
+<text x="378.6" y="202.0" class="t-value">137k</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 64 conns · 135k req/s · p50 0.48 ms · p90 0.76 ms · p99 1.22 ms · CPU 190% · 15.0 µs CPU/req · ctx 0.00/req · RSS 201.6 MB · disk 0 B · median of 2 (124k–135k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,217.0 h246.58998799999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-246.58998799999998 z" class="bar fam-io_uring"/>
+<text x="374.6" y="230.0" class="t-value">135k</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 64 conns · 131k req/s · p50 0.47 ms · p90 0.74 ms · p99 1.21 ms · CPU 184% · 14.6 µs CPU/req · ctx 0.00/req · RSS 265.0 MB · disk 0 B · median of 2 (127k–131k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,245.0 h239.22104 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-239.22104 z" class="bar fam-io_uring"/>
+<text x="367.2" y="258.0" class="t-value">131k</text>
+</g>
+<g class="row" data-tip="pool · GET /json · 64 conns · 125k req/s · p50 0.32 ms · p90 0.53 ms · p99 1.00 ms · median of 2 (118k–125k) · errors 47">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,273.0 h227.742608 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-227.742608 z" class="bar fam-blocking"/>
+<text x="355.7" y="286.0" class="t-value">125k</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 64 conns · 122k req/s · p50 0.52 ms · p90 0.93 ms · p99 2.17 ms · CPU 183% · 12.1 µs CPU/req · ctx 0.00/req · RSS 478.6 MB · disk 0 B · median of 2 (106k–122k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,301.0 h222.428588 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-222.428588 z" class="bar fam-blocking"/>
+<text x="350.4" y="314.0" class="t-value">122k</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 64 conns · 110k req/s · p50 0.57 ms · p90 0.86 ms · p99 1.26 ms · CPU 197% · 18.5 µs CPU/req · ctx 0.00/req · RSS 333.4 MB · disk 0 B · median of 2 (106k–110k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,329.0 h199.773788 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-199.773788 z" class="bar fam-io_uring"/>
+<text x="327.8" y="342.0" class="t-value">110k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="10 000 stalled connections — p99 latency">
+<text x="0" y="16" class="t-title">10 000 stalled connections — p99 latency</text>
+<text x="0" y="32" class="t-sub">lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">1.2</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">2.5</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">3.8</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">5.0</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="tokio · GET /json · 64 conns · 189k req/s · p50 0.33 ms · p90 0.50 ms · p99 0.73 ms · CPU 174% · 9.5 µs CPU/req · ctx 0.00/req · RSS 253.9 MB · disk 0 B · median of 2 (183k–189k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,49.0 h50.5352 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-50.5352 z" class="bar fam-epoll"/>
+<text x="178.5" y="62.0" class="t-value">0.7</text>
+</g>
+<g class="row" data-tip="mio · GET /json · 64 conns · 168k req/s · p50 0.39 ms · p90 0.62 ms · p99 0.90 ms · CPU 138% · 8.4 µs CPU/req · ctx 0.00/req · RSS 232.0 MB · disk 0 B · median of 2 (156k–168k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,77.0 h63.1832 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-63.1832 z" class="bar fam-epoll"/>
+<text x="191.2" y="90.0" class="t-value">0.9</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 64 conns · 150k req/s · p50 0.40 ms · p90 0.62 ms · p99 0.94 ms · CPU 98% · 6.6 µs CPU/req · ctx 0.00/req · RSS 352.3 MB · disk 0 B · median of 2 (149k–150k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,105.0 h65.936 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-65.936 z" class="bar fam-epoll"/>
+<text x="193.9" y="118.0" class="t-value">0.9</text>
+</g>
+<g class="row" data-tip="pool · GET /json · 64 conns · 125k req/s · p50 0.32 ms · p90 0.53 ms · p99 1.00 ms · median of 2 (118k–125k) · errors 47">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,133.0 h70.4 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-70.4 z" class="bar fam-blocking"/>
+<text x="198.4" y="146.0" class="t-value">1.0</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 64 conns · 139k req/s · p50 0.45 ms · p90 0.70 ms · p99 1.04 ms · CPU 185% · 13.7 µs CPU/req · ctx 0.00/req · RSS 190.9 MB · disk 0 B · median of 2 (135k–139k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,161.0 h73.3016 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-73.3016 z" class="bar fam-io_uring"/>
+<text x="201.3" y="174.0" class="t-value">1.0</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 64 conns · 131k req/s · p50 0.47 ms · p90 0.74 ms · p99 1.21 ms · CPU 184% · 14.6 µs CPU/req · ctx 0.00/req · RSS 265.0 MB · disk 0 B · median of 2 (127k–131k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,189.0 h86.09840000000001 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-86.09840000000001 z" class="bar fam-io_uring"/>
+<text x="214.1" y="202.0" class="t-value">1.2</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 64 conns · 135k req/s · p50 0.48 ms · p90 0.76 ms · p99 1.22 ms · CPU 190% · 15.0 µs CPU/req · ctx 0.00/req · RSS 201.6 MB · disk 0 B · median of 2 (124k–135k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,217.0 h86.61919999999999 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-86.61919999999999 z" class="bar fam-io_uring"/>
+<text x="214.6" y="230.0" class="t-value">1.2</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 64 conns · 110k req/s · p50 0.57 ms · p90 0.86 ms · p99 1.26 ms · CPU 197% · 18.5 µs CPU/req · ctx 0.00/req · RSS 333.4 MB · disk 0 B · median of 2 (106k–110k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,245.0 h89.66959999999999 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-89.66959999999999 z" class="bar fam-io_uring"/>
+<text x="217.7" y="258.0" class="t-value">1.3</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 64 conns · 155k req/s · p50 0.38 ms · p90 0.63 ms · p99 1.95 ms · CPU 142% · 9.2 µs CPU/req · ctx 0.00/req · RSS 159.6 MB · disk 0 B · median of 2 (154k–155k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,273.0 h141.1544 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-141.1544 z" class="bar fam-io_uring"/>
+<text x="269.2" y="286.0" class="t-value">2.0</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 64 conns · 122k req/s · p50 0.52 ms · p90 0.93 ms · p99 2.17 ms · CPU 183% · 12.1 µs CPU/req · ctx 0.00/req · RSS 478.6 MB · disk 0 B · median of 2 (106k–122k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,301.0 h157.6712 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-157.6712 z" class="bar fam-blocking"/>
+<text x="285.7" y="314.0" class="t-value">2.2</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 64 conns · 137k req/s · p50 0.41 ms · p90 0.94 ms · p99 4.52 ms · CPU 136% · 9.9 µs CPU/req · ctx 0.00/req · RSS 133.2 MB · disk 0 B · median of 2 (107k–137k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,329.0 h332.21360000000004 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-332.21360000000004 z" class="bar fam-io_uring"/>
+<text x="460.2" y="342.0" class="t-value">4.5</text>
+</g>
+</svg>
+</div>
+<h3>Mixed paths</h3><p class="lead">Every connection rotates /json, /compute?n=2000 and / so one request stream carries a small response, a CPU-bound one and a trivial one.</p>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="Mixed paths — throughput">
+<text x="0" y="16" class="t-title">Mixed paths — throughput</text>
+<text x="0" y="32" class="t-sub">higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">2.5k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">5.0k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">7.5k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">10k</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="compio · GET /json · 64 conns · 8.4k req/s · p50 8.95 ms · p90 15 ms · p99 24 ms · CPU 196% · 297.4 µs CPU/req · ctx 0.00/req · RSS 5.2 MB · disk 0 B · median of 2 (6.6k–8.4k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,49.0 h307.31935999999996 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-307.31935999999996 z" class="bar fam-io_uring"/>
+<text x="435.3" y="62.0" class="t-value">8.4k</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 64 conns · 8.2k req/s · p50 8.62 ms · p90 15 ms · p99 19 ms · CPU 198% · 268.3 µs CPU/req · ctx 0.00/req · RSS 5.3 MB · disk 0 B · median of 2 (7.4k–8.2k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,77.0 h301.6352 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-301.6352 z" class="bar fam-io_uring"/>
+<text x="429.6" y="90.0" class="t-value">8.2k</text>
+</g>
+<g class="row" data-tip="mio · GET /json · 64 conns · 8.2k req/s · p50 7.64 ms · p90 13 ms · p99 18 ms · CPU 197% · 241.5 µs CPU/req · ctx 0.00/req · RSS 5.6 MB · disk 0 B · median of 2 (8.2k–8.2k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h299.84216000000004 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-299.84216000000004 z" class="bar fam-epoll"/>
+<text x="427.8" y="118.0" class="t-value">8.2k</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 64 conns · 8.2k req/s · p50 7.71 ms · p90 12 ms · p99 19 ms · CPU 198% · 249.9 µs CPU/req · ctx 0.00/req · RSS 7.9 MB · disk 0 B · median of 2 (7.9k–8.2k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,133.0 h299.25440000000003 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-299.25440000000003 z" class="bar fam-io_uring"/>
+<text x="427.3" y="146.0" class="t-value">8.2k</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 64 conns · 8.1k req/s · p50 7.55 ms · p90 12 ms · p99 19 ms · CPU 198% · 243.0 µs CPU/req · ctx 0.00/req · RSS 7.6 MB · disk 0 B · median of 2 (8.1k–8.1k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,161.0 h298.5104 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-298.5104 z" class="bar fam-io_uring"/>
+<text x="426.5" y="174.0" class="t-value">8.1k</text>
+</g>
+<g class="row" data-tip="pool · GET /json · 64 conns · 8.1k req/s · p50 7.58 ms · p90 17 ms · p99 35 ms · median of 2 (7.8k–8.1k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,189.0 h295.91384 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-295.91384 z" class="bar fam-blocking"/>
+<text x="423.9" y="202.0" class="t-value">8.1k</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 64 conns · 8.0k req/s · p50 7.68 ms · p90 14 ms · p99 21 ms · CPU 198% · 248.7 µs CPU/req · ctx 0.00/req · RSS 26.3 MB · disk 0 B · median of 2 (7.9k–8.0k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,217.0 h294.94664 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-294.94664 z" class="bar fam-io_uring"/>
+<text x="422.9" y="230.0" class="t-value">8.0k</text>
+</g>
+<g class="row" data-tip="tokio · GET /json · 64 conns · 7.9k req/s · p50 8.05 ms · p90 12 ms · p99 16 ms · CPU 197% · 251.1 µs CPU/req · ctx 0.00/req · RSS 5.9 MB · disk 0 B · median of 2 (7.8k–7.9k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,245.0 h288.71192 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-288.71192 z" class="bar fam-epoll"/>
+<text x="416.7" y="258.0" class="t-value">7.9k</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 64 conns · 7.9k req/s · p50 7.16 ms · p90 16 ms · p99 23 ms · CPU 198% · 269.6 µs CPU/req · ctx 0.00/req · RSS 6.3 MB · disk 0 B · median of 2 (7.3k–7.9k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,273.0 h288.48872 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-288.48872 z" class="bar fam-io_uring"/>
+<text x="416.5" y="286.0" class="t-value">7.9k</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 64 conns · 7.8k req/s · p50 7.69 ms · p90 20 ms · p99 39 ms · CPU 198% · 253.7 µs CPU/req · ctx 0.00/req · RSS 6.9 MB · disk 0 B · median of 2 (7.8k–7.8k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,301.0 h287.78192 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-287.78192 z" class="bar fam-blocking"/>
+<text x="415.8" y="314.0" class="t-value">7.8k</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 64 conns · 3.8k req/s · p50 17 ms · p90 26 ms · p99 40 ms · CPU 99% · 264.5 µs CPU/req · ctx 0.00/req · RSS 6.0 MB · disk 0 B · median of 2 (3.7k–3.8k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,329.0 h135.69343999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-135.69343999999998 z" class="bar fam-epoll"/>
+<text x="263.7" y="342.0" class="t-value">3.8k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="Mixed paths — p99 latency">
+<text x="0" y="16" class="t-title">Mixed paths — p99 latency</text>
+<text x="0" y="32" class="t-sub">lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">12.5</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">25.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">37.5</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">50.0</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="tokio · GET /json · 64 conns · 7.9k req/s · p50 8.05 ms · p90 12 ms · p99 16 ms · CPU 197% · 251.1 µs CPU/req · ctx 0.00/req · RSS 5.9 MB · disk 0 B · median of 2 (7.8k–7.9k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,49.0 h113.66359999999999 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-113.66359999999999 z" class="bar fam-epoll"/>
+<text x="241.7" y="62.0" class="t-value">15.8</text>
+</g>
+<g class="row" data-tip="mio · GET /json · 64 conns · 8.2k req/s · p50 7.64 ms · p90 13 ms · p99 18 ms · CPU 197% · 241.5 µs CPU/req · ctx 0.00/req · RSS 5.6 MB · disk 0 B · median of 2 (8.2k–8.2k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,77.0 h130.86488 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-130.86488 z" class="bar fam-epoll"/>
+<text x="258.9" y="90.0" class="t-value">18.1</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 64 conns · 8.1k req/s · p50 7.55 ms · p90 12 ms · p99 19 ms · CPU 198% · 243.0 µs CPU/req · ctx 0.00/req · RSS 7.6 MB · disk 0 B · median of 2 (8.1k–8.1k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,105.0 h133.84088000000003 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-133.84088000000003 z" class="bar fam-io_uring"/>
+<text x="261.8" y="118.0" class="t-value">18.5</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 64 conns · 8.2k req/s · p50 7.71 ms · p90 12 ms · p99 19 ms · CPU 198% · 249.9 µs CPU/req · ctx 0.00/req · RSS 7.9 MB · disk 0 B · median of 2 (7.9k–8.2k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,133.0 h135.26936 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-135.26936 z" class="bar fam-io_uring"/>
+<text x="263.3" y="146.0" class="t-value">18.7</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 64 conns · 8.2k req/s · p50 8.62 ms · p90 15 ms · p99 19 ms · CPU 198% · 268.3 µs CPU/req · ctx 0.00/req · RSS 5.3 MB · disk 0 B · median of 2 (7.4k–8.2k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,161.0 h135.26936 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-135.26936 z" class="bar fam-io_uring"/>
+<text x="263.3" y="174.0" class="t-value">18.7</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 64 conns · 8.0k req/s · p50 7.68 ms · p90 14 ms · p99 21 ms · CPU 198% · 248.7 µs CPU/req · ctx 0.00/req · RSS 26.3 MB · disk 0 B · median of 2 (7.9k–8.0k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,189.0 h153.36344 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-153.36344 z" class="bar fam-io_uring"/>
+<text x="281.4" y="202.0" class="t-value">21.2</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 64 conns · 7.9k req/s · p50 7.16 ms · p90 16 ms · p99 23 ms · CPU 198% · 269.6 µs CPU/req · ctx 0.00/req · RSS 6.3 MB · disk 0 B · median of 2 (7.3k–7.9k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,217.0 h169.19576 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-169.19576 z" class="bar fam-io_uring"/>
+<text x="297.2" y="230.0" class="t-value">23.3</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 64 conns · 8.4k req/s · p50 8.95 ms · p90 15 ms · p99 24 ms · CPU 196% · 297.4 µs CPU/req · ctx 0.00/req · RSS 5.2 MB · disk 0 B · median of 2 (6.6k–8.4k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,245.0 h170.86231999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-170.86231999999998 z" class="bar fam-io_uring"/>
+<text x="298.9" y="258.0" class="t-value">23.5</text>
+</g>
+<g class="row" data-tip="pool · GET /json · 64 conns · 8.1k req/s · p50 7.58 ms · p90 17 ms · p99 35 ms · median of 2 (7.8k–8.1k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,273.0 h253.83320000000003 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-253.83320000000003 z" class="bar fam-blocking"/>
+<text x="381.8" y="286.0" class="t-value">34.7</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 64 conns · 7.8k req/s · p50 7.69 ms · p90 20 ms · p99 39 ms · CPU 198% · 253.7 µs CPU/req · ctx 0.00/req · RSS 6.9 MB · disk 0 B · median of 2 (7.8k–7.8k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,301.0 h286.45016 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-286.45016 z" class="bar fam-blocking"/>
+<text x="414.5" y="314.0" class="t-value">39.0</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 64 conns · 3.8k req/s · p50 17 ms · p90 26 ms · p99 40 ms · CPU 99% · 264.5 µs CPU/req · ctx 0.00/req · RSS 6.0 MB · disk 0 B · median of 2 (3.7k–3.8k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,329.0 h290.02136 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-290.02136 z" class="bar fam-epoll"/>
+<text x="418.0" y="342.0" class="t-value">39.5</text>
+</g>
+</svg>
+</div>
+<h3>Noisy co-tenant</h3><p class="lead">A busy loop pinned to one of the server&#x27;s two cores for the whole run: a cron job, a log shipper, or a neighbour on a shared vCPU. Shows who degrades gracefully.</p>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="Noisy co-tenant — throughput">
+<text x="0" y="16" class="t-title">Noisy co-tenant — throughput</text>
+<text x="0" y="32" class="t-sub">higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">50k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">100k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">150k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">200k</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="uring-async · GET /json · 64 conns · 157k req/s · p50 0.27 ms · p90 0.57 ms · p99 4.46 ms · CPU 108% · 7.5 µs CPU/req · ctx 0.00/req · RSS 8.1 MB · disk 0 B · median of 2 (139k–157k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,49.0 h287.495108 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-287.495108 z" class="bar fam-io_uring"/>
+<text x="415.5" y="62.0" class="t-value">157k</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 64 conns · 151k req/s · p50 0.24 ms · p90 0.56 ms · p99 4.44 ms · CPU 106% · 7.0 µs CPU/req · ctx 0.00/req · RSS 7.6 MB · disk 0 B · median of 2 (151k–151k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,77.0 h276.86 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-276.86 z" class="bar fam-io_uring"/>
+<text x="404.9" y="90.0" class="t-value">151k</text>
+</g>
+<g class="row" data-tip="mio · GET /json · 64 conns · 151k req/s · p50 0.23 ms · p90 0.59 ms · p99 4.50 ms · CPU 106% · 7.1 µs CPU/req · ctx 0.00/req · RSS 5.7 MB · disk 0 B · median of 2 (149k–151k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h276.625268 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-276.625268 z" class="bar fam-epoll"/>
+<text x="404.6" y="118.0" class="t-value">151k</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 64 conns · 138k req/s · p50 0.44 ms · p90 0.74 ms · p99 1.12 ms · CPU 98% · 7.4 µs CPU/req · ctx 0.00/req · RSS 6.1 MB · disk 0 B · median of 2 (132k–138k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,133.0 h253.15578799999997 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-253.15578799999997 z" class="bar fam-epoll"/>
+<text x="381.2" y="146.0" class="t-value">138k</text>
+</g>
+<g class="row" data-tip="tokio · GET /json · 64 conns · 137k req/s · p50 0.43 ms · p90 0.69 ms · p99 1.22 ms · CPU 104% · 7.6 µs CPU/req · ctx 0.00/req · RSS 5.9 MB · disk 0 B · median of 2 (137k–137k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,161.0 h250.94647999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-250.94647999999998 z" class="bar fam-epoll"/>
+<text x="378.9" y="174.0" class="t-value">137k</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 64 conns · 132k req/s · p50 0.30 ms · p90 0.69 ms · p99 4.58 ms · CPU 118% · 10.4 µs CPU/req · ctx 0.00/req · RSS 6.0 MB · disk 0 B · median of 2 (113k–132k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,189.0 h241.07546 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-241.07546 z" class="bar fam-io_uring"/>
+<text x="369.1" y="202.0" class="t-value">132k</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 64 conns · 131k req/s · p50 0.30 ms · p90 0.63 ms · p99 4.54 ms · CPU 120% · 10.1 µs CPU/req · ctx 0.00/req · RSS 5.3 MB · disk 0 B · median of 2 (119k–131k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,217.0 h240.233996 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-240.233996 z" class="bar fam-io_uring"/>
+<text x="368.2" y="230.0" class="t-value">131k</text>
+</g>
+<g class="row" data-tip="pool · GET /json · 64 conns · 128k req/s · p50 0.48 ms · p90 0.82 ms · p99 1.91 ms · median of 2 (119k–128k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,245.0 h233.575568 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-233.575568 z" class="bar fam-blocking"/>
+<text x="361.6" y="258.0" class="t-value">128k</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 64 conns · 125k req/s · p50 0.46 ms · p90 0.81 ms · p99 2.25 ms · CPU 162% · 13.2 µs CPU/req · ctx 0.00/req · RSS 7.0 MB · disk 0 B · median of 2 (121k–125k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,273.0 h227.73702799999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-227.73702799999998 z" class="bar fam-blocking"/>
+<text x="355.7" y="286.0" class="t-value">125k</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 64 conns · 119k req/s · p50 0.32 ms · p90 0.71 ms · p99 4.59 ms · CPU 117% · 10.2 µs CPU/req · ctx 0.00/req · RSS 5.3 MB · disk 0 B · median of 2 (109k–119k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,301.0 h216.492956 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-216.492956 z" class="bar fam-io_uring"/>
+<text x="344.5" y="314.0" class="t-value">119k</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 64 conns · 93k req/s · p50 0.47 ms · p90 1.69 ms · p99 5.29 ms · CPU 127% · 15.1 µs CPU/req · ctx 0.00/req · RSS 26.4 MB · disk 0 B · median of 2 (74k–93k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,329.0 h169.8542 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-169.8542 z" class="bar fam-io_uring"/>
+<text x="297.9" y="342.0" class="t-value">93k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="Noisy co-tenant — p99 latency">
+<text x="0" y="16" class="t-title">Noisy co-tenant — p99 latency</text>
+<text x="0" y="32" class="t-sub">lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">2.5</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">5.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">7.5</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">10.0</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="tokio-st · GET /json · 64 conns · 138k req/s · p50 0.44 ms · p90 0.74 ms · p99 1.12 ms · CPU 98% · 7.4 µs CPU/req · ctx 0.00/req · RSS 6.1 MB · disk 0 B · median of 2 (132k–138k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,49.0 h37.589600000000004 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-37.589600000000004 z" class="bar fam-epoll"/>
+<text x="165.6" y="62.0" class="t-value">1.1</text>
+</g>
+<g class="row" data-tip="tokio · GET /json · 64 conns · 137k req/s · p50 0.43 ms · p90 0.69 ms · p99 1.22 ms · CPU 104% · 7.6 µs CPU/req · ctx 0.00/req · RSS 5.9 MB · disk 0 B · median of 2 (137k–137k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,77.0 h41.532799999999995 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-41.532799999999995 z" class="bar fam-epoll"/>
+<text x="169.5" y="90.0" class="t-value">1.2</text>
+</g>
+<g class="row" data-tip="pool · GET /json · 64 conns · 128k req/s · p50 0.48 ms · p90 0.82 ms · p99 1.91 ms · median of 2 (119k–128k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,105.0 h66.9032 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-66.9032 z" class="bar fam-blocking"/>
+<text x="194.9" y="118.0" class="t-value">1.9</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 64 conns · 125k req/s · p50 0.46 ms · p90 0.81 ms · p99 2.25 ms · CPU 162% · 13.2 µs CPU/req · ctx 0.00/req · RSS 7.0 MB · disk 0 B · median of 2 (121k–125k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,133.0 h79.514 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-79.514 z" class="bar fam-blocking"/>
+<text x="207.5" y="146.0" class="t-value">2.2</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 64 conns · 151k req/s · p50 0.24 ms · p90 0.56 ms · p99 4.44 ms · CPU 106% · 7.0 µs CPU/req · ctx 0.00/req · RSS 7.6 MB · disk 0 B · median of 2 (151k–151k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,161.0 h161.2796 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-161.2796 z" class="bar fam-io_uring"/>
+<text x="289.3" y="174.0" class="t-value">4.4</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 64 conns · 157k req/s · p50 0.27 ms · p90 0.57 ms · p99 4.46 ms · CPU 108% · 7.5 µs CPU/req · ctx 0.00/req · RSS 8.1 MB · disk 0 B · median of 2 (139k–157k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,189.0 h161.726 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-161.726 z" class="bar fam-io_uring"/>
+<text x="289.7" y="202.0" class="t-value">4.5</text>
+</g>
+<g class="row" data-tip="mio · GET /json · 64 conns · 151k req/s · p50 0.23 ms · p90 0.59 ms · p99 4.50 ms · CPU 106% · 7.1 µs CPU/req · ctx 0.00/req · RSS 5.7 MB · disk 0 B · median of 2 (149k–151k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,217.0 h163.3628 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-163.3628 z" class="bar fam-epoll"/>
+<text x="291.4" y="230.0" class="t-value">4.5</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 64 conns · 131k req/s · p50 0.30 ms · p90 0.63 ms · p99 4.54 ms · CPU 120% · 10.1 µs CPU/req · ctx 0.00/req · RSS 5.3 MB · disk 0 B · median of 2 (119k–131k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,245.0 h164.702 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-164.702 z" class="bar fam-io_uring"/>
+<text x="292.7" y="258.0" class="t-value">4.5</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 64 conns · 132k req/s · p50 0.30 ms · p90 0.69 ms · p99 4.58 ms · CPU 118% · 10.4 µs CPU/req · ctx 0.00/req · RSS 6.0 MB · disk 0 B · median of 2 (113k–132k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,273.0 h166.48760000000001 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-166.48760000000001 z" class="bar fam-io_uring"/>
+<text x="294.5" y="286.0" class="t-value">4.6</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 64 conns · 119k req/s · p50 0.32 ms · p90 0.71 ms · p99 4.59 ms · CPU 117% · 10.2 µs CPU/req · ctx 0.00/req · RSS 5.3 MB · disk 0 B · median of 2 (109k–119k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,301.0 h166.7852 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-166.7852 z" class="bar fam-io_uring"/>
+<text x="294.8" y="314.0" class="t-value">4.6</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 64 conns · 93k req/s · p50 0.47 ms · p90 1.69 ms · p99 5.29 ms · CPU 127% · 15.1 µs CPU/req · ctx 0.00/req · RSS 26.4 MB · disk 0 B · median of 2 (74k–93k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,329.0 h192.974 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-192.974 z" class="bar fam-io_uring"/>
+<text x="321.0" y="342.0" class="t-value">5.3</text>
+</g>
+</svg>
+</div>
+<h3>Long-window tails</h3><p class="lead">20 s at 256 connections so p99.9 and p99.99 rest on tens of thousands of samples, not a few.</p>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="Long-window tails — p99.9">
+<text x="0" y="16" class="t-title">Long-window tails — p99.9</text>
+<text x="0" y="32" class="t-sub">256 connections · 20 s window · lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">5.0</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">10.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">15.0</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">20.0</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="pool · GET /json · 256 conns · 128k req/s · p50 0.46 ms · p90 0.75 ms · p99 1.35 ms">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,49.0 h45.6062 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-45.6062 z" class="bar fam-blocking"/>
+<text x="173.6" y="62.0" class="t-value">2.7</text>
+</g>
+<g class="row" data-tip="tokio · GET /json · 256 conns · 180k req/s · p50 1.37 ms · p90 2.06 ms · p99 2.83 ms · CPU 179% · 10.0 µs CPU/req · ctx 0.00/req · RSS 8.5 MB · disk 0 B">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,77.0 h76.1102 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-76.1102 z" class="bar fam-epoll"/>
+<text x="204.1" y="90.0" class="t-value">4.3</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 256 conns · 166k req/s · p50 1.46 ms · p90 2.39 ms · p99 3.52 ms · CPU 154% · 9.2 µs CPU/req · ctx 0.00/req · RSS 9.7 MB · disk 0 B">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,105.0 h95.1566 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-95.1566 z" class="bar fam-io_uring"/>
+<text x="223.2" y="118.0" class="t-value">5.3</text>
+</g>
+<g class="row" data-tip="mio · GET /json · 256 conns · 150k req/s · p50 1.59 ms · p90 2.71 ms · p99 3.84 ms · CPU 140% · 9.3 µs CPU/req · ctx 0.00/req · RSS 8.0 MB · disk 0 B">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,133.0 h104.7542 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-104.7542 z" class="bar fam-epoll"/>
+<text x="232.8" y="146.0" class="t-value">5.8</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 256 conns · 108k req/s · p50 2.20 ms · p90 3.65 ms · p99 5.01 ms · CPU 196% · 18.1 µs CPU/req · ctx 0.00/req · RSS 28.8 MB · disk 0 B">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,161.0 h122.16380000000001 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-122.16380000000001 z" class="bar fam-io_uring"/>
+<text x="250.2" y="174.0" class="t-value">6.8</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 256 conns · 135k req/s · p50 1.73 ms · p90 3.04 ms · p99 4.78 ms · CPU 184% · 13.6 µs CPU/req · ctx 0.00/req · RSS 8.2 MB · disk 0 B">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,189.0 h139.7966 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-139.7966 z" class="bar fam-io_uring"/>
+<text x="267.8" y="202.0" class="t-value">7.7</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 256 conns · 109k req/s · p50 2.26 ms · p90 3.25 ms · p99 4.51 ms · CPU 99% · 9.0 µs CPU/req · ctx 0.00/req · RSS 10.2 MB · disk 0 B">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,217.0 h141.06140000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-141.06140000000002 z" class="bar fam-epoll"/>
+<text x="269.1" y="230.0" class="t-value">7.8</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 256 conns · 134k req/s · p50 1.72 ms · p90 2.95 ms · p99 4.40 ms · CPU 188% · 14.0 µs CPU/req · ctx 0.00/req · RSS 7.4 MB · disk 0 B">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,245.0 h143.7398 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-143.7398 z" class="bar fam-io_uring"/>
+<text x="271.7" y="258.0" class="t-value">7.9</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 256 conns · 136k req/s · p50 1.72 ms · p90 2.98 ms · p99 4.40 ms · CPU 186% · 13.7 µs CPU/req · ctx 0.00/req · RSS 7.5 MB · disk 0 B">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,273.0 h167.69660000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-167.69660000000002 z" class="bar fam-io_uring"/>
+<text x="295.7" y="286.0" class="t-value">9.2</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 256 conns · 120k req/s · p50 1.92 ms · p90 3.25 ms · p99 7.06 ms · CPU 182% · 15.2 µs CPU/req · ctx 0.00/req · RSS 13.1 MB · disk 0 B">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,301.0 h273.791 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-273.791 z" class="bar fam-blocking"/>
+<text x="401.8" y="314.0" class="t-value">14.9</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 256 conns · 160k req/s · p50 1.38 ms · p90 2.51 ms · p99 5.87 ms · CPU 140% · 8.7 µs CPU/req · ctx 0.00/req · RSS 9.2 MB · disk 0 B">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,329.0 h282.2726 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-282.2726 z" class="bar fam-io_uring"/>
+<text x="410.3" y="342.0" class="t-value">15.4</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="Long-window tails — p99.99">
+<text x="0" y="16" class="t-title">Long-window tails — p99.99</text>
+<text x="0" y="32" class="t-sub">256 connections · 20 s window · lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">25.0</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">50.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">75.0</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">100.0</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="pool · GET /json · 256 conns · 128k req/s · p50 0.46 ms · p90 0.75 ms · p99 1.35 ms">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,49.0 h26.67884 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-26.67884 z" class="bar fam-blocking"/>
+<text x="154.7" y="62.0" class="t-value">8.2</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 256 conns · 166k req/s · p50 1.46 ms · p90 2.39 ms · p99 3.52 ms · CPU 154% · 9.2 µs CPU/req · ctx 0.00/req · RSS 9.7 MB · disk 0 B">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,77.0 h27.7502 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-27.7502 z" class="bar fam-io_uring"/>
+<text x="155.8" y="90.0" class="t-value">8.5</text>
+</g>
+<g class="row" data-tip="tokio · GET /json · 256 conns · 180k req/s · p50 1.37 ms · p90 2.06 ms · p99 2.83 ms · CPU 179% · 10.0 µs CPU/req · ctx 0.00/req · RSS 8.5 MB · disk 0 B">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,105.0 h38.19596 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-38.19596 z" class="bar fam-epoll"/>
+<text x="166.2" y="118.0" class="t-value">11.3</text>
+</g>
+<g class="row" data-tip="mio · GET /json · 256 conns · 150k req/s · p50 1.59 ms · p90 2.71 ms · p99 3.84 ms · CPU 140% · 9.3 µs CPU/req · ctx 0.00/req · RSS 8.0 MB · disk 0 B">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,133.0 h41.52908000000001 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-41.52908000000001 z" class="bar fam-epoll"/>
+<text x="169.5" y="146.0" class="t-value">12.2</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 256 conns · 135k req/s · p50 1.73 ms · p90 3.04 ms · p99 4.78 ms · CPU 184% · 13.6 µs CPU/req · ctx 0.00/req · RSS 8.2 MB · disk 0 B">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,161.0 h42.481399999999994 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-42.481399999999994 z" class="bar fam-io_uring"/>
+<text x="170.5" y="174.0" class="t-value">12.5</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 256 conns · 136k req/s · p50 1.72 ms · p90 2.98 ms · p99 4.40 ms · CPU 186% · 13.7 µs CPU/req · ctx 0.00/req · RSS 7.5 MB · disk 0 B">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,189.0 h58.49228 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-58.49228 z" class="bar fam-io_uring"/>
+<text x="186.5" y="202.0" class="t-value">16.8</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 256 conns · 109k req/s · p50 2.26 ms · p90 3.25 ms · p99 4.51 ms · CPU 99% · 9.0 µs CPU/req · ctx 0.00/req · RSS 10.2 MB · disk 0 B">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,217.0 h59.206520000000005 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-59.206520000000005 z" class="bar fam-epoll"/>
+<text x="187.2" y="230.0" class="t-value">17.0</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 256 conns · 108k req/s · p50 2.20 ms · p90 3.65 ms · p99 5.01 ms · CPU 196% · 18.1 µs CPU/req · ctx 0.00/req · RSS 28.8 MB · disk 0 B">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,245.0 h77.36012 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-77.36012 z" class="bar fam-io_uring"/>
+<text x="205.4" y="258.0" class="t-value">21.9</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 256 conns · 120k req/s · p50 1.92 ms · p90 3.25 ms · p99 7.06 ms · CPU 182% · 15.2 µs CPU/req · ctx 0.00/req · RSS 13.1 MB · disk 0 B">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,273.0 h99.323 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-99.323 z" class="bar fam-blocking"/>
+<text x="227.3" y="286.0" class="t-value">27.8</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 256 conns · 160k req/s · p50 1.38 ms · p90 2.51 ms · p99 5.87 ms · CPU 140% · 8.7 µs CPU/req · ctx 0.00/req · RSS 9.2 MB · disk 0 B">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,301.0 h154.79564 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-154.79564 z" class="bar fam-io_uring"/>
+<text x="282.8" y="314.0" class="t-value">42.7</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 256 conns · 134k req/s · p50 1.72 ms · p90 2.95 ms · p99 4.40 ms · CPU 188% · 14.0 µs CPU/req · ctx 0.00/req · RSS 7.4 MB · disk 0 B">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,329.0 h243.12331999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-243.12331999999998 z" class="bar fam-io_uring"/>
+<text x="371.1" y="342.0" class="t-value">66.4</text>
+</g>
+</svg>
+</div>
+</section>
+<section id="rate"><h2>Open-loop rate sweep</h2>
+<p class="lead">p99 latency measured from the <em>intended</em> send time while the client offers a fixed request rate over 256 connections. Where a line turns upward the server has stopped keeping up and queueing delay takes over: that is the runtime's knee on a 2-core server. Values are clipped at 50 ms.</p>
+<svg class="viz" viewBox="0 0 800 440" width="100%" style="max-width:800px" role="img" aria-label="GET /json p99 vs. offered rate">
+<text x="0" y="16" class="t-title">GET /json p99 vs. offered rate</text>
+<text x="0" y="32" class="t-sub">ms · lower is better · x = req/s offered</text>
+<text x="40" y="54" class="t-label t-ours">◆ uring-async</text>
+<line x1="40" y1="146.0" x2="156" y2="146.0" class="grid"/>
+<text x="36" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="104.0" x2="156" y2="104.0" class="grid"/>
+<text x="36" y="107.0" class="t-tick" text-anchor="end">25</text>
+<line x1="40" y1="62.0" x2="156" y2="62.0" class="grid"/>
+<text x="36" y="65.0" class="t-tick" text-anchor="end">50</text>
+<path d="M40.0,144.7 L63.2,145.1 L86.4,144.8 L109.6,141.5 L132.8,140.0 L156.0,130.6" class="line fam-io_uring"/>
+<g class="pt" data-tip="uring-async · 10000 req/s · 1"><circle cx="40.0" cy="144.7" r="12" class="hit"/><circle cx="40.0" cy="144.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 25000 req/s · 1"><circle cx="63.2" cy="145.1" r="12" class="hit"/><circle cx="63.2" cy="145.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 50000 req/s · 1"><circle cx="86.4" cy="144.8" r="12" class="hit"/><circle cx="86.4" cy="144.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 75000 req/s · 3"><circle cx="109.6" cy="141.5" r="12" class="hit"/><circle cx="109.6" cy="141.5" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 100000 req/s · 4"><circle cx="132.8" cy="140.0" r="12" class="hit"/><circle cx="132.8" cy="140.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 125000 req/s · 9"><circle cx="156.0" cy="130.6" r="12" class="hit"/><circle cx="156.0" cy="130.6" r="4" class="dot fam-io_uring"/></g>
+<text x="164.0" y="134.6" class="t-value">9</text>
+<text x="40.0" y="160" class="t-tick" text-anchor="middle">10k</text>
+<text x="63.2" y="160" class="t-tick" text-anchor="middle">25k</text>
+<text x="86.4" y="160" class="t-tick" text-anchor="middle">50k</text>
+<text x="109.6" y="160" class="t-tick" text-anchor="middle">75k</text>
+<text x="132.8" y="160" class="t-tick" text-anchor="middle">100k</text>
+<text x="156.0" y="160" class="t-tick" text-anchor="middle">125k</text>
+<text x="240" y="54" class="t-label t-ours">◆ uring</text>
+<line x1="240" y1="146.0" x2="356" y2="146.0" class="grid"/>
+<text x="236" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="104.0" x2="356" y2="104.0" class="grid"/>
+<text x="236" y="107.0" class="t-tick" text-anchor="end">25</text>
+<line x1="240" y1="62.0" x2="356" y2="62.0" class="grid"/>
+<text x="236" y="65.0" class="t-tick" text-anchor="end">50</text>
+<path d="M240.0,144.3 L263.2,142.7 L286.4,142.9 L309.6,105.1 L332.8,139.3 L356.0,62.0" class="line fam-io_uring"/>
+<g class="pt" data-tip="uring · 10000 req/s · 1"><circle cx="240.0" cy="144.3" r="12" class="hit"/><circle cx="240.0" cy="144.3" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 25000 req/s · 2"><circle cx="263.2" cy="142.7" r="12" class="hit"/><circle cx="263.2" cy="142.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 50000 req/s · 2"><circle cx="286.4" cy="142.9" r="12" class="hit"/><circle cx="286.4" cy="142.9" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 75000 req/s · 24"><circle cx="309.6" cy="105.1" r="12" class="hit"/><circle cx="309.6" cy="105.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 100000 req/s · 4"><circle cx="332.8" cy="139.3" r="12" class="hit"/><circle cx="332.8" cy="139.3" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 125000 req/s · 50"><circle cx="356.0" cy="62.0" r="12" class="hit"/><circle cx="356.0" cy="62.0" r="4" class="dot fam-io_uring"/></g>
+<text x="364.0" y="66.0" class="t-value">50</text>
+<text x="240.0" y="160" class="t-tick" text-anchor="middle">10k</text>
+<text x="263.2" y="160" class="t-tick" text-anchor="middle">25k</text>
+<text x="286.4" y="160" class="t-tick" text-anchor="middle">50k</text>
+<text x="309.6" y="160" class="t-tick" text-anchor="middle">75k</text>
+<text x="332.8" y="160" class="t-tick" text-anchor="middle">100k</text>
+<text x="356.0" y="160" class="t-tick" text-anchor="middle">125k</text>
+<text x="440" y="54" class="t-label">monoio</text>
+<line x1="440" y1="146.0" x2="556" y2="146.0" class="grid"/>
+<text x="436" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="104.0" x2="556" y2="104.0" class="grid"/>
+<text x="436" y="107.0" class="t-tick" text-anchor="end">25</text>
+<line x1="440" y1="62.0" x2="556" y2="62.0" class="grid"/>
+<text x="436" y="65.0" class="t-tick" text-anchor="end">50</text>
+<path d="M440.0,144.2 L463.2,144.2 L486.4,144.1 L509.6,62.0 L532.8,62.0 L556.0,62.0" class="line fam-io_uring"/>
+<g class="pt" data-tip="monoio · 10000 req/s · 1"><circle cx="440.0" cy="144.2" r="12" class="hit"/><circle cx="440.0" cy="144.2" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 25000 req/s · 1"><circle cx="463.2" cy="144.2" r="12" class="hit"/><circle cx="463.2" cy="144.2" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 50000 req/s · 1"><circle cx="486.4" cy="144.1" r="12" class="hit"/><circle cx="486.4" cy="144.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 75000 req/s · 50"><circle cx="509.6" cy="62.0" r="12" class="hit"/><circle cx="509.6" cy="62.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 100000 req/s · 50"><circle cx="532.8" cy="62.0" r="12" class="hit"/><circle cx="532.8" cy="62.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 125000 req/s · 50"><circle cx="556.0" cy="62.0" r="12" class="hit"/><circle cx="556.0" cy="62.0" r="4" class="dot fam-io_uring"/></g>
+<text x="564.0" y="66.0" class="t-value">50</text>
+<text x="440.0" y="160" class="t-tick" text-anchor="middle">10k</text>
+<text x="463.2" y="160" class="t-tick" text-anchor="middle">25k</text>
+<text x="486.4" y="160" class="t-tick" text-anchor="middle">50k</text>
+<text x="509.6" y="160" class="t-tick" text-anchor="middle">75k</text>
+<text x="532.8" y="160" class="t-tick" text-anchor="middle">100k</text>
+<text x="556.0" y="160" class="t-tick" text-anchor="middle">125k</text>
+<text x="640" y="54" class="t-label">compio</text>
+<line x1="640" y1="146.0" x2="756" y2="146.0" class="grid"/>
+<text x="636" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="640" y1="104.0" x2="756" y2="104.0" class="grid"/>
+<text x="636" y="107.0" class="t-tick" text-anchor="end">25</text>
+<line x1="640" y1="62.0" x2="756" y2="62.0" class="grid"/>
+<text x="636" y="65.0" class="t-tick" text-anchor="end">50</text>
+<path d="M640.0,144.8 L663.2,144.6 L686.4,142.5 L709.6,137.8 L732.8,131.0 L756.0,62.0" class="line fam-io_uring"/>
+<g class="pt" data-tip="compio · 10000 req/s · 1"><circle cx="640.0" cy="144.8" r="12" class="hit"/><circle cx="640.0" cy="144.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 25000 req/s · 1"><circle cx="663.2" cy="144.6" r="12" class="hit"/><circle cx="663.2" cy="144.6" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 50000 req/s · 2"><circle cx="686.4" cy="142.5" r="12" class="hit"/><circle cx="686.4" cy="142.5" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 75000 req/s · 5"><circle cx="709.6" cy="137.8" r="12" class="hit"/><circle cx="709.6" cy="137.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 100000 req/s · 9"><circle cx="732.8" cy="131.0" r="12" class="hit"/><circle cx="732.8" cy="131.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 125000 req/s · 50"><circle cx="756.0" cy="62.0" r="12" class="hit"/><circle cx="756.0" cy="62.0" r="4" class="dot fam-io_uring"/></g>
+<text x="764.0" y="66.0" class="t-value">50</text>
+<text x="640.0" y="160" class="t-tick" text-anchor="middle">10k</text>
+<text x="663.2" y="160" class="t-tick" text-anchor="middle">25k</text>
+<text x="686.4" y="160" class="t-tick" text-anchor="middle">50k</text>
+<text x="709.6" y="160" class="t-tick" text-anchor="middle">75k</text>
+<text x="732.8" y="160" class="t-tick" text-anchor="middle">100k</text>
+<text x="756.0" y="160" class="t-tick" text-anchor="middle">125k</text>
+<text x="40" y="184" class="t-label">glommio</text>
+<line x1="40" y1="276.0" x2="156" y2="276.0" class="grid"/>
+<text x="36" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="234.0" x2="156" y2="234.0" class="grid"/>
+<text x="36" y="237.0" class="t-tick" text-anchor="end">25</text>
+<line x1="40" y1="192.0" x2="156" y2="192.0" class="grid"/>
+<text x="36" y="195.0" class="t-tick" text-anchor="end">50</text>
+<path d="M40.0,275.1 L63.2,273.7 L86.4,270.4 L109.6,259.0 L132.8,192.0 L156.0,192.0" class="line fam-io_uring"/>
+<g class="pt" data-tip="glommio · 10000 req/s · 1"><circle cx="40.0" cy="275.1" r="12" class="hit"/><circle cx="40.0" cy="275.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 25000 req/s · 1"><circle cx="63.2" cy="273.7" r="12" class="hit"/><circle cx="63.2" cy="273.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 50000 req/s · 3"><circle cx="86.4" cy="270.4" r="12" class="hit"/><circle cx="86.4" cy="270.4" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 75000 req/s · 10"><circle cx="109.6" cy="259.0" r="12" class="hit"/><circle cx="109.6" cy="259.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 100000 req/s · 50"><circle cx="132.8" cy="192.0" r="12" class="hit"/><circle cx="132.8" cy="192.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 125000 req/s · 50"><circle cx="156.0" cy="192.0" r="12" class="hit"/><circle cx="156.0" cy="192.0" r="4" class="dot fam-io_uring"/></g>
+<text x="164.0" y="196.0" class="t-value">50</text>
+<text x="40.0" y="290" class="t-tick" text-anchor="middle">10k</text>
+<text x="63.2" y="290" class="t-tick" text-anchor="middle">25k</text>
+<text x="86.4" y="290" class="t-tick" text-anchor="middle">50k</text>
+<text x="109.6" y="290" class="t-tick" text-anchor="middle">75k</text>
+<text x="132.8" y="290" class="t-tick" text-anchor="middle">100k</text>
+<text x="156.0" y="290" class="t-tick" text-anchor="middle">125k</text>
+<text x="240" y="184" class="t-label">tokio-uring</text>
+<line x1="240" y1="276.0" x2="356" y2="276.0" class="grid"/>
+<text x="236" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="234.0" x2="356" y2="234.0" class="grid"/>
+<text x="236" y="237.0" class="t-tick" text-anchor="end">25</text>
+<line x1="240" y1="192.0" x2="356" y2="192.0" class="grid"/>
+<text x="236" y="195.0" class="t-tick" text-anchor="end">50</text>
+<path d="M240.0,273.7 L263.2,274.8 L286.4,273.7 L309.6,265.6 L332.8,203.1 L356.0,192.0" class="line fam-io_uring"/>
+<g class="pt" data-tip="tokio-uring · 10000 req/s · 1"><circle cx="240.0" cy="273.7" r="12" class="hit"/><circle cx="240.0" cy="273.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 25000 req/s · 1"><circle cx="263.2" cy="274.8" r="12" class="hit"/><circle cx="263.2" cy="274.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 50000 req/s · 1"><circle cx="286.4" cy="273.7" r="12" class="hit"/><circle cx="286.4" cy="273.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 75000 req/s · 6"><circle cx="309.6" cy="265.6" r="12" class="hit"/><circle cx="309.6" cy="265.6" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 100000 req/s · 43"><circle cx="332.8" cy="203.1" r="12" class="hit"/><circle cx="332.8" cy="203.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 125000 req/s · 50"><circle cx="356.0" cy="192.0" r="12" class="hit"/><circle cx="356.0" cy="192.0" r="4" class="dot fam-io_uring"/></g>
+<text x="364.0" y="196.0" class="t-value">50</text>
+<text x="240.0" y="290" class="t-tick" text-anchor="middle">10k</text>
+<text x="263.2" y="290" class="t-tick" text-anchor="middle">25k</text>
+<text x="286.4" y="290" class="t-tick" text-anchor="middle">50k</text>
+<text x="309.6" y="290" class="t-tick" text-anchor="middle">75k</text>
+<text x="332.8" y="290" class="t-tick" text-anchor="middle">100k</text>
+<text x="356.0" y="290" class="t-tick" text-anchor="middle">125k</text>
+<text x="440" y="184" class="t-label t-ours">◆ tokio</text>
+<line x1="440" y1="276.0" x2="556" y2="276.0" class="grid"/>
+<text x="436" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="234.0" x2="556" y2="234.0" class="grid"/>
+<text x="436" y="237.0" class="t-tick" text-anchor="end">25</text>
+<line x1="440" y1="192.0" x2="556" y2="192.0" class="grid"/>
+<text x="436" y="195.0" class="t-tick" text-anchor="end">50</text>
+<path d="M440.0,274.8 L463.2,274.7 L486.4,275.2 L509.6,274.3 L532.8,271.6 L556.0,226.4" class="line fam-epoll"/>
+<g class="pt" data-tip="tokio · 10000 req/s · 1"><circle cx="440.0" cy="274.8" r="12" class="hit"/><circle cx="440.0" cy="274.8" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 25000 req/s · 1"><circle cx="463.2" cy="274.7" r="12" class="hit"/><circle cx="463.2" cy="274.7" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 50000 req/s · 0"><circle cx="486.4" cy="275.2" r="12" class="hit"/><circle cx="486.4" cy="275.2" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 75000 req/s · 1"><circle cx="509.6" cy="274.3" r="12" class="hit"/><circle cx="509.6" cy="274.3" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 100000 req/s · 3"><circle cx="532.8" cy="271.6" r="12" class="hit"/><circle cx="532.8" cy="271.6" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 125000 req/s · 30"><circle cx="556.0" cy="226.4" r="12" class="hit"/><circle cx="556.0" cy="226.4" r="4" class="dot fam-epoll"/></g>
+<text x="564.0" y="230.4" class="t-value">30</text>
+<text x="440.0" y="290" class="t-tick" text-anchor="middle">10k</text>
+<text x="463.2" y="290" class="t-tick" text-anchor="middle">25k</text>
+<text x="486.4" y="290" class="t-tick" text-anchor="middle">50k</text>
+<text x="509.6" y="290" class="t-tick" text-anchor="middle">75k</text>
+<text x="532.8" y="290" class="t-tick" text-anchor="middle">100k</text>
+<text x="556.0" y="290" class="t-tick" text-anchor="middle">125k</text>
+<text x="640" y="184" class="t-label t-ours">◆ tokio-st</text>
+<line x1="640" y1="276.0" x2="756" y2="276.0" class="grid"/>
+<text x="636" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="640" y1="234.0" x2="756" y2="234.0" class="grid"/>
+<text x="636" y="237.0" class="t-tick" text-anchor="end">25</text>
+<line x1="640" y1="192.0" x2="756" y2="192.0" class="grid"/>
+<text x="636" y="195.0" class="t-tick" text-anchor="end">50</text>
+<path d="M640.0,274.4 L663.2,275.0 L686.4,273.3 L709.6,272.6 L732.8,192.0 L756.0,192.0" class="line fam-epoll"/>
+<g class="pt" data-tip="tokio-st · 10000 req/s · 1"><circle cx="640.0" cy="274.4" r="12" class="hit"/><circle cx="640.0" cy="274.4" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 25000 req/s · 1"><circle cx="663.2" cy="275.0" r="12" class="hit"/><circle cx="663.2" cy="275.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 50000 req/s · 2"><circle cx="686.4" cy="273.3" r="12" class="hit"/><circle cx="686.4" cy="273.3" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 75000 req/s · 2"><circle cx="709.6" cy="272.6" r="12" class="hit"/><circle cx="709.6" cy="272.6" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 100000 req/s · 50"><circle cx="732.8" cy="192.0" r="12" class="hit"/><circle cx="732.8" cy="192.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 125000 req/s · 50"><circle cx="756.0" cy="192.0" r="12" class="hit"/><circle cx="756.0" cy="192.0" r="4" class="dot fam-epoll"/></g>
+<text x="764.0" y="196.0" class="t-value">50</text>
+<text x="640.0" y="290" class="t-tick" text-anchor="middle">10k</text>
+<text x="663.2" y="290" class="t-tick" text-anchor="middle">25k</text>
+<text x="686.4" y="290" class="t-tick" text-anchor="middle">50k</text>
+<text x="709.6" y="290" class="t-tick" text-anchor="middle">75k</text>
+<text x="732.8" y="290" class="t-tick" text-anchor="middle">100k</text>
+<text x="756.0" y="290" class="t-tick" text-anchor="middle">125k</text>
+<text x="40" y="314" class="t-label t-ours">◆ mio</text>
+<line x1="40" y1="406.0" x2="156" y2="406.0" class="grid"/>
+<text x="36" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="364.0" x2="156" y2="364.0" class="grid"/>
+<text x="36" y="367.0" class="t-tick" text-anchor="end">25</text>
+<line x1="40" y1="322.0" x2="156" y2="322.0" class="grid"/>
+<text x="36" y="325.0" class="t-tick" text-anchor="end">50</text>
+<path d="M40.0,402.4 L63.2,322.0 L86.4,403.5 L109.6,403.0 L132.8,383.4 L156.0,384.7" class="line fam-epoll"/>
+<g class="pt" data-tip="mio · 10000 req/s · 2"><circle cx="40.0" cy="402.4" r="12" class="hit"/><circle cx="40.0" cy="402.4" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 25000 req/s · 50"><circle cx="63.2" cy="322.0" r="12" class="hit"/><circle cx="63.2" cy="322.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 50000 req/s · 1"><circle cx="86.4" cy="403.5" r="12" class="hit"/><circle cx="86.4" cy="403.5" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 75000 req/s · 2"><circle cx="109.6" cy="403.0" r="12" class="hit"/><circle cx="109.6" cy="403.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 100000 req/s · 13"><circle cx="132.8" cy="383.4" r="12" class="hit"/><circle cx="132.8" cy="383.4" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 125000 req/s · 13"><circle cx="156.0" cy="384.7" r="12" class="hit"/><circle cx="156.0" cy="384.7" r="4" class="dot fam-epoll"/></g>
+<text x="164.0" y="388.7" class="t-value">13</text>
+<text x="40.0" y="420" class="t-tick" text-anchor="middle">10k</text>
+<text x="63.2" y="420" class="t-tick" text-anchor="middle">25k</text>
+<text x="86.4" y="420" class="t-tick" text-anchor="middle">50k</text>
+<text x="109.6" y="420" class="t-tick" text-anchor="middle">75k</text>
+<text x="132.8" y="420" class="t-tick" text-anchor="middle">100k</text>
+<text x="156.0" y="420" class="t-tick" text-anchor="middle">125k</text>
+<text x="240" y="314" class="t-label t-ours">◆ threads</text>
+<line x1="240" y1="406.0" x2="356" y2="406.0" class="grid"/>
+<text x="236" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="364.0" x2="356" y2="364.0" class="grid"/>
+<text x="236" y="367.0" class="t-tick" text-anchor="end">25</text>
+<line x1="240" y1="322.0" x2="356" y2="322.0" class="grid"/>
+<text x="236" y="325.0" class="t-tick" text-anchor="end">50</text>
+<path d="M240.0,404.8 L263.2,404.9 L286.4,400.5 L309.6,322.0 L332.8,322.0 L356.0,322.0" class="line fam-blocking"/>
+<g class="pt" data-tip="threads · 10000 req/s · 1"><circle cx="240.0" cy="404.8" r="12" class="hit"/><circle cx="240.0" cy="404.8" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 25000 req/s · 1"><circle cx="263.2" cy="404.9" r="12" class="hit"/><circle cx="263.2" cy="404.9" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 50000 req/s · 3"><circle cx="286.4" cy="400.5" r="12" class="hit"/><circle cx="286.4" cy="400.5" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 75000 req/s · 50"><circle cx="309.6" cy="322.0" r="12" class="hit"/><circle cx="309.6" cy="322.0" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 100000 req/s · 50"><circle cx="332.8" cy="322.0" r="12" class="hit"/><circle cx="332.8" cy="322.0" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 125000 req/s · 50"><circle cx="356.0" cy="322.0" r="12" class="hit"/><circle cx="356.0" cy="322.0" r="4" class="dot fam-blocking"/></g>
+<text x="364.0" y="326.0" class="t-value">50</text>
+<text x="240.0" y="420" class="t-tick" text-anchor="middle">10k</text>
+<text x="263.2" y="420" class="t-tick" text-anchor="middle">25k</text>
+<text x="286.4" y="420" class="t-tick" text-anchor="middle">50k</text>
+<text x="309.6" y="420" class="t-tick" text-anchor="middle">75k</text>
+<text x="332.8" y="420" class="t-tick" text-anchor="middle">100k</text>
+<text x="356.0" y="420" class="t-tick" text-anchor="middle">125k</text>
+<text x="440" y="314" class="t-label t-ours">◆ pool</text>
+<line x1="440" y1="406.0" x2="556" y2="406.0" class="grid"/>
+<text x="436" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="364.0" x2="556" y2="364.0" class="grid"/>
+<text x="436" y="367.0" class="t-tick" text-anchor="end">25</text>
+<line x1="440" y1="322.0" x2="556" y2="322.0" class="grid"/>
+<text x="436" y="325.0" class="t-tick" text-anchor="end">50</text>
+<path d="M440.0,403.7 L463.2,403.2 L486.4,405.4 L509.6,405.5 L532.8,405.3 L556.0,405.1" class="line fam-blocking"/>
+<g class="pt" data-tip="pool · 10000 req/s · 1"><circle cx="440.0" cy="403.7" r="12" class="hit"/><circle cx="440.0" cy="403.7" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 25000 req/s · 2"><circle cx="463.2" cy="403.2" r="12" class="hit"/><circle cx="463.2" cy="403.2" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 50000 req/s · 0"><circle cx="486.4" cy="405.4" r="12" class="hit"/><circle cx="486.4" cy="405.4" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 75000 req/s · 0"><circle cx="509.6" cy="405.5" r="12" class="hit"/><circle cx="509.6" cy="405.5" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 100000 req/s · 0"><circle cx="532.8" cy="405.3" r="12" class="hit"/><circle cx="532.8" cy="405.3" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 125000 req/s · 1"><circle cx="556.0" cy="405.1" r="12" class="hit"/><circle cx="556.0" cy="405.1" r="4" class="dot fam-blocking"/></g>
+<text x="564.0" y="409.1" class="t-value">1</text>
+<text x="440.0" y="420" class="t-tick" text-anchor="middle">10k</text>
+<text x="463.2" y="420" class="t-tick" text-anchor="middle">25k</text>
+<text x="486.4" y="420" class="t-tick" text-anchor="middle">50k</text>
+<text x="509.6" y="420" class="t-tick" text-anchor="middle">75k</text>
+<text x="532.8" y="420" class="t-tick" text-anchor="middle">100k</text>
+<text x="556.0" y="420" class="t-tick" text-anchor="middle">125k</text>
+</svg>
+</section>
 <section id="dataset"><h2>Dataset</h2>
-<p class="lead">Every row behind the charts, as recorded by <code>phhtp-bench --json</code>. Click a header to sort. Source files: <code>matrix.jsonl</code>, <code>scale.jsonl</code>.</p>
+<p class="lead">Every row behind the charts, as recorded by <code>phhtp-bench --json</code>. Click a header to sort. Source files: <code>matrix.jsonl</code>, <code>scale.jsonl</code>, <code>expand.jsonl</code>.</p>
 <div class="tablewrap"><table id="data"><thead><tr><th data-k="0">runtime</th><th data-k="1">endpoint</th><th data-k="2">conns</th><th data-k="3">workers</th><th data-k="4">req/s</th><th data-k="5">p50</th><th data-k="6">p90</th><th data-k="7">p99</th><th data-k="8">max</th><th data-k="9">errors</th><th data-k="10">CPU %</th><th data-k="11">µs CPU/req</th><th data-k="12">ctx/req</th><th data-k="13">RSS MB</th><th data-k="14">threads</th><th data-k="15">disk B</th><th data-k="16">reps</th><th data-k="17">note</th><th data-k="18">file</th></tr></thead><tbody>
 <tr><td data-v="threads">threads</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="89770.75">89771</td><td data-v="656">0.66 ms</td><td data-v="1109">1.11 ms</td><td data-v="2395">2.40 ms</td><td data-v="16111">16 ms</td><td data-v="0">0</td><td data-v="179">179</td><td data-v="20.5">20.5</td><td data-v="0.00">0.00</td><td data-v="6.9">6.9</td><td data-v="44">44</td><td data-v="0">0</td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
 <tr><td data-v="threads">threads</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="97837.0">97837</td><td data-v="592">0.59 ms</td><td data-v="1037">1.04 ms</td><td data-v="2000">2.00 ms</td><td data-v="13495">13 ms</td><td data-v="0">0</td><td data-v="181">181</td><td data-v="18.4">18.4</td><td data-v="0.00">0.00</td><td data-v="7.1">7.1</td><td data-v="26">26</td><td data-v="0">0</td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
@@ -3222,6 +4282,127 @@ code { background: var(--surface-2); padding: 1px 4px; border-radius: 3px; font-
 <tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="1">1</td><td data-v="68255.5">68256</td><td data-v="14447">14 ms</td><td data-v="18671">19 ms</td><td data-v="28335">28 ms</td><td data-v="35455">35 ms</td><td data-v="0">0</td><td data-v="96">96</td><td data-v="14.1">14.1</td><td data-v="0.00">0.00</td><td data-v="17.1">17.1</td><td data-v="2">2</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=workers somaxconn=65535">sweep=workers somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
 <tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="2">2</td><td data-v="114104.0">114104</td><td data-v="5079">5.08 ms</td><td data-v="28015">28 ms</td><td data-v="48959">49 ms</td><td data-v="74559">75 ms</td><td data-v="0">0</td><td data-v="184">184</td><td data-v="16.0">16.0</td><td data-v="0.00">0.00</td><td data-v="17.1">17.1</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=workers somaxconn=65535">sweep=workers somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
 <tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="4">4</td><td data-v="128448.25">128448</td><td data-v="3489">3.49 ms</td><td data-v="27823">28 ms</td><td data-v="49727">50 ms</td><td data-v="66815">67 ms</td><td data-v="0">0</td><td data-v="188">188</td><td data-v="14.7">14.7</td><td data-v="0.00">0.00</td><td data-v="17.5">17.5</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=workers somaxconn=65535">sweep=workers somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="1495392.0">1495392</td><td data-v="711">0.71 ms</td><td data-v="1230">1.23 ms</td><td data-v="2283">2.28 ms</td><td data-v="56063">56 ms</td><td data-v="0">0</td><td data-v="187">187</td><td data-v="1.4">1.4</td><td data-v="0.00">0.00</td><td data-v="7.1">7.1</td><td data-v="33">33</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=pipeline depth=16 somaxconn=4096">expand=pipeline depth=16 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="121735.8">121736</td><td data-v="522">0.52 ms</td><td data-v="930">0.93 ms</td><td data-v="2173">2.17 ms</td><td data-v="44959">45 ms</td><td data-v="0">0</td><td data-v="183">183</td><td data-v="12.1">12.1</td><td data-v="0.00">0.00</td><td data-v="478.6">478.6</td><td data-v="9967">9967</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=idle idle=10000 somaxconn=4096">expand=idle idle=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="7843.6">7844</td><td data-v="7691">7.69 ms</td><td data-v="20255">20 ms</td><td data-v="39039">39 ms</td><td data-v="221183">221 ms</td><td data-v="0">0</td><td data-v="198">198</td><td data-v="253.7">253.7</td><td data-v="0.00">0.00</td><td data-v="6.9">6.9</td><td data-v="57">57</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=mix somaxconn=4096">expand=mix somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json">GET /json</td><td data-v="256">256</td><td data-v=""></td><td data-v="120208.65">120209</td><td data-v="1916">1.92 ms</td><td data-v="3253">3.25 ms</td><td data-v="7059">7.06 ms</td><td data-v="130879">131 ms</td><td data-v="0">0</td><td data-v="182">182</td><td data-v="15.2">15.2</td><td data-v="0.00">0.00</td><td data-v="13.1">13.1</td><td data-v="234">234</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="expand=tail somaxconn=4096">expand=tail somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="124589.8">124590</td><td data-v="460">0.46 ms</td><td data-v="809">0.81 ms</td><td data-v="2245">2.25 ms</td><td data-v="37119">37 ms</td><td data-v="0">0</td><td data-v="162">162</td><td data-v="13.2">13.2</td><td data-v="0.00">0.00</td><td data-v="7.0">7.0</td><td data-v="62">62</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=contend hog_cpu=1 somaxconn=4096">expand=contend hog_cpu=1 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json [open-loop 10000 req/s]">GET /json [open-loop 10000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="10050.8">10051</td><td data-v="62">0.06 ms</td><td data-v="109">0.11 ms</td><td data-v="716">0.72 ms</td><td data-v="6575">6.58 ms</td><td data-v="0">0</td><td data-v="27">27</td><td data-v="26.7">26.7</td><td data-v="0.00">0.00</td><td data-v="13.1">13.1</td><td data-v="247">247</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=10000 somaxconn=4096">sweep=rate rate=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json [open-loop 25000 req/s]">GET /json [open-loop 25000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="25049.0">25049</td><td data-v="60">0.06 ms</td><td data-v="104">0.10 ms</td><td data-v="627">0.63 ms</td><td data-v="5575">5.58 ms</td><td data-v="0">0</td><td data-v="60">60</td><td data-v="24.1">24.1</td><td data-v="0.00">0.00</td><td data-v="15.5">15.5</td><td data-v="242">242</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=25000 somaxconn=4096">sweep=rate rate=25000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json [open-loop 50000 req/s]">GET /json [open-loop 50000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="50049.8">50050</td><td data-v="101">0.10 ms</td><td data-v="326">0.33 ms</td><td data-v="3263">3.26 ms</td><td data-v="23231">23 ms</td><td data-v="0">0</td><td data-v="130">130</td><td data-v="26.1">26.1</td><td data-v="0.00">0.00</td><td data-v="14.7">14.7</td><td data-v="90">90</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=50000 somaxconn=4096">sweep=rate rate=50000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="75048.8">75049</td><td data-v="177">0.18 ms</td><td data-v="20095">20 ms</td><td data-v="185855">186 ms</td><td data-v="261631">262 ms</td><td data-v="0">0</td><td data-v="151">151</td><td data-v="20.1">20.1</td><td data-v="0.00">0.00</td><td data-v="16.4">16.4</td><td data-v="231">231</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="100030.4">100030</td><td data-v="1643">1.64 ms</td><td data-v="40703">41 ms</td><td data-v="99839">100 ms</td><td data-v="167295">167 ms</td><td data-v="0">0</td><td data-v="167">167</td><td data-v="16.8">16.8</td><td data-v="0.00">0.00</td><td data-v="15.9">15.9</td><td data-v="178">178</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="109077.0">109077</td><td data-v="134527">135 ms</td><td data-v="530943">531 ms</td><td data-v="697855">698 ms</td><td data-v="855551">856 ms</td><td data-v="0">0</td><td data-v="180">180</td><td data-v="16.6">16.6</td><td data-v="0.00">0.00</td><td data-v="13.9">13.9</td><td data-v="101">101</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="1436713.6">1436714</td><td data-v="656">0.66 ms</td><td data-v="1232">1.23 ms</td><td data-v="2589">2.59 ms</td><td data-v="46879">47 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="2">2</td><td data-v="expand=pipeline depth=16 somaxconn=4096">expand=pipeline depth=16 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="124592.8">124593</td><td data-v="316">0.32 ms</td><td data-v="527">0.53 ms</td><td data-v="1000">1.00 ms</td><td data-v="1108991">1109 ms</td><td data-v="47">47</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="2">2</td><td data-v="expand=idle idle=10000 somaxconn=4096">expand=idle idle=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="8062.2">8062</td><td data-v="7575">7.58 ms</td><td data-v="16879">17 ms</td><td data-v="34655">35 ms</td><td data-v="84159">84 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="2">2</td><td data-v="expand=mix somaxconn=4096">expand=mix somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json">GET /json</td><td data-v="256">256</td><td data-v=""></td><td data-v="128185.75">128186</td><td data-v="464">0.46 ms</td><td data-v="748">0.75 ms</td><td data-v="1350">1.35 ms</td><td data-v="1983487">1983 ms</td><td data-v="192">192</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="1">1</td><td data-v="expand=tail somaxconn=4096">expand=tail somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="127728.8">127729</td><td data-v="483">0.48 ms</td><td data-v="823">0.82 ms</td><td data-v="1906">1.91 ms</td><td data-v="22031">22 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="2">2</td><td data-v="expand=contend hog_cpu=1 somaxconn=4096">expand=contend hog_cpu=1 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json [open-loop 10000 req/s]">GET /json [open-loop 10000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="2516.0">2516</td><td data-v="69">0.07 ms</td><td data-v="165">0.17 ms</td><td data-v="1346">1.35 ms</td><td data-v="4607">4.61 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="1">1</td><td data-v="sweep=rate rate=10000 somaxconn=4096">sweep=rate rate=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json [open-loop 25000 req/s]">GET /json [open-loop 25000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="6265.0">6265</td><td data-v="64">0.06 ms</td><td data-v="126">0.13 ms</td><td data-v="1695">1.70 ms</td><td data-v="33279">33 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="1">1</td><td data-v="sweep=rate rate=25000 somaxconn=4096">sweep=rate rate=25000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json [open-loop 50000 req/s]">GET /json [open-loop 50000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="12512.8">12513</td><td data-v="50">0.05 ms</td><td data-v="83">0.08 ms</td><td data-v="383">0.38 ms</td><td data-v="10919">11 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="1">1</td><td data-v="sweep=rate rate=50000 somaxconn=4096">sweep=rate rate=50000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="18762.2">18762</td><td data-v="46">0.05 ms</td><td data-v="77">0.08 ms</td><td data-v="285">0.28 ms</td><td data-v="3101">3.10 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="25012.8">25013</td><td data-v="48">0.05 ms</td><td data-v="83">0.08 ms</td><td data-v="412">0.41 ms</td><td data-v="5355">5.36 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="31262.0">31262</td><td data-v="49">0.05 ms</td><td data-v="88">0.09 ms</td><td data-v="516">0.52 ms</td><td data-v="4919">4.92 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="1870323.2">1870323</td><td data-v="546">0.55 ms</td><td data-v="846">0.85 ms</td><td data-v="1240">1.24 ms</td><td data-v="11647">12 ms</td><td data-v="0">0</td><td data-v="174">174</td><td data-v="0.9">0.9</td><td data-v="0.00">0.00</td><td data-v="5.7">5.7</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=pipeline depth=16 somaxconn=4096">expand=pipeline depth=16 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="168241.6">168242</td><td data-v="386">0.39 ms</td><td data-v="624">0.62 ms</td><td data-v="903">0.90 ms</td><td data-v="7023">7.02 ms</td><td data-v="0">0</td><td data-v="138">138</td><td data-v="8.4">8.4</td><td data-v="0.00">0.00</td><td data-v="232.0">232.0</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=idle idle=10000 somaxconn=4096">expand=idle idle=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="8167.8">8168</td><td data-v="7639">7.64 ms</td><td data-v="12703">13 ms</td><td data-v="18127">18 ms</td><td data-v="24239">24 ms</td><td data-v="0">0</td><td data-v="197">197</td><td data-v="241.5">241.5</td><td data-v="0.00">0.00</td><td data-v="5.6">5.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=mix somaxconn=4096">expand=mix somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json">GET /json</td><td data-v="256">256</td><td data-v=""></td><td data-v="150279.3">150279</td><td data-v="1595">1.59 ms</td><td data-v="2711">2.71 ms</td><td data-v="3837">3.84 ms</td><td data-v="22175">22 ms</td><td data-v="0">0</td><td data-v="140">140</td><td data-v="9.3">9.3</td><td data-v="0.00">0.00</td><td data-v="8.0">8.0</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="expand=tail somaxconn=4096">expand=tail somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="150873.8">150874</td><td data-v="229">0.23 ms</td><td data-v="589">0.59 ms</td><td data-v="4499">4.50 ms</td><td data-v="20671">21 ms</td><td data-v="0">0</td><td data-v="106">106</td><td data-v="7.1">7.1</td><td data-v="0.00">0.00</td><td data-v="5.7">5.7</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=contend hog_cpu=1 somaxconn=4096">expand=contend hog_cpu=1 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json [open-loop 10000 req/s]">GET /json [open-loop 10000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="10053.2">10053</td><td data-v="65">0.07 ms</td><td data-v="137">0.14 ms</td><td data-v="2143">2.14 ms</td><td data-v="8083">8.08 ms</td><td data-v="0">0</td><td data-v="20">20</td><td data-v="19.9">19.9</td><td data-v="0.00">0.00</td><td data-v="8.1">8.1</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=10000 somaxconn=4096">sweep=rate rate=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json [open-loop 25000 req/s]">GET /json [open-loop 25000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="25052.4">25052</td><td data-v="53">0.05 ms</td><td data-v="113">0.11 ms</td><td data-v="103679">104 ms</td><td data-v="152191">152 ms</td><td data-v="0">0</td><td data-v="41">41</td><td data-v="16.3">16.3</td><td data-v="0.00">0.00</td><td data-v="10.8">10.8</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=25000 somaxconn=4096">sweep=rate rate=25000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json [open-loop 50000 req/s]">GET /json [open-loop 50000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="50051.2">50051</td><td data-v="62">0.06 ms</td><td data-v="127">0.13 ms</td><td data-v="1476">1.48 ms</td><td data-v="12263">12 ms</td><td data-v="0">0</td><td data-v="66">66</td><td data-v="13.1">13.1</td><td data-v="0.00">0.00</td><td data-v="11.4">11.4</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=50000 somaxconn=4096">sweep=rate rate=50000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="75050.0">75050</td><td data-v="91">0.09 ms</td><td data-v="277">0.28 ms</td><td data-v="1806">1.81 ms</td><td data-v="7723">7.72 ms</td><td data-v="0">0</td><td data-v="87">87</td><td data-v="11.6">11.6</td><td data-v="0.00">0.00</td><td data-v="11.4">11.4</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="100050.2">100050</td><td data-v="158">0.16 ms</td><td data-v="975">0.97 ms</td><td data-v="13455">13 ms</td><td data-v="23663">24 ms</td><td data-v="0">0</td><td data-v="105">105</td><td data-v="10.5">10.5</td><td data-v="0.00">0.00</td><td data-v="11.4">11.4</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="125042.8">125043</td><td data-v="596">0.60 ms</td><td data-v="4123">4.12 ms</td><td data-v="12687">13 ms</td><td data-v="24351">24 ms</td><td data-v="0">0</td><td data-v="119">119</td><td data-v="9.5">9.5</td><td data-v="0.00">0.00</td><td data-v="11.6">11.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="1826035.2">1826035</td><td data-v="547">0.55 ms</td><td data-v="823">0.82 ms</td><td data-v="1199">1.20 ms</td><td data-v="8607">8.61 ms</td><td data-v="0">0</td><td data-v="187">187</td><td data-v="1.0">1.0</td><td data-v="0.00">0.00</td><td data-v="6.1">6.1</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=pipeline depth=16 somaxconn=4096">expand=pipeline depth=16 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="189079.6">189080</td><td data-v="334">0.33 ms</td><td data-v="501">0.50 ms</td><td data-v="733">0.73 ms</td><td data-v="10519">11 ms</td><td data-v="0">0</td><td data-v="174">174</td><td data-v="9.5">9.5</td><td data-v="0.00">0.00</td><td data-v="253.9">253.9</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=idle idle=10000 somaxconn=4096">expand=idle idle=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="7868.6">7869</td><td data-v="8051">8.05 ms</td><td data-v="11895">12 ms</td><td data-v="15815">16 ms</td><td data-v="22719">23 ms</td><td data-v="0">0</td><td data-v="197">197</td><td data-v="251.1">251.1</td><td data-v="0.00">0.00</td><td data-v="5.9">5.9</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=mix somaxconn=4096">expand=mix somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json">GET /json</td><td data-v="256">256</td><td data-v=""></td><td data-v="179926.2">179926</td><td data-v="1372">1.37 ms</td><td data-v="2055">2.06 ms</td><td data-v="2833">2.83 ms</td><td data-v="13911">14 ms</td><td data-v="0">0</td><td data-v="179">179</td><td data-v="10.0">10.0</td><td data-v="0.00">0.00</td><td data-v="8.5">8.5</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="expand=tail somaxconn=4096">expand=tail somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="137068.0">137068</td><td data-v="430">0.43 ms</td><td data-v="690">0.69 ms</td><td data-v="1224">1.22 ms</td><td data-v="11207">11 ms</td><td data-v="0">0</td><td data-v="104">104</td><td data-v="7.6">7.6</td><td data-v="0.00">0.00</td><td data-v="5.9">5.9</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=contend hog_cpu=1 somaxconn=4096">expand=contend hog_cpu=1 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json [open-loop 10000 req/s]">GET /json [open-loop 10000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="10053.2">10053</td><td data-v="57">0.06 ms</td><td data-v="111">0.11 ms</td><td data-v="720">0.72 ms</td><td data-v="8519">8.52 ms</td><td data-v="0">0</td><td data-v="24">24</td><td data-v="23.5">23.5</td><td data-v="0.00">0.00</td><td data-v="8.8">8.8</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=10000 somaxconn=4096">sweep=rate rate=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json [open-loop 25000 req/s]">GET /json [open-loop 25000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="25050.6">25051</td><td data-v="61">0.06 ms</td><td data-v="105">0.10 ms</td><td data-v="755">0.76 ms</td><td data-v="5095">5.09 ms</td><td data-v="0">0</td><td data-v="54">54</td><td data-v="21.6">21.6</td><td data-v="0.00">0.00</td><td data-v="11.3">11.3</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=25000 somaxconn=4096">sweep=rate rate=25000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json [open-loop 50000 req/s]">GET /json [open-loop 50000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="50050.0">50050</td><td data-v="62">0.06 ms</td><td data-v="112">0.11 ms</td><td data-v="463">0.46 ms</td><td data-v="8231">8.23 ms</td><td data-v="0">0</td><td data-v="84">84</td><td data-v="16.9">16.9</td><td data-v="0.00">0.00</td><td data-v="13.2">13.2</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=50000 somaxconn=4096">sweep=rate rate=50000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="75048.6">75049</td><td data-v="66">0.07 ms</td><td data-v="145">0.14 ms</td><td data-v="1001">1.00 ms</td><td data-v="8671">8.67 ms</td><td data-v="0">0</td><td data-v="108">108</td><td data-v="14.3">14.3</td><td data-v="0.00">0.00</td><td data-v="14.7">14.7</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="100050.4">100050</td><td data-v="129">0.13 ms</td><td data-v="571">0.57 ms</td><td data-v="2613">2.61 ms</td><td data-v="9199">9.20 ms</td><td data-v="0">0</td><td data-v="132">132</td><td data-v="13.2">13.2</td><td data-v="0.00">0.00</td><td data-v="14.9">14.9</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="125036.8">125037</td><td data-v="231">0.23 ms</td><td data-v="1164">1.16 ms</td><td data-v="29519">30 ms</td><td data-v="58719">59 ms</td><td data-v="0">0</td><td data-v="146">146</td><td data-v="11.7">11.7</td><td data-v="0.00">0.00</td><td data-v="15.0">15.0</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="1000822.4">1000822</td><td data-v="950">0.95 ms</td><td data-v="2013">2.01 ms</td><td data-v="2643">2.64 ms</td><td data-v="7659">7.66 ms</td><td data-v="0">0</td><td data-v="99">99</td><td data-v="1.1">1.1</td><td data-v="0.00">0.00</td><td data-v="6.4">6.4</td><td data-v="1">1</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=pipeline depth=16 somaxconn=4096">expand=pipeline depth=16 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="149883.8">149884</td><td data-v="399">0.40 ms</td><td data-v="616">0.62 ms</td><td data-v="940">0.94 ms</td><td data-v="26287">26 ms</td><td data-v="0">0</td><td data-v="98">98</td><td data-v="6.6">6.6</td><td data-v="0.00">0.00</td><td data-v="352.3">352.3</td><td data-v="1">1</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=idle idle=10000 somaxconn=4096">expand=idle idle=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="3755.2">3755</td><td data-v="17167">17 ms</td><td data-v="26303">26 ms</td><td data-v="39519">40 ms</td><td data-v="47039">47 ms</td><td data-v="0">0</td><td data-v="99">99</td><td data-v="264.5">264.5</td><td data-v="0.00">0.00</td><td data-v="6.0">6.0</td><td data-v="1">1</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=mix somaxconn=4096">expand=mix somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json">GET /json</td><td data-v="256">256</td><td data-v=""></td><td data-v="108929.55">108930</td><td data-v="2257">2.26 ms</td><td data-v="3253">3.25 ms</td><td data-v="4511">4.51 ms</td><td data-v="17711">18 ms</td><td data-v="0">0</td><td data-v="99">99</td><td data-v="9.0">9.0</td><td data-v="0.00">0.00</td><td data-v="10.2">10.2</td><td data-v="1">1</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="expand=tail somaxconn=4096">expand=tail somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="138255.8">138256</td><td data-v="443">0.44 ms</td><td data-v="741">0.74 ms</td><td data-v="1118">1.12 ms</td><td data-v="8599">8.60 ms</td><td data-v="0">0</td><td data-v="98">98</td><td data-v="7.4">7.4</td><td data-v="0.00">0.00</td><td data-v="6.1">6.1</td><td data-v="1">1</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=contend hog_cpu=1 somaxconn=4096">expand=contend hog_cpu=1 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json [open-loop 10000 req/s]">GET /json [open-loop 10000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="10057.2">10057</td><td data-v="53">0.05 ms</td><td data-v="93">0.09 ms</td><td data-v="941">0.94 ms</td><td data-v="7815">7.82 ms</td><td data-v="0">0</td><td data-v="20">20</td><td data-v="19.5">19.5</td><td data-v="0.70">0.70</td><td data-v="10.1">10.1</td><td data-v="1">1</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=10000 somaxconn=4096">sweep=rate rate=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json [open-loop 25000 req/s]">GET /json [open-loop 25000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="25053.0">25053</td><td data-v="51">0.05 ms</td><td data-v="86">0.09 ms</td><td data-v="611">0.61 ms</td><td data-v="9047">9.05 ms</td><td data-v="0">0</td><td data-v="39">39</td><td data-v="15.6">15.6</td><td data-v="0.45">0.45</td><td data-v="11.4">11.4</td><td data-v="1">1</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=25000 somaxconn=4096">sweep=rate rate=25000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json [open-loop 50000 req/s]">GET /json [open-loop 50000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="50049.2">50049</td><td data-v="61">0.06 ms</td><td data-v="121">0.12 ms</td><td data-v="1618">1.62 ms</td><td data-v="6103">6.10 ms</td><td data-v="0">0</td><td data-v="61">61</td><td data-v="12.3">12.3</td><td data-v="0.21">0.21</td><td data-v="14.3">14.3</td><td data-v="1">1</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=50000 somaxconn=4096">sweep=rate rate=50000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="75050.6">75051</td><td data-v="83">0.08 ms</td><td data-v="310">0.31 ms</td><td data-v="2007">2.01 ms</td><td data-v="6631">6.63 ms</td><td data-v="0">0</td><td data-v="76">76</td><td data-v="10.1">10.1</td><td data-v="0.10">0.10</td><td data-v="15.9">15.9</td><td data-v="1">1</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="99967.2">99967</td><td data-v="1598">1.60 ms</td><td data-v="74111">74 ms</td><td data-v="95167">95 ms</td><td data-v="105983">106 ms</td><td data-v="0">0</td><td data-v="91">91</td><td data-v="9.1">9.1</td><td data-v="0.03">0.03</td><td data-v="16.0">16.0</td><td data-v="1">1</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="124373.6">124374</td><td data-v="162559">163 ms</td><td data-v="312319">312 ms</td><td data-v="349183">349 ms</td><td data-v="371711">372 ms</td><td data-v="0">0</td><td data-v="99">99</td><td data-v="7.9">7.9</td><td data-v="0.00">0.00</td><td data-v="16.2">16.2</td><td data-v="1">1</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="1739196.8">1739197</td><td data-v="594">0.59 ms</td><td data-v="880">0.88 ms</td><td data-v="1294">1.29 ms</td><td data-v="8091">8.09 ms</td><td data-v="0">0</td><td data-v="172">172</td><td data-v="1.0">1.0</td><td data-v="0.00">0.00</td><td data-v="7.9">7.9</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=pipeline depth=16 somaxconn=4096">expand=pipeline depth=16 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="136867.4">136867</td><td data-v="406">0.41 ms</td><td data-v="937">0.94 ms</td><td data-v="4519">4.52 ms</td><td data-v="68863">69 ms</td><td data-v="0">0</td><td data-v="136">136</td><td data-v="9.9">9.9</td><td data-v="0.00">0.00</td><td data-v="133.2">133.2</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=idle idle=10000 somaxconn=4096">expand=idle idle=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="8132.0">8132</td><td data-v="7555">7.55 ms</td><td data-v="11519">12 ms</td><td data-v="18527">19 ms</td><td data-v="30463">30 ms</td><td data-v="0">0</td><td data-v="198">198</td><td data-v="243.0">243.0</td><td data-v="0.00">0.00</td><td data-v="7.6">7.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=mix somaxconn=4096">expand=mix somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json">GET /json</td><td data-v="256">256</td><td data-v=""></td><td data-v="160375.55">160376</td><td data-v="1376">1.38 ms</td><td data-v="2507">2.51 ms</td><td data-v="5871">5.87 ms</td><td data-v="53535">54 ms</td><td data-v="0">0</td><td data-v="140">140</td><td data-v="8.7">8.7</td><td data-v="0.00">0.00</td><td data-v="9.2">9.2</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="expand=tail somaxconn=4096">expand=tail somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="151000.0">151000</td><td data-v="241">0.24 ms</td><td data-v="560">0.56 ms</td><td data-v="4443">4.44 ms</td><td data-v="12303">12 ms</td><td data-v="0">0</td><td data-v="106">106</td><td data-v="7.0">7.0</td><td data-v="0.00">0.00</td><td data-v="7.6">7.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=contend hog_cpu=1 somaxconn=4096">expand=contend hog_cpu=1 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json [open-loop 10000 req/s]">GET /json [open-loop 10000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="10053.0">10053</td><td data-v="61">0.06 ms</td><td data-v="112">0.11 ms</td><td data-v="1009">1.01 ms</td><td data-v="8167">8.17 ms</td><td data-v="0">0</td><td data-v="21">21</td><td data-v="21.1">21.1</td><td data-v="0.00">0.00</td><td data-v="9.0">9.0</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=10000 somaxconn=4096">sweep=rate rate=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json [open-loop 25000 req/s]">GET /json [open-loop 25000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="25050.2">25050</td><td data-v="52">0.05 ms</td><td data-v="97">0.10 ms</td><td data-v="1967">1.97 ms</td><td data-v="7083">7.08 ms</td><td data-v="0">0</td><td data-v="42">42</td><td data-v="16.7">16.7</td><td data-v="0.00">0.00</td><td data-v="10.0">10.0</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=25000 somaxconn=4096">sweep=rate rate=25000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json [open-loop 50000 req/s]">GET /json [open-loop 50000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="50051.2">50051</td><td data-v="64">0.06 ms</td><td data-v="131">0.13 ms</td><td data-v="1872">1.87 ms</td><td data-v="7499">7.50 ms</td><td data-v="0">0</td><td data-v="72">72</td><td data-v="14.3">14.3</td><td data-v="0.00">0.00</td><td data-v="9.7">9.7</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=50000 somaxconn=4096">sweep=rate rate=50000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="75047.6">75048</td><td data-v="110">0.11 ms</td><td data-v="892">0.89 ms</td><td data-v="24319">24 ms</td><td data-v="54143">54 ms</td><td data-v="0">0</td><td data-v="95">95</td><td data-v="12.8">12.8</td><td data-v="0.00">0.00</td><td data-v="9.2">9.2</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="100049.4">100049</td><td data-v="210">0.21 ms</td><td data-v="908">0.91 ms</td><td data-v="4009">4.01 ms</td><td data-v="11415">11 ms</td><td data-v="0">0</td><td data-v="113">113</td><td data-v="11.3">11.3</td><td data-v="0.00">0.00</td><td data-v="9.8">9.8</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="125018.2">125018</td><td data-v="599">0.60 ms</td><td data-v="24175">24 ms</td><td data-v="67967">68 ms</td><td data-v="85375">85 ms</td><td data-v="0">0</td><td data-v="128">128</td><td data-v="10.2">10.2</td><td data-v="0.00">0.00</td><td data-v="9.6">9.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="1669296.0">1669296</td><td data-v="634">0.63 ms</td><td data-v="981">0.98 ms</td><td data-v="1730">1.73 ms</td><td data-v="18671">19 ms</td><td data-v="0">0</td><td data-v="171">171</td><td data-v="1.1">1.1</td><td data-v="0.00">0.00</td><td data-v="8.6">8.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=pipeline depth=16 somaxconn=4096">expand=pipeline depth=16 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="154816.4">154816</td><td data-v="376">0.38 ms</td><td data-v="629">0.63 ms</td><td data-v="1951">1.95 ms</td><td data-v="28255">28 ms</td><td data-v="0">0</td><td data-v="142">142</td><td data-v="9.2">9.2</td><td data-v="0.00">0.00</td><td data-v="159.6">159.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=idle idle=10000 somaxconn=4096">expand=idle idle=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="8152.0">8152</td><td data-v="7711">7.71 ms</td><td data-v="11919">12 ms</td><td data-v="18719">19 ms</td><td data-v="27391">27 ms</td><td data-v="0">0</td><td data-v="198">198</td><td data-v="249.9">249.9</td><td data-v="0.00">0.00</td><td data-v="7.9">7.9</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=mix somaxconn=4096">expand=mix somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json">GET /json</td><td data-v="256">256</td><td data-v=""></td><td data-v="166211.45">166211</td><td data-v="1459">1.46 ms</td><td data-v="2391">2.39 ms</td><td data-v="3525">3.52 ms</td><td data-v="25439">25 ms</td><td data-v="0">0</td><td data-v="154">154</td><td data-v="9.2">9.2</td><td data-v="0.00">0.00</td><td data-v="9.7">9.7</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="expand=tail somaxconn=4096">expand=tail somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="156717.8">156718</td><td data-v="267">0.27 ms</td><td data-v="574">0.57 ms</td><td data-v="4455">4.46 ms</td><td data-v="13439">13 ms</td><td data-v="0">0</td><td data-v="108">108</td><td data-v="7.5">7.5</td><td data-v="0.00">0.00</td><td data-v="8.1">8.1</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=contend hog_cpu=1 somaxconn=4096">expand=contend hog_cpu=1 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json [open-loop 10000 req/s]">GET /json [open-loop 10000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="10050.2">10050</td><td data-v="63">0.06 ms</td><td data-v="107">0.11 ms</td><td data-v="790">0.79 ms</td><td data-v="22111">22 ms</td><td data-v="0">0</td><td data-v="22">22</td><td data-v="21.5">21.5</td><td data-v="0.00">0.00</td><td data-v="9.6">9.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=10000 somaxconn=4096">sweep=rate rate=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json [open-loop 25000 req/s]">GET /json [open-loop 25000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="25051.2">25051</td><td data-v="54">0.05 ms</td><td data-v="92">0.09 ms</td><td data-v="534">0.53 ms</td><td data-v="5183">5.18 ms</td><td data-v="0">0</td><td data-v="45">45</td><td data-v="18.1">18.1</td><td data-v="0.00">0.00</td><td data-v="10.4">10.4</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=25000 somaxconn=4096">sweep=rate rate=25000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json [open-loop 50000 req/s]">GET /json [open-loop 50000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="50045.6">50046</td><td data-v="57">0.06 ms</td><td data-v="114">0.11 ms</td><td data-v="695">0.69 ms</td><td data-v="6075">6.08 ms</td><td data-v="0">0</td><td data-v="74">74</td><td data-v="14.7">14.7</td><td data-v="0.00">0.00</td><td data-v="10.6">10.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=50000 somaxconn=4096">sweep=rate rate=50000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="75047.6">75048</td><td data-v="110">0.11 ms</td><td data-v="378">0.38 ms</td><td data-v="2673">2.67 ms</td><td data-v="8043">8.04 ms</td><td data-v="0">0</td><td data-v="105">105</td><td data-v="14.0">14.0</td><td data-v="0.00">0.00</td><td data-v="11.1">11.1</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="100047.8">100048</td><td data-v="172">0.17 ms</td><td data-v="1054">1.05 ms</td><td data-v="3593">3.59 ms</td><td data-v="12135">12 ms</td><td data-v="0">0</td><td data-v="115">115</td><td data-v="11.5">11.5</td><td data-v="0.00">0.00</td><td data-v="11.2">11.2</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="125045.8">125046</td><td data-v="422">0.42 ms</td><td data-v="2565">2.56 ms</td><td data-v="9183">9.18 ms</td><td data-v="21855">22 ms</td><td data-v="0">0</td><td data-v="128">128</td><td data-v="10.2">10.2</td><td data-v="0.00">0.00</td><td data-v="11.3">11.3</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="1299696.0">1299696</td><td data-v="789">0.79 ms</td><td data-v="1329">1.33 ms</td><td data-v="2269">2.27 ms</td><td data-v="12487">12 ms</td><td data-v="0">0</td><td data-v="185">185</td><td data-v="1.6">1.6</td><td data-v="0.00">0.00</td><td data-v="6.4">6.4</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=pipeline depth=16 somaxconn=4096">expand=pipeline depth=16 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="130764.0">130764</td><td data-v="475">0.47 ms</td><td data-v="742">0.74 ms</td><td data-v="1211">1.21 ms</td><td data-v="5663">5.66 ms</td><td data-v="0">0</td><td data-v="184">184</td><td data-v="14.6">14.6</td><td data-v="0.00">0.00</td><td data-v="265.0">265.0</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=idle idle=10000 somaxconn=4096">expand=idle idle=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="7862.6">7863</td><td data-v="7155">7.16 ms</td><td data-v="16495">16 ms</td><td data-v="23279">23 ms</td><td data-v="30079">30 ms</td><td data-v="0">0</td><td data-v="198">198</td><td data-v="269.6">269.6</td><td data-v="0.00">0.00</td><td data-v="6.3">6.3</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=mix somaxconn=4096">expand=mix somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json">GET /json</td><td data-v="256">256</td><td data-v=""></td><td data-v="134928.7">134929</td><td data-v="1729">1.73 ms</td><td data-v="3035">3.04 ms</td><td data-v="4775">4.78 ms</td><td data-v="27759">28 ms</td><td data-v="0">0</td><td data-v="184">184</td><td data-v="13.6">13.6</td><td data-v="0.00">0.00</td><td data-v="8.2">8.2</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="expand=tail somaxconn=4096">expand=tail somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="131761.0">131761</td><td data-v="303">0.30 ms</td><td data-v="687">0.69 ms</td><td data-v="4583">4.58 ms</td><td data-v="36383">36 ms</td><td data-v="0">0</td><td data-v="118">118</td><td data-v="10.4">10.4</td><td data-v="0.00">0.00</td><td data-v="6.0">6.0</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=contend hog_cpu=1 somaxconn=4096">expand=contend hog_cpu=1 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json [open-loop 10000 req/s]">GET /json [open-loop 10000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="10051.4">10051</td><td data-v="72">0.07 ms</td><td data-v="125">0.12 ms</td><td data-v="1077">1.08 ms</td><td data-v="6363">6.36 ms</td><td data-v="0">0</td><td data-v="27">27</td><td data-v="27.3">27.3</td><td data-v="0.00">0.00</td><td data-v="8.1">8.1</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=10000 somaxconn=4096">sweep=rate rate=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json [open-loop 25000 req/s]">GET /json [open-loop 25000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="25051.2">25051</td><td data-v="68">0.07 ms</td><td data-v="118">0.12 ms</td><td data-v="1045">1.04 ms</td><td data-v="6411">6.41 ms</td><td data-v="0">0</td><td data-v="63">63</td><td data-v="25.3">25.3</td><td data-v="0.00">0.00</td><td data-v="9.9">9.9</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=25000 somaxconn=4096">sweep=rate rate=25000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json [open-loop 50000 req/s]">GET /json [open-loop 50000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="50049.2">50049</td><td data-v="116">0.12 ms</td><td data-v="229">0.23 ms</td><td data-v="1119">1.12 ms</td><td data-v="9831">9.83 ms</td><td data-v="0">0</td><td data-v="127">127</td><td data-v="25.4">25.4</td><td data-v="0.00">0.00</td><td data-v="11.2">11.2</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=50000 somaxconn=4096">sweep=rate rate=50000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="75045.2">75045</td><td data-v="269">0.27 ms</td><td data-v="3529">3.53 ms</td><td data-v="136319">136 ms</td><td data-v="173695">174 ms</td><td data-v="0">0</td><td data-v="152">152</td><td data-v="20.2">20.2</td><td data-v="0.00">0.00</td><td data-v="12.6">12.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="99986.2">99986</td><td data-v="886">0.89 ms</td><td data-v="52351">52 ms</td><td data-v="95039">95 ms</td><td data-v="119551">120 ms</td><td data-v="0">0</td><td data-v="175">175</td><td data-v="17.5">17.5</td><td data-v="0.00">0.00</td><td data-v="13.5">13.5</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="119296.8">119297</td><td data-v="118015">118 ms</td><td data-v="220159">220 ms</td><td data-v="279295">279 ms</td><td data-v="336383">336 ms</td><td data-v="0">0</td><td data-v="182">182</td><td data-v="15.3">15.3</td><td data-v="0.00">0.00</td><td data-v="13.7">13.7</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="1372544.0">1372544</td><td data-v="736">0.74 ms</td><td data-v="1157">1.16 ms</td><td data-v="1749">1.75 ms</td><td data-v="19135">19 ms</td><td data-v="0">0</td><td data-v="189">189</td><td data-v="1.5">1.5</td><td data-v="0.00">0.00</td><td data-v="5.5">5.5</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=pipeline depth=16 somaxconn=4096">expand=pipeline depth=16 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="139026.0">139026</td><td data-v="447">0.45 ms</td><td data-v="702">0.70 ms</td><td data-v="1039">1.04 ms</td><td data-v="16575">17 ms</td><td data-v="0">0</td><td data-v="185">185</td><td data-v="13.7">13.7</td><td data-v="0.00">0.00</td><td data-v="190.9">190.9</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=idle idle=10000 somaxconn=4096">expand=idle idle=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="8368.8">8369</td><td data-v="8951">8.95 ms</td><td data-v="15359">15 ms</td><td data-v="23503">24 ms</td><td data-v="45183">45 ms</td><td data-v="0">0</td><td data-v="196">196</td><td data-v="297.4">297.4</td><td data-v="0.00">0.00</td><td data-v="5.2">5.2</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=mix somaxconn=4096">expand=mix somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json">GET /json</td><td data-v="256">256</td><td data-v=""></td><td data-v="135878.4">135878</td><td data-v="1715">1.72 ms</td><td data-v="2979">2.98 ms</td><td data-v="4403">4.40 ms</td><td data-v="21871">22 ms</td><td data-v="0">0</td><td data-v="186">186</td><td data-v="13.7">13.7</td><td data-v="0.00">0.00</td><td data-v="7.5">7.5</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="expand=tail somaxconn=4096">expand=tail somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="118544.6">118545</td><td data-v="315">0.32 ms</td><td data-v="708">0.71 ms</td><td data-v="4591">4.59 ms</td><td data-v="15559">16 ms</td><td data-v="0">0</td><td data-v="117">117</td><td data-v="10.2">10.2</td><td data-v="0.00">0.00</td><td data-v="5.3">5.3</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=contend hog_cpu=1 somaxconn=4096">expand=contend hog_cpu=1 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json [open-loop 10000 req/s]">GET /json [open-loop 10000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="10051.4">10051</td><td data-v="73">0.07 ms</td><td data-v="122">0.12 ms</td><td data-v="733">0.73 ms</td><td data-v="5239">5.24 ms</td><td data-v="0">0</td><td data-v="28">28</td><td data-v="27.5">27.5</td><td data-v="0.00">0.00</td><td data-v="7.5">7.5</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=10000 somaxconn=4096">sweep=rate rate=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json [open-loop 25000 req/s]">GET /json [open-loop 25000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="25053.2">25053</td><td data-v="73">0.07 ms</td><td data-v="127">0.13 ms</td><td data-v="854">0.85 ms</td><td data-v="8439">8.44 ms</td><td data-v="0">0</td><td data-v="68">68</td><td data-v="27.1">27.1</td><td data-v="0.00">0.00</td><td data-v="9.5">9.5</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=25000 somaxconn=4096">sweep=rate rate=25000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json [open-loop 50000 req/s]">GET /json [open-loop 50000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="50048.2">50048</td><td data-v="113">0.11 ms</td><td data-v="265">0.27 ms</td><td data-v="2063">2.06 ms</td><td data-v="30991">31 ms</td><td data-v="0">0</td><td data-v="122">122</td><td data-v="24.3">24.3</td><td data-v="0.00">0.00</td><td data-v="10.6">10.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=50000 somaxconn=4096">sweep=rate rate=50000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="75047.8">75048</td><td data-v="165">0.17 ms</td><td data-v="536">0.54 ms</td><td data-v="4891">4.89 ms</td><td data-v="31311">31 ms</td><td data-v="0">0</td><td data-v="157">157</td><td data-v="20.9">20.9</td><td data-v="0.00">0.00</td><td data-v="11.3">11.3</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="100046.4">100046</td><td data-v="234">0.23 ms</td><td data-v="1340">1.34 ms</td><td data-v="8927">8.93 ms</td><td data-v="25023">25 ms</td><td data-v="0">0</td><td data-v="164">164</td><td data-v="16.4">16.4</td><td data-v="0.00">0.00</td><td data-v="11.6">11.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="123452.8">123453</td><td data-v="46271">46 ms</td><td data-v="113023">113 ms</td><td data-v="142335">142 ms</td><td data-v="186879">187 ms</td><td data-v="0">0</td><td data-v="183">183</td><td data-v="14.9">14.9</td><td data-v="0.00">0.00</td><td data-v="11.7">11.7</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="1121939.2">1121939</td><td data-v="886">0.89 ms</td><td data-v="1435">1.44 ms</td><td data-v="1935">1.94 ms</td><td data-v="14191">14 ms</td><td data-v="0">0</td><td data-v="197">197</td><td data-v="1.8">1.8</td><td data-v="0.00">0.00</td><td data-v="26.7">26.7</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=pipeline depth=16 somaxconn=4096">expand=pipeline depth=16 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="109555.8">109556</td><td data-v="567">0.57 ms</td><td data-v="862">0.86 ms</td><td data-v="1259">1.26 ms</td><td data-v="7987">7.99 ms</td><td data-v="0">0</td><td data-v="197">197</td><td data-v="18.5">18.5</td><td data-v="0.00">0.00</td><td data-v="333.4">333.4</td><td data-v="7">7</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=idle idle=10000 somaxconn=4096">expand=idle idle=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="8036.2">8036</td><td data-v="7679">7.68 ms</td><td data-v="13975">14 ms</td><td data-v="21151">21 ms</td><td data-v="36671">37 ms</td><td data-v="0">0</td><td data-v="198">198</td><td data-v="248.7">248.7</td><td data-v="0.00">0.00</td><td data-v="26.3">26.3</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=mix somaxconn=4096">expand=mix somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json">GET /json</td><td data-v="256">256</td><td data-v=""></td><td data-v="108449.4">108449</td><td data-v="2197">2.20 ms</td><td data-v="3647">3.65 ms</td><td data-v="5011">5.01 ms</td><td data-v="23903">24 ms</td><td data-v="0">0</td><td data-v="196">196</td><td data-v="18.1">18.1</td><td data-v="0.00">0.00</td><td data-v="28.8">28.8</td><td data-v="7">7</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="expand=tail somaxconn=4096">expand=tail somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="93470.0">93470</td><td data-v="467">0.47 ms</td><td data-v="1690">1.69 ms</td><td data-v="5295">5.29 ms</td><td data-v="88447">88 ms</td><td data-v="0">0</td><td data-v="127">127</td><td data-v="15.1">15.1</td><td data-v="0.00">0.00</td><td data-v="26.4">26.4</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=contend hog_cpu=1 somaxconn=4096">expand=contend hog_cpu=1 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json [open-loop 10000 req/s]">GET /json [open-loop 10000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="10051.4">10051</td><td data-v="74">0.07 ms</td><td data-v="125">0.12 ms</td><td data-v="522">0.52 ms</td><td data-v="6243">6.24 ms</td><td data-v="0">0</td><td data-v="48">48</td><td data-v="47.8">47.8</td><td data-v="0.00">0.00</td><td data-v="28.9">28.9</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=10000 somaxconn=4096">sweep=rate rate=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json [open-loop 25000 req/s]">GET /json [open-loop 25000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="25043.6">25044</td><td data-v="88">0.09 ms</td><td data-v="176">0.18 ms</td><td data-v="1387">1.39 ms</td><td data-v="10159">10 ms</td><td data-v="0">0</td><td data-v="131">131</td><td data-v="52.3">52.3</td><td data-v="0.00">0.00</td><td data-v="32.0">32.0</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=25000 somaxconn=4096">sweep=rate rate=25000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json [open-loop 50000 req/s]">GET /json [open-loop 50000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="50049.4">50049</td><td data-v="138">0.14 ms</td><td data-v="516">0.52 ms</td><td data-v="3307">3.31 ms</td><td data-v="16191">16 ms</td><td data-v="0">0</td><td data-v="185">185</td><td data-v="36.9">36.9</td><td data-v="0.00">0.00</td><td data-v="34.3">34.3</td><td data-v="6">6</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=50000 somaxconn=4096">sweep=rate rate=50000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="75047.6">75048</td><td data-v="410">0.41 ms</td><td data-v="2105">2.10 ms</td><td data-v="10135">10 ms</td><td data-v="22847">23 ms</td><td data-v="0">0</td><td data-v="193">193</td><td data-v="25.7">25.7</td><td data-v="0.00">0.00</td><td data-v="34.9">34.9</td><td data-v="7">7</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="98808.4">98808</td><td data-v="34623">35 ms</td><td data-v="82047">82 ms</td><td data-v="130175">130 ms</td><td data-v="171135">171 ms</td><td data-v="0">0</td><td data-v="196">196</td><td data-v="19.8">19.8</td><td data-v="0.00">0.00</td><td data-v="36.1">36.1</td><td data-v="7">7</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="87588.2">87588</td><td data-v="967167">967 ms</td><td data-v="1723391">1723 ms</td><td data-v="1870847">1871 ms</td><td data-v="1950719">1951 ms</td><td data-v="0">0</td><td data-v="197">197</td><td data-v="22.5">22.5</td><td data-v="0.00">0.00</td><td data-v="36.5">36.5</td><td data-v="7">7</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="1456284.8">1456285</td><td data-v="688">0.69 ms</td><td data-v="1059">1.06 ms</td><td data-v="1636">1.64 ms</td><td data-v="10631">11 ms</td><td data-v="0">0</td><td data-v="194">194</td><td data-v="1.3">1.3</td><td data-v="0.00">0.00</td><td data-v="5.8">5.8</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=pipeline depth=16 somaxconn=4096">expand=pipeline depth=16 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="134725.8">134726</td><td data-v="482">0.48 ms</td><td data-v="760">0.76 ms</td><td data-v="1218">1.22 ms</td><td data-v="19039">19 ms</td><td data-v="0">0</td><td data-v="190">190</td><td data-v="15.0">15.0</td><td data-v="0.00">0.00</td><td data-v="201.6">201.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=idle idle=10000 somaxconn=4096">expand=idle idle=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="8216.0">8216</td><td data-v="8615">8.62 ms</td><td data-v="15263">15 ms</td><td data-v="18719">19 ms</td><td data-v="30175">30 ms</td><td data-v="0">0</td><td data-v="198">198</td><td data-v="268.3">268.3</td><td data-v="0.00">0.00</td><td data-v="5.3">5.3</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=mix somaxconn=4096">expand=mix somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json">GET /json</td><td data-v="256">256</td><td data-v=""></td><td data-v="134244.2">134244</td><td data-v="1722">1.72 ms</td><td data-v="2947">2.95 ms</td><td data-v="4403">4.40 ms</td><td data-v="83519">84 ms</td><td data-v="0">0</td><td data-v="188">188</td><td data-v="14.0">14.0</td><td data-v="0.00">0.00</td><td data-v="7.4">7.4</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="expand=tail somaxconn=4096">expand=tail somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="131308.6">131309</td><td data-v="301">0.30 ms</td><td data-v="630">0.63 ms</td><td data-v="4535">4.54 ms</td><td data-v="11247">11 ms</td><td data-v="0">0</td><td data-v="120">120</td><td data-v="10.1">10.1</td><td data-v="0.00">0.00</td><td data-v="5.3">5.3</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="expand=contend hog_cpu=1 somaxconn=4096">expand=contend hog_cpu=1 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json [open-loop 10000 req/s]">GET /json [open-loop 10000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="10054.6">10055</td><td data-v="67">0.07 ms</td><td data-v="121">0.12 ms</td><td data-v="1354">1.35 ms</td><td data-v="7479">7.48 ms</td><td data-v="0">0</td><td data-v="31">31</td><td data-v="30.6">30.6</td><td data-v="0.00">0.00</td><td data-v="7.4">7.4</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=10000 somaxconn=4096">sweep=rate rate=10000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json [open-loop 25000 req/s]">GET /json [open-loop 25000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="25050.2">25050</td><td data-v="71">0.07 ms</td><td data-v="126">0.13 ms</td><td data-v="700">0.70 ms</td><td data-v="4403">4.40 ms</td><td data-v="0">0</td><td data-v="71">71</td><td data-v="28.5">28.5</td><td data-v="0.00">0.00</td><td data-v="9.4">9.4</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=25000 somaxconn=4096">sweep=rate rate=25000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json [open-loop 50000 req/s]">GET /json [open-loop 50000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="50051.0">50051</td><td data-v="105">0.10 ms</td><td data-v="219">0.22 ms</td><td data-v="1347">1.35 ms</td><td data-v="13391">13 ms</td><td data-v="0">0</td><td data-v="135">135</td><td data-v="26.9">26.9</td><td data-v="0.00">0.00</td><td data-v="10.6">10.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=50000 somaxconn=4096">sweep=rate rate=50000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="75049.0">75049</td><td data-v="225">0.23 ms</td><td data-v="972">0.97 ms</td><td data-v="6183">6.18 ms</td><td data-v="15719">16 ms</td><td data-v="0">0</td><td data-v="164">164</td><td data-v="21.9">21.9</td><td data-v="0.00">0.00</td><td data-v="11.0">11.0</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="100020.8">100021</td><td data-v="1646">1.65 ms</td><td data-v="23855">24 ms</td><td data-v="43391">43 ms</td><td data-v="61727">62 ms</td><td data-v="0">0</td><td data-v="183">183</td><td data-v="18.3">18.3</td><td data-v="0.00">0.00</td><td data-v="11.3">11.3</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="124203.6">124204</td><td data-v="35423">35 ms</td><td data-v="117311">117 ms</td><td data-v="191231">191 ms</td><td data-v="226559">227 ms</td><td data-v="0">0</td><td data-v="184">184</td><td data-v="14.8">14.8</td><td data-v="0.00">0.00</td><td data-v="11.6">11.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
 </tbody></table></div></section>
 </main><div id="tip"></div><script>
 const tip = document.getElementById('tip');

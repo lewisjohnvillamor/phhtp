@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" class="viz" viewBox="0 0 560 378" width="100%" style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fcfcfb" style="max-width:560px" role="img" aria-label="Long-window tails — p99.9 latency"><style>
+.x{ color-scheme: light; --surface:#fcfcfb; --surface-2:#f3f2ef; --text:#0b0b0b; --text-2:#52514e; --muted:#8a8984; --grid:#e6e5e1;
+  --io_uring:#2a78d6; --epoll:#eb6834; --blocking:#1baf7a; --ord-0:#86b6ef; --ord-1:#2a78d6; --ord-2:#104281; }
+@media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) { color-scheme: dark; --surface:#1a1a19; --surface-2:#242422; --text:#f0efec; --text-2:#c3c2b7; --muted:#8e8d86; --grid:#333331;
+  --io_uring:#3987e5; --epoll:#d95926; --blocking:#199e70; --ord-0:#6da7ec; --ord-1:#3987e5; --ord-2:#184f95; } }
+:root[data-theme="dark"] { color-scheme: dark; --surface:#1a1a19; --surface-2:#242422; --text:#f0efec; --text-2:#c3c2b7; --muted:#8e8d86; --grid:#333331;
+  --io_uring:#3987e5; --epoll:#d95926; --blocking:#199e70; --ord-0:#6da7ec; --ord-1:#3987e5; --ord-2:#184f95; }
+
+.t-title { font-size: 15px; font-weight: 600; fill: #0b0b0b; } .t-sub { font-size: 12px; fill: #52514e; }
+.t-label { font-size: 12px; fill: #0b0b0b; } .t-ours { font-weight: 600; }
+.t-value { font-size: 11.5px; fill: #52514e; font-variant-numeric: tabular-nums; }
+.t-tick { font-size: 11px; fill: #8a8984; font-variant-numeric: tabular-nums; }
+.grid { stroke: #e6e5e1; stroke-width: 1; } .axis { stroke: #e6e5e1; stroke-width: 1; }
+.bar.fam-io_uring { fill: #2a78d6; } .bar.fam-epoll { fill: #eb6834; } .bar.fam-blocking { fill: #1baf7a; }
+.line { fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+.line.fam-io_uring { stroke: #2a78d6; } .line.fam-epoll { stroke: #eb6834; } .line.fam-blocking { stroke: #1baf7a; }
+.dot { stroke: #fcfcfb; stroke-width: 2; } .dot.fam-io_uring { fill: #2a78d6; } .dot.fam-epoll { fill: #eb6834; } .dot.fam-blocking { fill: #1baf7a; }
+.hit { fill: transparent; } .row:hover .bar, .pt:hover .dot { filter: brightness(0.85); }</style>
+<text x="0" y="16" class="t-title">Long-window tails — p99.9 latency</text>
+<text x="0" y="32" class="t-sub">lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">5.0</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">10.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">15.0</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">20.0</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="pool · GET /json · 256 conns · 128k req/s · p50 0.46 ms · p90 0.75 ms · p99 1.35 ms">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,49.0 h45.6062 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-45.6062 z" class="bar fam-blocking"/>
+<text x="173.6" y="62.0" class="t-value">2.7</text>
+</g>
+<g class="row" data-tip="tokio · GET /json · 256 conns · 180k req/s · p50 1.37 ms · p90 2.06 ms · p99 2.83 ms · CPU 179% · 10.0 µs CPU/req · ctx 0.00/req · RSS 8.5 MB · disk 0 B">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,77.0 h76.1102 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-76.1102 z" class="bar fam-epoll"/>
+<text x="204.1" y="90.0" class="t-value">4.3</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 256 conns · 166k req/s · p50 1.46 ms · p90 2.39 ms · p99 3.52 ms · CPU 154% · 9.2 µs CPU/req · ctx 0.00/req · RSS 9.7 MB · disk 0 B">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,105.0 h95.1566 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-95.1566 z" class="bar fam-io_uring"/>
+<text x="223.2" y="118.0" class="t-value">5.3</text>
+</g>
+<g class="row" data-tip="mio · GET /json · 256 conns · 150k req/s · p50 1.59 ms · p90 2.71 ms · p99 3.84 ms · CPU 140% · 9.3 µs CPU/req · ctx 0.00/req · RSS 8.0 MB · disk 0 B">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,133.0 h104.7542 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-104.7542 z" class="bar fam-epoll"/>
+<text x="232.8" y="146.0" class="t-value">5.8</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 256 conns · 108k req/s · p50 2.20 ms · p90 3.65 ms · p99 5.01 ms · CPU 196% · 18.1 µs CPU/req · ctx 0.00/req · RSS 28.8 MB · disk 0 B">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,161.0 h122.16380000000001 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-122.16380000000001 z" class="bar fam-io_uring"/>
+<text x="250.2" y="174.0" class="t-value">6.8</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 256 conns · 135k req/s · p50 1.73 ms · p90 3.04 ms · p99 4.78 ms · CPU 184% · 13.6 µs CPU/req · ctx 0.00/req · RSS 8.2 MB · disk 0 B">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,189.0 h139.7966 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-139.7966 z" class="bar fam-io_uring"/>
+<text x="267.8" y="202.0" class="t-value">7.7</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 256 conns · 109k req/s · p50 2.26 ms · p90 3.25 ms · p99 4.51 ms · CPU 99% · 9.0 µs CPU/req · ctx 0.00/req · RSS 10.2 MB · disk 0 B">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,217.0 h141.06140000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-141.06140000000002 z" class="bar fam-epoll"/>
+<text x="269.1" y="230.0" class="t-value">7.8</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 256 conns · 134k req/s · p50 1.72 ms · p90 2.95 ms · p99 4.40 ms · CPU 188% · 14.0 µs CPU/req · ctx 0.00/req · RSS 7.4 MB · disk 0 B">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,245.0 h143.7398 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-143.7398 z" class="bar fam-io_uring"/>
+<text x="271.7" y="258.0" class="t-value">7.9</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 256 conns · 136k req/s · p50 1.72 ms · p90 2.98 ms · p99 4.40 ms · CPU 186% · 13.7 µs CPU/req · ctx 0.00/req · RSS 7.5 MB · disk 0 B">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,273.0 h167.69660000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-167.69660000000002 z" class="bar fam-io_uring"/>
+<text x="295.7" y="286.0" class="t-value">9.2</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 256 conns · 120k req/s · p50 1.92 ms · p90 3.25 ms · p99 7.06 ms · CPU 182% · 15.2 µs CPU/req · ctx 0.00/req · RSS 13.1 MB · disk 0 B">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,301.0 h273.791 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-273.791 z" class="bar fam-blocking"/>
+<text x="401.8" y="314.0" class="t-value">14.9</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 256 conns · 160k req/s · p50 1.38 ms · p90 2.51 ms · p99 5.87 ms · CPU 140% · 8.7 µs CPU/req · ctx 0.00/req · RSS 9.2 MB · disk 0 B">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,329.0 h282.2726 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-282.2726 z" class="bar fam-io_uring"/>
+<text x="410.3" y="342.0" class="t-value">15.4</text>
+</g>
+</svg>
