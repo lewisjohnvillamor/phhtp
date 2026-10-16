@@ -1,0 +1,13 @@
+| runtime | req/s (traced) | syscalls/req | top calls (per request) |
+|---|---:|---:|---|
+| threads | 25048 | 2.01 | recvfrom 1.00, sendto 1.00, rt_sigprocmask 0.00, sigaltstack 0.00 |
+| pool | 26051 | 1.95 | recvfrom 0.97, sendto 0.97, futex 0.00, setsockopt 0.00 |
+| mio | 15205 | 2.05 | recvfrom 0.99, sendto 0.99, epoll_wait 0.06, epoll_ctl 0.00 |
+| tokio | 14799 | 2.05 | recvfrom 0.99, sendto 0.99, futex 0.03, epoll_wait 0.03 |
+| tokio-st | 4896 | 2.03 | recvfrom 1.00, sendto 1.00, epoll_wait 0.02, epoll_ctl 0.00 |
+| uring | 117834 | 0.18 | io_uring_enter 0.18, close 0.00, setsockopt 0.00, mprotect 0.00 |
+| uring-async | 119718 | 0.17 | io_uring_enter 0.17, setsockopt 0.00, close 0.00, mprotect 0.00 |
+| monoio | 98850 | 0.17 | io_uring_enter 0.17, setsockopt 0.00, mprotect 0.00 |
+| compio | 93941 | 0.18 | io_uring_enter 0.18, setsockopt 0.00, close 0.00, mprotect 0.00 |
+| glommio | 13668 | 2.24 | recvfrom 0.99, sendto 0.99, io_uring_enter 0.26, fcntl 0.00 |
+| tokio-uring | 80745 | 0.26 | epoll_wait 0.13, io_uring_enter 0.13, setsockopt 0.00, close 0.00 |

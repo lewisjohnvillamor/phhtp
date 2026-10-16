@@ -146,7 +146,7 @@ def hbar_chart(title, subtitle, items, value_fmt, unit, width=560, sorted_desc=T
     return "\n".join(out)
 
 
-def small_multiples_lines(title, subtitle, series, xcats, value_fmt, cols=4, cell_w=200, cell_h=130):
+def small_multiples_lines(title, subtitle, series, xcats, value_fmt, cols=4, cell_w=200, cell_h=130, xlabel="connections"):
     """series: list of dict(label, family, ours, points: {xcat: value}). Shared y scale."""
     vmax = nice_max(max((v for s in series for v in s["points"].values()), default=1))
     rows = (len(series) + cols - 1) // cols
@@ -180,7 +180,7 @@ def small_multiples_lines(title, subtitle, series, xcats, value_fmt, cols=4, cel
             d = "M" + " L".join(f"{x:.1f},{y:.1f}" for x, y, _, _ in pts)
             out.append(f'<path d="{d}" class="line fam-{s["family"]}"/>')
             for x, y, xc, v in pts:
-                tip = f'{s["label"]} · {xc} connections · {value_fmt(v)}'
+                tip = f'{s["label"]} · {xc} {xlabel} · {value_fmt(v)}'
                 out.append(f'<g class="pt" data-tip="{esc(tip)}"><circle cx="{x:.1f}" cy="{y:.1f}" r="12" class="hit"/>'
                            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" class="dot fam-{s["family"]}"/></g>')
             x, y, _, v = pts[-1]
@@ -252,8 +252,13 @@ def tip_for(r):
     return " · ".join(parts)
 
 
+def is_matrix(r):
+    n = r.get("note", "")
+    return not (n.startswith("sweep=") or n.startswith("expand="))
+
+
 def matrix_section(rows):
-    rows = [r for r in rows if not r.get("note", "").startswith("sweep=")]
+    rows = [r for r in rows if is_matrix(r)]
     if not rows:
         return ""
     by_ep = OrderedDict()
@@ -310,6 +315,67 @@ def conns_section(rows):
     for rt in sorted(p99, key=lambda x: RUNTIME_ORDER.index(x) if x in RUNTIME_ORDER else 99):
         series99.append(dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, points=p99[rt]))
     out.append(small_multiples_lines("GET / p99 latency vs. connections", "ms · lower is better", series99, xcats, lambda v: f"{v:.0f}"))
+    out.append('</section>')
+    return "\n".join(out)
+
+
+EXPAND = OrderedDict([
+    ("pipeline", ("HTTP/1.1 pipelining", "16 requests per write on 64 connections. The parser answers a whole batch in one pass; the runtime decides how many syscalls or ring operations that costs.")),
+    ("idle", ("10 000 stalled connections", "Each idle socket sent half a request line and then went silent (slowloris) while 64 hot connections were measured. A runtime that holds a thread per connection runs out of threads; a pool runs out of pool.")),
+    ("mix", ("Mixed paths", "Every connection rotates /json, /compute?n=2000 and / so one request stream carries a small response, a CPU-bound one and a trivial one.")),
+    ("contend", ("Noisy co-tenant", "A busy loop pinned to one of the server's two cores for the whole run: a cron job, a log shipper, or a neighbour on a shared vCPU. Shows who degrades gracefully.")),
+    ("tail", ("Long-window tails", "20 s at 256 connections so p99.9 and p99.99 rest on tens of thousands of samples, not a few.")),
+])
+
+
+def expand_section(rows):
+    rows = [r for r in rows if r.get("note", "").startswith("expand=")]
+    if not rows:
+        return ""
+    out = ['<section id="expand"><h2>Expanded load shapes</h2>',
+           '<p class="lead">Five shapes the endpoint matrix does not cover. Same handler code, same 2-core pinning as the sweeps.</p>']
+    for key, (title, blurb) in EXPAND.items():
+        sel = OrderedDict()
+        for r in rows:
+            if r["note"].split()[0] == f"expand={key}":
+                sel[r["label"]] = r
+        if not sel:
+            continue
+        out.append(f'<h3>{esc(title)}</h3><p class="lead">{esc(blurb)}</p>')
+        def items(fn, extra=lambda r: ""):
+            return [dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, tip=tip_for(r) + extra(r), value=fn(r)) for rt, r in sel.items() if fn(r) is not None]
+        err = lambda r: f' · errors {r["errors"]}' if r.get("errors") else ""
+        out.append('<div class="pair">')
+        if key == "tail":
+            out.append(hbar_chart(f"{title} — p99.9", "256 connections · 20 s window · lower is better", items(lambda r: r["p999_us"] / 1000), lambda v: f"{v:.1f}", "ms", sorted_desc=False))
+            out.append(hbar_chart(f"{title} — p99.99", "256 connections · 20 s window · lower is better", items(lambda r: r.get("p9999_us", 0) / 1000), lambda v: f"{v:.1f}", "ms", sorted_desc=False))
+        else:
+            out.append(hbar_chart(f"{title} — throughput", "higher is better", items(lambda r: r["rps"], err), k, "req/s"))
+            if key == "pipeline":
+                out.append(hbar_chart(f"{title} — server CPU per request", "lower is better", items(lambda r: r["server"]["cpu_us_per_req"] if r.get("server") else None), lambda v: f"{v:.1f}", "µs", sorted_desc=False))
+            else:
+                out.append(hbar_chart(f"{title} — p99 latency", "lower is better", items(lambda r: r["p99_us"] / 1000, err), lambda v: f"{v:.1f}", "ms", sorted_desc=False))
+        out.append('</div>')
+    out.append('</section>')
+    return "\n".join(out)
+
+
+def rate_section(rows):
+    rows = [r for r in rows if r.get("note", "").startswith("sweep=rate")]
+    if not rows:
+        return ""
+    rate_of = lambda r: int(r["note"].split("rate=")[1].split()[0])
+    xcats = sorted({rate_of(r) for r in rows})
+    p99 = defaultdict(dict)
+    for r in rows:
+        p99[r["label"]][rate_of(r)] = min(r["p99_us"] / 1000, 50)
+    series = [dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, points=p99[rt])
+              for rt in sorted(p99, key=lambda x: RUNTIME_ORDER.index(x) if x in RUNTIME_ORDER else 99)]
+    conns = rows[0]["connections"]
+    out = ['<section id="rate"><h2>Open-loop rate sweep</h2>',
+           f'<p class="lead">p99 latency measured from the <em>intended</em> send time while the client offers a fixed request rate over {conns} connections. '
+           'Where a line turns upward the server has stopped keeping up and queueing delay takes over: that is the runtime\'s knee on a 2-core server. Values are clipped at 50 ms.</p>']
+    out.append(small_multiples_lines("GET /json p99 vs. offered rate", "ms · lower is better · x = req/s offered", series, xcats, lambda v: f"{v:.0f}", xlabel="req/s"))
     out.append('</section>')
     return "\n".join(out)
 
@@ -441,7 +507,7 @@ def build_body(rows, files, title):
             f'{"medians of " + str(reps) + " repetitions where noted" if reps > 1 else "single runs"} · '
             'identical runs on the shared benchmark box differ by up to ±15%, so treat smaller gaps as noise</p>',
             f'<div class="legend">{legend}</div>',
-            matrix_section(rows), conns_section(rows), workers_section(rows), dataset_section(rows, files),
+            matrix_section(rows), conns_section(rows), workers_section(rows), expand_section(rows), rate_section(rows), dataset_section(rows, files),
             '</main><div id="tip"></div>']
     return "\n".join(body)
 
@@ -487,7 +553,7 @@ def main():
         print(f"wrote {a.fragment}")
     if a.svg_dir:
         os.makedirs(a.svg_dir, exist_ok=True)
-        mrows = [r for r in rows if not r.get("note", "").startswith("sweep=")]
+        mrows = [r for r in rows if is_matrix(r)]
         by_ep = OrderedDict()
         for r in mrows:
             by_ep.setdefault(endpoint_of(r), {})[r["label"]] = r
