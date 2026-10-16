@@ -242,12 +242,32 @@ throughput, errors and non-2xx counts. Cross-check with
 | RSS and peak RSS, threads | `VmRSS` / `VmHWM` / `Threads` at the end of the window (sweeps also sample mid-run) | memory per connection; the thread count of `threads` |
 | page faults | `minflt` / `majflt` deltas | allocation churn |
 | **disk read / write bytes** | `/proc/self/io` `read_bytes` / `write_bytes` deltas | the server does no disk I/O and the column proves it; a runtime that logged or paged would show here |
+| **client CPU % and µs per request** | the load generator's own `getrusage` | proves whether the generator, not the server, is the ceiling. On this 4-core box it is, for the fastest servers: 186–197 % of its two cores |
+| mode | `closed-loop` / `open-loop N req/s` / `connection per request` | see below |
 
 The server samples itself, so the same columns are recorded when the load
 generator runs on another machine. `--no-stats` skips it; it is silently absent
 for servers that do not serve `/stats`. Not measured: system-wide softirq time
 (network receive processing the kernel attributes to whichever context runs it)
 and syscall counts (needs `perf`/`strace`, both of which distort the run).
+
+### Three load shapes, because closed-loop alone misleads
+
+* **Closed loop** (default): one request in flight per connection, the next sent
+  when the previous completes. Throughput is the server's capacity; latency at
+  64 connections is mostly *queueing* (64 in flight ÷ 150k/s ≈ 0.4 ms), and a
+  stalled server is invisible because the client politely waits (coordinated
+  omission).
+* **Open loop** (`--rate N`): requests are due at fixed intervals and latency is
+  measured from the *intended* send time. At a rate under capacity it shows the
+  true unloaded service time (60 µs p50 for `/json` here); over capacity it
+  shows the queue growing (454 ms p50 at a 200k target against a 137k server).
+  This is the number an SLO is written against.
+* **Churn** (`--close`): `Connection: close` on every request, a fresh connection
+  each time, the connect inside the latency. Exercises accept and close, where
+  multishot accept matters. On this box the generator spends 79 µs of CPU per
+  request against the server's 42, so churn here measures the client as much as
+  the server.
 
 ### Results: eleven runtimes, charted
 
