@@ -68,10 +68,16 @@ scripts/bench.sh  runs the runtime × endpoint matrix and prints a Markdown tabl
 scripts/scale.sh  connection-count and worker-count sweeps with server RSS/threads
 scripts/stress.sh fd exhaustion, thread exhaustion, CPU overload, with recovery probes
 scripts/report.py renders the JSONL dataset as an HTML report of charts (+ SVGs)
+scripts/expand.sh pipelining, 10 000 stalled connections, mixed paths, noisy co-tenant,
+                  long-window tails and an open-loop rate sweep (docs/EXPANDED.md)
+scripts/syscalls.sh  system calls per request from `strace -c`, per runtime
+scripts/render-video.mjs  renders bench/video/explainer.html to an MP4
+bench/video/      animated explainer of the three request paths (page + MP4)
 deploy/           systemd unit and sysctl for the droplet
 bench/results/    sample results
 docs/LANDSCAPE.md the study: existing io_uring runtimes, and what ringrt trades off
 docs/SCALE.md     how far each runtime goes, what breaks first, and how it fails
+docs/EXPANDED.md  the second round of load shapes, and what is different about ringrt
 ```
 
 The core is deliberately **sans-IO**: `phhtp_core::process(app, inbuf, outbuf)`

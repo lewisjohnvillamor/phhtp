@@ -1,0 +1,284 @@
+<title>ringrt Request Path</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: one 16:9 stage (the film), a transport bar under it, chapter list under that. Single dark look, like a video player. */
+:root {
+  --bg: #0d1117; --stage: #10161e; --panel: #182029; --line: #2a3441; --fg: #e9edf2; --muted: #93a0b0;
+  --blocking: #1baf7a; --epoll: #eb6834; --uring: #3b8ae6; --accent: #3b8ae6; --warn: #e6b23b;
+  --display: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); margin: 0;
+  padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width: 1120px; margin: 0 auto; display: grid; gap: 14px }
+h1 { font-family: var(--display); font-weight: 600; font-size: clamp(22px, 3vw, 30px); margin: 0; letter-spacing: -0.01em; text-wrap: balance }
+.sub { color: var(--muted); margin: 0; font-size: 14px; max-width: 70ch }
+.stage { position: relative; width: 100%; aspect-ratio: 16 / 9; max-width: 100%; background: var(--stage); border: 1px solid var(--line); border-radius: 6px; overflow: hidden }
+canvas { display: block; width: 100%; height: 100% }
+.big { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(13,17,23,.55); cursor: pointer; border: 0; color: var(--fg); font: 500 16px var(--body) }
+.big span { display: inline-grid; place-items: center; width: 72px; height: 72px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 28px }
+.big[hidden] { display: none !important }
+.bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap }
+button { font: 500 13px var(--body); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; cursor: pointer }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+button[aria-pressed="true"] { border-color: var(--accent); color: #fff; background: #1d3350 }
+input[type=range] { flex: 1 1 200px; min-width: 0; accent-color: var(--accent) }
+.time { font: 400 13px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; min-width: 9ch; text-align: right }
+.chapters { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin: 0; padding: 0; list-style: none }
+.chapters button { width: 100%; text-align: left; display: grid; gap: 2px; padding: 8px 10px }
+.chapters small { color: var(--muted); font: 400 11px var(--mono) }
+.chapters .fam { width: 100%; height: 2px; border-radius: 1px; background: var(--c, var(--line)) }
+.note { color: var(--muted); font-size: 13px; margin: 0; max-width: 80ch }
+.note code { font: 400 12px var(--mono); color: var(--fg) }
+@media (prefers-reduced-motion: reduce) { .big { display: grid } }
+</style>
+<main>
+  <h1>How a request travels: threads, epoll and ringrt's io_uring</h1>
+  <p class="sub">An animated walk through the three I/O models in the phhtp benchmark, with the numbers the harness measured on the 4-core box. Press play, or jump to a chapter.</p>
+  <div class="stage">
+    <canvas id="c" width="1280" height="720" aria-label="Animated explainer"></canvas>
+    <button class="big" id="big" aria-label="Play"><span>▶</span></button>
+  </div>
+  <div class="bar">
+    <button id="play" aria-pressed="false">Play</button>
+    <button id="back" title="Previous chapter">‹ Chapter</button>
+    <button id="fwd" title="Next chapter">Chapter ›</button>
+    <input type="range" id="seek" min="0" max="1000" value="0" aria-label="Seek">
+    <span class="time" id="time">0:00 / 0:00</span>
+    <button id="speed" aria-pressed="false" title="Playback speed">1×</button>
+  </div>
+  <ul class="chapters" id="chapters"></ul>
+  <p class="note">Every figure shown is from <code>bench/results/dataset/*.jsonl</code> and <code>bench/results/syscalls.txt</code> in the repository: 2-core server, same handler code on every runtime, medians where the dataset has repetitions. Ratios under ±15% are within run-to-run noise on this box.</p>
+</main>
+<script>
+(() => {
+const W = 1280, H = 720;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const C = { bg:'#10161e', panel:'#182029', panel2:'#1f2a36', line:'#2a3441', fg:'#e9edf2', muted:'#93a0b0', dim:'#5b6876',
+  blocking:'#1baf7a', epoll:'#eb6834', uring:'#3b8ae6', warn:'#e6b23b', white:'#ffffff', kernel:'#0b0f15' };
+const F = { d:(s)=>`600 ${s}px "IBM Plex Sans Condensed","Arial Narrow",Arial,sans-serif`, b:(s,w=400)=>`${w} ${s}px "IBM Plex Sans","Helvetica Neue",Arial,sans-serif`, m:(s,w=400)=>`${w} ${s}px "IBM Plex Mono",Menlo,Consolas,monospace` };
+
+// ---------- measured numbers (see the note under the player) ----------
+const SYS = [['threads',2.01,'blocking'],['pool',1.95,'blocking'],['mio',2.05,'epoll'],['tokio',2.05,'epoll'],['tokio-st',2.03,'epoll'],
+  ['glommio',2.24,'uring'],['tokio-uring',2.20,'uring'],['compio',0.18,'uring'],['monoio',0.17,'uring'],['uring',0.18,'uring'],['uring-async',0.17,'uring']];
+const OURS = new Set(['uring','uring-async']);
+
+// ---------- helpers ----------
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const ease=(x)=>{x=clamp(x);return x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2};
+const lerp=(a,b,t)=>a+(b-a)*t;
+const fmt=(v,d=2)=>v.toFixed(d);
+function txt(s,x,y,font,color=C.fg,align='left',alpha=1){ctx.save();ctx.globalAlpha=alpha;ctx.font=font;ctx.fillStyle=color;ctx.textAlign=align;ctx.textBaseline='middle';ctx.fillText(s,x,y);ctx.restore()}
+function rect(x,y,w,h,fill,stroke,r=6,alpha=1){ctx.save();ctx.globalAlpha=alpha;ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.2;ctx.stroke()}ctx.restore()}
+function dot(x,y,r,fill,alpha=1){ctx.save();ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();ctx.restore()}
+function line(x1,y1,x2,y2,color,w=1.2,alpha=1,dash){ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=w;if(dash)ctx.setLineDash(dash);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.restore()}
+function glow(x,y,r,color,alpha){const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,color);g.addColorStop(1,'rgba(0,0,0,0)');ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle=g;ctx.fillRect(x-r,y-r,2*r,2*r);ctx.restore()}
+function wrap(s,x,y,maxW,font,color,lh,align='left',alpha=1){ctx.font=font;const words=s.split(' ');let lines=[],cur='';for(const w of words){const t=cur?cur+' '+w:w;if(ctx.measureText(t).width>maxW&&cur){lines.push(cur);cur=w}else cur=t}if(cur)lines.push(cur);lines.forEach((l,i)=>txt(l,x,y+i*lh,font,color,align,alpha));return lines.length}
+
+// Stage chrome shared by every scene: chapter label, caption, progress.
+function chrome(scene, t, caps, globalT){
+  txt(scene.label.toUpperCase(), 40, 34, F.m(13,500), scene.color, 'left');
+  txt(`${scene.index+1} / ${SCENES.length}`, W-40, 34, F.m(13), C.dim, 'right');
+  // caption: pick the last caption whose start <= t, fade in over .35 s
+  let cap=null, since=0; for(const [t0,s] of caps){ if(t>=t0){cap=s;since=t-t0} }
+  if(cap){ rect(40, H-96, W-80, 56, 'rgba(24,32,41,.92)', null, 6); wrap(cap, 60, H-68, W-120, F.b(21,500), C.fg, 24, 'left', ease(since/.35)) }
+  rect(0,H-4,W,4,'#1b232d',null,0); rect(0,H-4,W*(globalT/TOTAL),4,scene.color,null,0);
+}
+// Boundary between user space (top) and kernel (bottom)
+function spaces(yb, t, crossings, color){
+  rect(0, yb, W, H-yb-100, C.kernel, null, 0);
+  line(0,yb,W,yb,C.line,1.5);
+  txt('USER SPACE', 40, yb-16, F.m(12,500), C.dim);
+  txt('KERNEL', 40, yb+18, F.m(12,500), C.dim);
+  // crossing pulses
+  for(const c of crossings){ const a=1-clamp((t-c.t)/.5); if(a<=0||t<c.t)continue; glow(c.x, yb, 44, color, a*.9); txt(c.label, c.x, yb+(c.up?-40:40), F.m(13,500), color, 'center', a) }
+}
+function counter(x,y,label,value,unit,color,alpha=1){ rect(x,y,250,76,C.panel,C.line,8,alpha); txt(label,x+16,y+22,F.m(12,500),C.muted,'left',alpha); txt(value,x+16,y+52,F.d(30),color,'left',alpha); ctx.font=F.d(30); const vw=ctx.measureText(value).width; txt(unit,x+16+vw+10,y+54,F.b(14),C.muted,'left',alpha) }
+function socketRow(y, n, x0, gap, lit, color){ for(let i=0;i<n;i++){ const x=x0+i*gap; const on=lit.has(i); rect(x-16,y-10,32,20,on?color:C.panel,on?color:C.line,4); txt('sock',x,y+1,F.m(10),on?'#fff':C.dim,'center') } }
+function packet(x0,y0,x1,y1,p,color){ if(p<0||p>1)return; const x=lerp(x0,x1,ease(p)), y=lerp(y0,y1,ease(p)); glow(x,y,16,color,.6); dot(x,y,5,color) }
+
+// ---------- scenes ----------
+const SCENES = [];
+function scene(o){ o.index=SCENES.length; SCENES.push(o) }
+
+scene({ id:'intro', label:'One request, three ways', color:C.fg, dur:9,
+  caps:[[0,'Same HTTP/1.1 handler, same box. What differs is how bytes get from the kernel to the handler and back.'],[4.5,'Blocking threads, readiness (epoll), and completion (io_uring). The last one is what ringrt is built on.']],
+  draw(t){
+    txt('One request, three ways', W/2, 120, F.d(56), C.fg, 'center', ease(t/.6));
+    txt('phhtp · eleven runtimes · one sans-IO HTTP engine', W/2, 170, F.m(15), C.muted, 'center', ease((t-.3)/.6));
+    const lanes=[['threads', 'a thread per connection', C.blocking, 'blocking'],['mio · tokio', 'ready, then fetch', C.epoll, 'readiness'],['ringrt (uring, uring-async)', 'the kernel fetches for you', C.uring, 'completion']];
+    lanes.forEach((l,i)=>{ const a=ease((t-1-i*.5)/.6); const x=140+i*340; rect(x,250,320,300,C.panel,C.line,10,a); txt(l[3].toUpperCase(),x+24,290,F.m(12,500),l[2],'left',a); txt(l[0],x+24,330,F.d(28),C.fg,'left',a); txt(l[1],x+24,366,F.b(16),C.muted,'left',a);
+      // tiny glyph per model
+      const gx=x+160, gy=470; if(i===0){ for(let k=0;k<5;k++){rect(gx-80+k*36,gy-40,24,80,l[2],null,4,a*.9)} }
+      if(i===1){ rect(gx-100,gy-18,200,36,l[2],null,6,a*.9); for(let k=0;k<6;k++){dot(gx-80+k*32,gy+40,6,C.muted,a)} line(gx-80,gy+40,gx+80,gy+40,C.muted,1,a) }
+      if(i===2){ ctx.save();ctx.globalAlpha=a;ctx.strokeStyle=l[2];ctx.lineWidth=10;ctx.beginPath();ctx.arc(gx-45,gy,34,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(gx+45,gy,34,0,Math.PI*2);ctx.stroke();ctx.restore(); txt('SQ',gx-45,gy+1,F.m(13,500),C.fg,'center',a); txt('CQ',gx+45,gy+1,F.m(13,500),C.fg,'center',a) }
+    });
+  }});
+
+scene({ id:'threads', label:'Blocking threads', color:C.blocking, dur:16,
+  caps:[[0,'One thread per connection. Each thread sleeps inside read() until its socket has data.'],[4,'Data arrives: the kernel wakes the thread (a context switch), read() copies the bytes up, the handler runs, write() copies the reply down.'],[8,'Two system calls and two context switches per request. 2.01 syscalls/req measured. Simple, and fast while threads are few.'],[12,'The cost is the thread count: 10 000 idle clients are 10 000 stacks. At 16 000 connections spawning failed at 1 368 threads and throughput fell to 4.9k req/s.']],
+  draw(t){
+    const yb=430; const n=8, x0=300, gap=100;
+    const period=1.6, k=Math.floor(t/period), p=(t-k*period)/period, s=(k*5)%n; // active socket this cycle
+    const lit=new Set(); if(p>.55&&p<.95)lit.add(s);
+    const crossings=[{t:k*period+period*.3,x:x0+s*gap,label:'wake + read()',up:true},{t:k*period+period*.8,x:x0+s*gap,label:'write()',up:false}];
+    spaces(yb,t,crossings,C.blocking);
+    // threads
+    for(let i=0;i<n;i++){ const x=x0+i*gap; const active=i===s&&p>.3&&p<.9; rect(x-18,140,36,240,active?C.blocking:C.panel,active?C.blocking:C.line,8); txt('T'+(i+1),x,160,F.m(12,500),active?'#fff':C.muted,'center'); txt(active?'run':'blocked',x,360,F.m(10),active?'#fff':C.dim,'center'); line(x,380,x,yb+60,C.line,1,1,[3,4]) }
+    socketRow(yb+60,n,x0,gap,lit,C.blocking);
+    packet(x0+s*gap, H-110, x0+s*gap, yb+60, p/.3, C.blocking);
+    txt('network', x0-10, H-112, F.m(11), C.dim, 'right');
+    const reqs=k+(p>.3?1:0);
+    counter(40,120,'SYSCALLS / REQUEST','2.01','measured',C.blocking); counter(40,210,'CONTEXT SWITCHES / REQ','2','kernel ⇄ thread',C.blocking);
+    counter(40,300,'THREADS','= connections','',C.blocking, ease((t-11)/.5));
+    if(t>12){ rect(W-330,120,290,110,C.panel,C.warn,8,ease((t-12)/.5)); txt('16 000 connections',W-310,150,F.d(22),C.warn,'left',ease((t-12)/.5)); txt('spawn failed at 1 368 threads',W-310,180,F.b(14),C.fg,'left',ease((t-12.2)/.5)); txt('4.9k req/s · p99 1.3 s',W-310,205,F.m(13),C.muted,'left',ease((t-12.4)/.5)) }
+  }});
+
+scene({ id:'epoll', label:'Readiness: mio and Tokio', color:C.epoll, dur:18,
+  caps:[[0,'One thread per core. Each sleeps in epoll_wait() and gets back a list of sockets that are ready.'],[4,'Ready is not read: for every ready socket the thread still calls recv() to pull the bytes up, runs the handler, then send() to push the reply down.'],[8.5,'So the floor is two syscalls per request; epoll_wait is amortized over the batch. Measured: 2.05 syscalls/req on mio and Tokio.'],[12.5,'Tokio adds work stealing: a woken task may run on whichever thread is free. That is where its best-in-class CPU per request at saturation comes from: 9.3 µs on /json.']],
+  draw(t){
+    const yb=430, n=8, x0=300, gap=100;
+    const period=2.2, k=Math.floor(t/period), p=(t-k*period)/period;
+    const ready=[(k*3)%n,(k*3+2)%n,(k*3+5)%n]; // three sockets ready per epoll_wait
+    const crossings=[{t:k*period+period*.28,x:200,label:'epoll_wait() → 3 ready',up:true}];
+    ready.forEach((s,i)=>{ crossings.push({t:k*period+period*(.4+i*.15),x:x0+s*gap,label:'recv()',up:true}); crossings.push({t:k*period+period*(.48+i*.15),x:x0+s*gap,label:'send()',up:false}) });
+    spaces(yb,t,crossings,C.epoll);
+    const lit=new Set(); ready.forEach((s,i)=>{ if(p>.4+i*.15&&p<.56+i*.15) lit.add(s) });
+    // two worker threads
+    for(let w=0;w<2;w++){ const x=420+w*440; const busy=p>.4&&p<.9; rect(x-150,150,300,120,busy?'#3a241a':C.panel,busy?C.epoll:C.line,10); txt('worker '+(w+1)+' (core '+w+')',x,172,F.m(12,500),C.muted,'center'); txt(busy?(w===0?'task · handler':'task · handler'):'epoll_wait()',x,210,F.d(22),busy?C.epoll:C.dim,'center') }
+    // tasks hopping (work stealing) from 12.5 s
+    if(t>12.5){ const q=((t-12.5)%2)/2; const x=lerp(420,860,ease(q)); rect(x-34,290,68,26,C.epoll,null,6); txt('task',x,303,F.m(12,500),'#fff','center'); txt('work stealing: tasks migrate to the idle thread',640,340,F.b(14),C.muted,'center',ease((t-12.5)/.5)) }
+    // ready list box in kernel
+    rect(80,yb+30,240,60,C.panel,C.line,6); txt('epoll ready list',200,yb+48,F.m(11),C.muted,'center'); txt(p>.25?ready.map(s=>'s'+(s+1)).join('  '):'—',200,yb+72,F.m(14,500),p>.25?C.epoll:C.dim,'center');
+    socketRow(yb+110,n,x0,gap,lit,C.epoll);
+    ready.forEach((s,i)=>packet(x0+s*gap,H-110,x0+s*gap,yb+110,(p-i*.04)/.22,C.epoll));
+    txt('network', x0-10, H-112, F.m(11), C.dim, 'right');
+    counter(40,120,'SYSCALLS / REQUEST','2.05','measured (mio, tokio)',C.epoll); counter(40,210,'OF WHICH epoll_wait','0.03','amortized per batch',C.epoll);
+    if(t>12.5) counter(40,300,'TOKIO CPU / REQUEST','9.3 µs','/json at saturation · best',C.epoll,ease((t-12.5)/.5));
+  }});
+
+scene({ id:'uring', label:'Completion: ringrt on io_uring', color:C.uring, dur:24,
+  caps:[[0,'Two rings in memory shared with the kernel: a submission queue (SQ) we write, a completion queue (CQ) the kernel writes. Reading or writing them is a memory operation, not a syscall.'],[4.5,'At start, ringrt arms one multishot accept and, per connection, one multishot recv. One io_uring_enter(). They stay armed for the socket\'s lifetime.'],[9.5,'Data arrives: the kernel picks a buffer from the provided-buffer ring, writes the bytes into it, and posts a completion. The worker was never called.'],[14,'The worker drains the CQ, runs the handler, pushes a send into the SQ, and only when the batch is done calls io_uring_enter() once for all of them.'],[19,'Measured: 0.17 syscalls per request, against 2.05. Tokio-uring stays at 2.2 because it polls the ring through epoll; glommio 2.24 because it tries a plain recv first.']],
+  draw(t){
+    const yb=470;
+    // rings drawn on the boundary
+    const ring=(cx,label,items,color,dir)=>{ ctx.save();ctx.strokeStyle=C.line;ctx.lineWidth=14;ctx.beginPath();ctx.arc(cx,yb,54,0,Math.PI*2);ctx.stroke();ctx.restore(); for(let i=0;i<12;i++){const a=i/12*Math.PI*2-Math.PI/2; const on=items.has(i); dot(cx+Math.cos(a)*54,yb+Math.sin(a)*54,on?6:3,on?color:C.dim)} txt(label,cx,yb-2,F.d(20),C.fg,'center'); txt(dir,cx,yb+18,F.m(10),C.muted,'center') };
+    const n=6, x0=560, gap=110;
+    // phases: arming 4.5-9.5; traffic from 9.5
+    let sq=new Set(), cq=new Set(), lit=new Set(), crossings=[];
+    const arm=clamp((t-4.5)/4.5);
+    if(t>=4.5&&t<9.5){ const m=Math.floor(arm*8); for(let i=0;i<Math.min(m,7);i++)sq.add(i); if(arm>.85)crossings.push({t:9.0,x:340,label:'io_uring_enter() ×1 for 7 SQEs',up:false}) }
+    let bufUsed=new Set(), batch=0;
+    if(t>=9.5){ const period=3.0, k=Math.floor((t-9.5)/period), p=((t-9.5)-k*period)/period; batch=k;
+      const arr=[(k*2)%n,(k*2+3)%n,(k*2+4)%n,(k*2+1)%n]; // four requests per batch
+      arr.forEach((s,i)=>{ const q=(p-i*.08)/.5; if(q>0&&q<1){ if(q>.45)cq.add((k*4+i)%12); if(q>.3)bufUsed.add((s)%8); if(q>.75)sq.add((k*4+i)%12); if(q>.6&&q<.95)lit.add(s)} });
+      crossings.push({t:9.5+k*period+period*.82,x:340,label:'io_uring_enter() ×1 for 4 sends',up:false});
+      arr.forEach((s,i)=>{ const q=(p-i*.08)/.5; packet(x0+s*gap,H-110,x0+s*gap,yb+100,q/.3,C.uring); if(q>.3&&q<.45)packet(x0+s*gap,yb+100,x0+s*gap,yb+40,(q-.3)/.15,C.uring) });
+    }
+    spaces(yb,t,crossings,C.uring);
+    ring(200,'SQ',sq,C.uring,'user → kernel'); ring(340,'CQ',cq,C.uring,'kernel → user');
+    txt('shared memory · no syscall to read or write',270,yb+86,F.m(11),C.muted,'center');
+    // provided buffer ring in kernel
+    rect(440,yb+22,100,60,C.panel,C.line,6); txt('buffer ring',490,yb+36,F.m(10),C.muted,'center'); for(let i=0;i<8;i++){const x=452+i*11; rect(x,yb+50,8,20,bufUsed.has(i)?C.uring:C.line,null,2)}
+    socketRow(yb+100,n,x0,gap,lit,C.uring); txt('network', x0-30, H-112, F.m(11), C.dim, 'right');
+    // worker
+    const busy=lit.size>0; rect(430,150,420,120,busy?'#17304f':C.panel,busy?C.uring:C.line,10); txt('worker (one per core)',640,172,F.m(12,500),C.muted,'center'); txt(busy?'drain CQ → handler → push send SQE':(t<4.5?'ringrt executor':'waiting in io_uring_enter(GETEVENTS)'),640,212,F.d(20),busy?C.uring:C.dim,'center');
+    if(t>=4.5&&t<9.5){ txt('armed once:',640,300,F.m(12,500),C.muted,'center'); txt('accept (multishot)  ·  recv ×6 (multishot, buffer select)',640,325,F.b(16),C.fg,'center',arm) }
+    counter(40,120,'SYSCALLS / REQUEST', t<19?'…':'0.17', t<19?'':'measured (uring-async)', C.uring);
+    counter(40,210,'io_uring_enter CALLS', String(t<9.0?0:1+Math.max(0,Math.floor((t-9.5-2.46)/3.0)+1)), t>9.5?'for '+(batch*4+(t-9.5-batch*3>2.46?4:0))+' requests':'', C.uring);
+    if(t>19){ const a=ease((t-19)/.5); rect(W-350,120,310,130,C.panel,C.line,8,a); [['uring-async',0.17],['tokio',2.05],['tokio-uring',2.20],['glommio',2.24]].forEach((r,i)=>{ txt(r[0],W-330,150+i*26,F.m(13),C.fg,'left',a); txt(fmt(r[1]),W-60,150+i*26,F.m(13,500),r[0]==='uring-async'?C.uring:C.muted,'right',a) }) }
+  }});
+
+scene({ id:'buffers', label:'Buffers, sends and teardown', color:C.uring, dur:18,
+  caps:[[0,'Completion runtimes make you hand your buffer to the kernel. ringrt keeps a Tokio-shaped recv(&mut Vec): the kernel writes into the ring\'s buffer, never the caller\'s.'],[4.5,'If the caller\'s Vec is empty, the two are swapped: zero copies, and the caller\'s allocation becomes the next ring buffer. Otherwise one memcpy.'],[9,'Sends are detached: up to eight responses in flight per connection from a buffer pool, so the handler never waits for the previous reply before building the next.'],[13.5,'Drop a future mid-flight and its slot is orphaned, ASYNC_CANCEL is submitted, and the buffer stays alive until the kernel confirms. That is the part earlier attempts got wrong.']],
+  draw(t){
+    // left panel: recv swap
+    rect(40,110,580,300,C.panel,C.line,10); txt('recv(&mut Vec<u8>)',70,140,F.d(22),C.fg);
+    const ph=t<9?(t<4.5?0:1):2;
+    const sw=ease((t-5)/1.2);
+    const ringX=lerp(120,400,t>=4.5?sw:0), vecX=lerp(400,120,t>=4.5?sw:0);
+    rect(ringX,190,180,70,C.uring,null,8); txt('ring buffer',ringX+90,215,F.m(12,500),'#fff','center'); txt('GET /json …',ringX+90,240,F.m(12),'#dbe8fb','center');
+    rect(vecX,190,180,70,C.panel2,C.line,8); txt("caller's Vec",vecX+90,215,F.m(12,500),C.muted,'center'); txt(t<4.5?'(empty, cap 4096)':'(recycled → ring)',vecX+90,240,F.m(12),C.dim,'center');
+    txt('kernel',210,290,F.m(11),C.dim,'center'); txt('handler',490,290,F.m(11),C.dim,'center');
+    txt(t<4.5?'kernel wrote here · handler wants it there':(t<9?'swap pointers: 0 copies':'swap pointers: 0 copies'),330,340,F.b(16),t<4.5?C.muted:C.uring,'center');
+    txt('non-empty Vec → one memcpy, buffer recycled at once',330,370,F.b(14),C.muted,'center',ease((t-6.5)/.5));
+    // right panel: detached sends
+    const a2=ease((t-9)/.5);
+    rect(660,110,580,300,C.panel,C.line,10,a2); txt('send_detached(Vec<u8>)',690,140,F.d(22),C.fg,'left',a2);
+    const inflight=t<9?0:Math.min(8,Math.floor((t-9)*2.2));
+    for(let i=0;i<8;i++){ const x=690+i*66; const on=i<inflight; rect(x,190,54,54,on?C.uring:C.panel2,on?C.uring:C.line,8,a2); txt(on?'→k':'',x+27,217,F.m(12,500),'#fff','center',a2) }
+    txt('in flight (max 8, then backpressure)',690,270,F.m(12),C.muted,'left',a2); txt('pool: completed buffers return for the next response',690,300,F.b(14),C.muted,'left',a2);
+    txt('handler keeps building responses while earlier ones are still on the wire',690,345,F.b(14),C.fg,'left',a2*ease((t-11)/.5));
+    // bottom: teardown
+    const a3=ease((t-13.5)/.5);
+    rect(40,440,1200,160,C.panel,C.line,10,a3); txt('drop(future) while an SQE is in the kernel',70,470,F.d(22),C.fg,'left',a3);
+    const steps=[['slot → Orphan','buffer kept'],['ASYNC_CANCEL','submitted'],['CQE arrives','-ECANCELED or data'],['slot + buffer freed','now, not before']];
+    steps.forEach((s,i)=>{ const b=a3*ease((t-14-i*.6)/.5); const x=70+i*300; rect(x,500,270,70,C.panel2,C.line,8,b); txt(s[0],x+16,524,F.m(14,500),C.uring,'left',b); txt(s[1],x+16,550,F.b(13),C.muted,'left',b); if(i<3)txt('→',x+282,535,F.d(20),C.dim,'center',b) });
+  }});
+
+scene({ id:'syscalls', label:'Syscalls per request, eleven runtimes', color:C.fg, dur:12,
+  caps:[[0,'strace -c on the server during a 64-connection /json run. Counts, not timings: strace slows every call it traces, so the req/s under it are not the matrix numbers.'],[5,'Two families. Every readiness runtime sits at two per request. The io_uring runtimes that use multishot sit at one sixth of one. Two io_uring runtimes do not, and they pay for it.']],
+  draw(t){
+    txt('System calls per request (strace -c, GET /json, 64 connections)',40,110,F.d(26),C.fg);
+    const rows=[...SYS].sort((a,b)=>a[1]-b[1]); const x0=220, w=900, y0=150, rh=42; const vmax=2.5;
+    for(let i=0;i<=5;i++){ const x=x0+w*(i*.5/vmax); line(x,y0-10,x,y0+rows.length*rh,C.line,1); txt(fmt(i*.5,1),x,y0+rows.length*rh+14,F.m(11),C.dim,'center') }
+    rows.forEach((r,i)=>{ const y=y0+i*rh; const a=ease((t-.2-i*.25)/.5); const v=r[1]*ease((t-.2-i*.25)/.9); const col=C[r[2]]; txt((OURS.has(r[0])?'◆ ':'')+r[0],x0-14,y+14,F.m(14,OURS.has(r[0])?500:400),OURS.has(r[0])?C.fg:C.muted,'right',a); rect(x0,y+2,w*(v/vmax),24,col,null,4,a); txt(fmt(v),x0+w*(v/vmax)+10,y+14,F.m(14,500),C.fg,'left',a) });
+    if(t>5){ const a=ease((t-5)/.5); txt('tokio-uring 2.20 · glommio 2.24: io_uring runtimes that still make the readiness syscalls',640,H-130,F.b(15),C.warn,'center',a) }
+  }});
+
+scene({ id:'score', label:'Where it shows, and where it does not', color:C.fg, dur:20,
+  caps:[[0,'Fewer crossings show up as a shorter median: at 50 000 req/s open loop, p50 0.13 ms on ringrt against 0.27 ms on Tokio, measured from the intended send time.'],[5,'And as memory under many connections: 136 MB at 16 000 keep-alive connections against 254 MB, with the same handler.'],[10,'But a syscall that submits one SQE and waits costs more kernel time than an epoll_wait that returns a batch. Tokio spends 13 µs CPU per request at that load; ringrt 21.'],[15,'So Tokio keeps the best CPU per request at saturation and a shorter p99 at 64 connections. We win the count of crossings; the kernel sets their price.']],
+  draw(t){
+    const card=(x,y,title,ours,theirs,unit,better,delay,oursWin)=>{ const a=ease((t-delay)/.5); rect(x,y,380,150,C.panel,oursWin?C.uring:C.epoll,10,a); txt(title,x+20,y+26,F.m(12,500),C.muted,'left',a); const q=ease((t-delay-.2)/1.2);
+      txt('ringrt',x+20,y+60,F.m(13),C.fg,'left',a); txt(fmt(ours*q,ours<1?2:(ours<20?1:0))+' '+unit,x+360,y+60,F.d(26),oursWin?C.uring:C.fg,'right',a);
+      txt('tokio',x+20,y+100,F.m(13),C.fg,'left',a); txt(fmt(theirs*q,theirs<1?2:(theirs<20?1:0))+' '+unit,x+360,y+100,F.d(26),oursWin?C.fg:C.epoll,'right',a);
+      txt(better,x+20,y+130,F.b(12),C.dim,'left',a) };
+    txt('ringrt leads',250,110,F.d(28),C.uring,'center'); txt('Tokio leads',1030,110,F.d(28),C.epoll,'center');
+    card(60,130,'p50 · 50k req/s open loop · /json',0.13,0.27,'ms','lower is better · measured from intended send time',0,true);
+    card(60,290,'RSS · 16 000 keep-alive connections',136,254,'MB','lower is better · GET /',5,true);
+    card(60,450,'req/s · GET / · 64 connections (uring)',147,128,'k','higher is better · client-bound region',5.5,true);
+    card(840,130,'CPU / request · 50k req/s open loop',21.1,13.3,'µs','lower is better · io_uring_enter per batch costs more',10,false);
+    card(840,290,'CPU / request · /json at saturation',11.6,9.3,'µs','lower is better · uring 9.9',10.5,false);
+    card(840,450,'p99 · /json · 64 connections',1.83,1.29,'ms','lower is better · uring 1.59',11,false);
+    if(t>15){ const a=ease((t-15)/.6); rect(470,290,340,160,C.panel2,C.line,10,a); wrap('Most rows are within noise of each other. The gap that matters for a 1-vCPU droplet is memory and the median; the gap that matters at saturation is kernel time per enter.',490,335,300,F.b(14),C.fg,20,'left',a) }
+  }});
+
+scene({ id:'outro', label:'What makes it different, and what is next', color:C.uring, dur:12,
+  caps:[[0,'Different in kind: the ring protocol is transcribed from the kernel ABI with one dependency, multishot and provided buffers from the first commit, a borrowed-buffer recv, and cancellation that is correct.'],[6,'Still on the table: registered files, zero-copy send for large bodies, SQPOLL, and the same harness on a droplet with a separate load generator.']],
+  draw(t){
+    const items=[['own ring protocol','io_uring_setup / enter / register, mmap, head–tail fences, ~1 600 lines, one dependency'],['multishot accept + recv','armed once per socket; provided-buffer ring; 0.17 syscalls/req'],['recv(&mut Vec)','Tokio-shaped API on a completion runtime; swap when empty, copy otherwise'],['detached sends','8 in flight per connection from a pool, with backpressure'],['correct teardown','orphaned slots, ASYNC_CANCEL, reap before drop'],['hardened accept path','backlog 65 535, EMFILE retried via kernel TIMEOUT, load shed instead of exit']];
+    txt('ringrt, in six decisions',40,110,F.d(30),C.fg);
+    items.forEach((it,i)=>{ const a=ease((t-.3-i*.4)/.5); const x=40+(i%2)*620, y=160+Math.floor(i/2)*110; rect(x,y,580,90,C.panel,C.line,10,a); dot(x+24,y+45,6,C.uring,a); txt(it[0],x+44,y+30,F.d(22),C.fg,'left',a); wrap(it[1],x+44,y+60,520,F.b(13),C.muted,16,'left',a) });
+    if(t>6){ const a=ease((t-6)/.5); rect(40,500,1200,100,C.panel2,C.uring,10,a); txt('NEXT',70,530,F.m(12,500),C.uring,'left',a); txt('registered files (IOSQE_FIXED_FILE) · zero-copy send for /blob · SQPOLL · droplet run with a separate load generator',70,565,F.b(17),C.fg,'left',a) }
+  }});
+
+const TOTAL = SCENES.reduce((s,x)=>s+x.dur,0);
+function sceneAt(T){ let acc=0; for(const s of SCENES){ if(T<acc+s.dur) return [s,T-acc]; acc+=s.dur } const l=SCENES[SCENES.length-1]; return [l,l.dur-0.001] }
+function render(T){ ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle=C.bg; ctx.fillRect(0,0,W,H); const [s,t]=sceneAt(T); s.draw(t); chrome(s,t,s.caps,T); ctx.restore() }
+
+// ---------- transport ----------
+let T=0, playing=false, speed=1, last=0, raf=0;
+const $=(id)=>document.getElementById(id);
+const seek=$('seek'), time=$('time'), play=$('play'), big=$('big'), spd=$('speed');
+const mmss=(s)=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+function ui(){ seek.value=Math.round(T/TOTAL*1000); time.textContent=`${mmss(T)} / ${mmss(TOTAL)}`; play.textContent=playing?'Pause':'Play'; play.setAttribute('aria-pressed',String(playing)); big.hidden=playing }
+function frame(now){ if(!playing)return; const dt=Math.min(.1,(now-last)/1000)*speed; last=now; T+=dt; if(T>=TOTAL){T=TOTAL;playing=false} render(T); ui(); if(playing) raf=requestAnimationFrame(frame) }
+function setPlaying(p){ playing=p; if(p){ if(T>=TOTAL)T=0; last=performance.now(); raf=requestAnimationFrame(frame) } else cancelAnimationFrame(raf); ui() }
+play.onclick=()=>setPlaying(!playing); big.onclick=()=>setPlaying(true);
+seek.oninput=()=>{ T=seek.value/1000*TOTAL; render(T); ui() };
+$('back').onclick=()=>{ const [s,t]=sceneAt(T); let acc=0; for(const x of SCENES){ if(x===s)break; acc+=x.dur } T=t>1?acc:Math.max(0,acc-(SCENES[s.index-1]?.dur||0)); render(T); ui() };
+$('fwd').onclick=()=>{ const [s]=sceneAt(T); let acc=0; for(const x of SCENES){ acc+=x.dur; if(x===s)break } T=Math.min(TOTAL-0.001,acc); render(T); ui() };
+spd.onclick=()=>{ speed=speed===1?1.5:(speed===1.5?0.5:1); spd.textContent=speed+'×'; spd.setAttribute('aria-pressed',String(speed!==1)) };
+document.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON')return; if(e.key===' '){e.preventDefault();setPlaying(!playing)} if(e.key==='ArrowRight'){T=Math.min(TOTAL,T+5);render(T);ui()} if(e.key==='ArrowLeft'){T=Math.max(0,T-5);render(T);ui()} });
+const ch=$('chapters'); let acc=0; SCENES.forEach(s=>{ const start=acc; acc+=s.dur; const li=document.createElement('li'); const b=document.createElement('button'); b.innerHTML=`<span>${s.label}</span><small>${mmss(start)} · ${s.dur}s</small><span class="fam" style="--c:${s.color}"></span>`; b.onclick=()=>{T=start;render(T);ui();setPlaying(true)}; li.appendChild(b); ch.appendChild(li) });
+// renderer hooks (used by scripts/render-video.mjs to produce the MP4)
+window.__explainer={ total:TOTAL, seek:(s)=>{ T=s; render(T); ui() } };
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+document.fonts?.ready.then(()=>render(T)); render(T); ui();
+if(!reduced && !location.hash.includes('still')) { /* autoplay stays off: the still first frame is the poster */ }
+})();
+</script>
