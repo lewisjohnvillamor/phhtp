@@ -31,11 +31,13 @@ wait_port() {
   echo "server did not come up on port $1" >&2; return 1
 }
 
-summarize() { # label <- json on stdin
+summarize() { # summarize <label>  (bench JSON on stdin)
   python3 -c '
-import json,sys
-d=json.loads(sys.stdin.read()); ms=lambda u: f"{u/1000:.2f}ms"
-print(f"    {sys.argv[1]:<22} req/s {d[\"rps\"]:>9.0f}  p50 {ms(d[\"p50_us\"]):>8}  p99 {ms(d[\"p99_us\"]):>8}  errors {d[\"errors\"]+d[\"non_2xx\"]}")' "$1"
+import json, sys
+d = json.loads(sys.stdin.read())
+ms = lambda u: "%.2fms" % (u / 1000)
+print("    %-26s req/s %9.0f  p50 %8s  p99 %8s  errors %d" % (sys.argv[1], d["rps"], ms(d["p50_us"]), ms(d["p99_us"]), d["errors"] + d["non_2xx"]))
+' "$1"
 }
 
 start() { # start <runtime> [env prefix...]
