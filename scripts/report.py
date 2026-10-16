@@ -260,7 +260,7 @@ def matrix_section(rows):
 
 
 def conns_section(rows):
-    rows = [r for r in rows if r.get("note") == "sweep=conns"]
+    rows = [r for r in rows if r.get("note", "").startswith("sweep=conns")]
     if not rows:
         return ""
     xcats = sorted({r["connections"] for r in rows})
@@ -287,7 +287,7 @@ def conns_section(rows):
 
 
 def workers_section(rows):
-    rows = [r for r in rows if r.get("note") == "sweep=workers"]
+    rows = [r for r in rows if r.get("note", "").startswith("sweep=workers")]
     if not rows:
         return ""
     keys = sorted({int(r["workers"]) for r in rows if str(r["workers"]).isdigit()})
@@ -384,7 +384,18 @@ document.querySelectorAll('#data th').forEach(th => th.addEventListener('click',
 """
 
 
-def build_html(rows, files, title):
+def build_fragment(rows, files, title):
+    """Artifact form: no document skeleton (the host wraps it), title and style
+    first, side gutters that clear a phone's safe area."""
+    css = CSS.replace("main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }",
+                      "main { max-width: 1180px; margin: 0 auto; padding-block: 24px 64px; "
+                      "padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }")
+    body = build_body(rows, files, title)
+    return (f"<title>{esc(title)}</title>\n<meta name=\"claude:viewport-fit-sides\" content=\"cover\">\n"
+            f"<style>{css}</style>\n{body}\n<script>{JS}</script>")
+
+
+def build_body(rows, files, title):
     legend = "".join(f'<span style="--c:var(--{f})">{esc(lbl)}</span>' for f, lbl in FAMILY_LABEL.items())
     legend += '<span style="--c:transparent">◆ built in this repository (uring / uring-async are the from-scratch runtimes)</span>'
     reps = max((r.get("reps", 1) for r in rows), default=1)
@@ -395,8 +406,12 @@ def build_html(rows, files, title):
             f'<div class="legend">{legend}</div>',
             matrix_section(rows), conns_section(rows), workers_section(rows), dataset_section(rows, files),
             '</main><div id="tip"></div>']
+    return "\n".join(body)
+
+
+def build_html(rows, files, title):
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-            f"<title>{esc(title)}</title><style>{CSS}</style></head><body>" + "\n".join(body) + f"<script>{JS}</script></body></html>")
+            f"<title>{esc(title)}</title><style>{CSS}</style></head><body>" + build_body(rows, files, title) + f"<script>{JS}</script></body></html>")
 
 
 def static_svg(svg):
@@ -420,6 +435,7 @@ def main():
     ap.add_argument("-o", "--out", default="bench/report.html")
     ap.add_argument("--title", default="phhtp runtime benchmarks")
     ap.add_argument("--svg-dir", help="also write standalone SVG charts here")
+    ap.add_argument("--fragment", help="also write the page without a document skeleton here (for publishing as an artifact)")
     a = ap.parse_args()
     rows = load(a.files)
     if not rows:
@@ -428,6 +444,10 @@ def main():
     with open(a.out, "w") as f:
         f.write(build_html(rows, [os.path.basename(p) for p in a.files], a.title))
     print(f"wrote {a.out} ({len(rows)} rows)")
+    if a.fragment:
+        with open(a.fragment, "w") as f:
+            f.write(build_fragment(rows, [os.path.basename(p) for p in a.files], a.title))
+        print(f"wrote {a.fragment}")
     if a.svg_dir:
         os.makedirs(a.svg_dir, exist_ok=True)
         mrows = [r for r in rows if not r.get("note", "").startswith("sweep=")]
@@ -443,7 +463,7 @@ def main():
             items99 = [dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, tip=tip_for(r), value=r["p99_us"] / 1000) for rt, r in by_rt.items()]
             with open(os.path.join(a.svg_dir, f"matrix-{name}-p99.svg"), "w") as f:
                 f.write(static_svg(hbar_chart(f"{ep} — p99 latency", f"{conns} connections · lower is better", items99, lambda v: f"{v:.1f}", "ms", sorted_desc=False)))
-        crows = [r for r in rows if r.get("note") == "sweep=conns"]
+        crows = [r for r in rows if r.get("note", "").startswith("sweep=conns")]
         if crows:
             xcats = sorted({r["connections"] for r in crows})
             pts = defaultdict(dict)

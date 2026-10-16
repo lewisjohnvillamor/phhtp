@@ -45,6 +45,9 @@ wait_port() {
 # run_case <runtime> <workers|""> <conns> <note>
 run_case() {
   local rt=$1 workers=$2 conns=$3 note=$4
+  # Provenance: the accept backlog decides whether a connect herd stalls, and
+  # containers have been seen resetting it mid-run. Record it with every row.
+  note="$note somaxconn=$(cat /proc/sys/net/core/somaxconn 2>/dev/null || echo ?)"
   local args=(--runtime "$rt" --bind "127.0.0.1:$PORT")
   [[ -n "$workers" ]] && args+=(--workers "$workers")
   "${PIN_S[@]}" "$SERVER" "${args[@]}" 2>"bench/results/server-$rt.log" &
@@ -90,7 +93,7 @@ import json, sys
 rows = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
 ms = lambda us: f"{us/1000:.2f}ms"
 for sweep in ("sweep=conns", "sweep=workers"):
-    rs = [r for r in rows if r.get("note") == sweep]
+    rs = [r for r in rows if r.get("note", "").startswith(sweep)]
     if not rs: continue
     print(f"\n### {sweep}\n")
     print("| runtime | workers | conns | req/s | p50 | p90 | p99 | max | errors | RSS MB | threads |")

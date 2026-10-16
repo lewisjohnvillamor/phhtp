@@ -1,0 +1,1487 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>phhtp runtime benchmarks</title><style>
+:root { color-scheme: light; --surface:#fcfcfb; --surface-2:#f3f2ef; --text:#0b0b0b; --text-2:#52514e; --muted:#8a8984; --grid:#e6e5e1;
+  --io_uring:#2a78d6; --epoll:#eb6834; --blocking:#1baf7a; --ord-0:#86b6ef; --ord-1:#2a78d6; --ord-2:#104281; }
+@media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) { color-scheme: dark; --surface:#1a1a19; --surface-2:#242422; --text:#f0efec; --text-2:#c3c2b7; --muted:#8e8d86; --grid:#333331;
+  --io_uring:#3987e5; --epoll:#d95926; --blocking:#199e70; --ord-0:#6da7ec; --ord-1:#3987e5; --ord-2:#184f95; } }
+:root[data-theme="dark"] { color-scheme: dark; --surface:#1a1a19; --surface-2:#242422; --text:#f0efec; --text-2:#c3c2b7; --muted:#8e8d86; --grid:#333331;
+  --io_uring:#3987e5; --epoll:#d95926; --blocking:#199e70; --ord-0:#6da7ec; --ord-1:#3987e5; --ord-2:#184f95; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--surface); color:var(--text); font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 26px; margin: 0 0 4px; } h2 { font-size: 20px; margin: 40px 0 6px; }
+.lead { color: var(--text-2); margin: 0 0 14px; max-width: 80ch; }
+.meta { color: var(--muted); font-size: 13px; }
+.legend { display:flex; flex-wrap:wrap; gap: 14px 22px; margin: 14px 0 6px; font-size: 13px; color: var(--text-2); }
+.legend span::before { content:""; display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px; vertical-align:-1px; background: var(--c); }
+.pair { display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 16px 0 28px; }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr; } }
+svg.viz { display:block; overflow: visible; }
+.t-title { font-size: 15px; font-weight: 600; fill: var(--text); } .t-sub { font-size: 12px; fill: var(--text-2); }
+.t-label { font-size: 12px; fill: var(--text); } .t-ours { font-weight: 600; }
+.t-value { font-size: 11.5px; fill: var(--text-2); font-variant-numeric: tabular-nums; }
+.t-tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.grid { stroke: var(--grid); stroke-width: 1; } .axis { stroke: var(--grid); stroke-width: 1; }
+.bar.fam-io_uring { fill: var(--io_uring); } .bar.fam-epoll { fill: var(--epoll); } .bar.fam-blocking { fill: var(--blocking); }
+.line { fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+.line.fam-io_uring { stroke: var(--io_uring); } .line.fam-epoll { stroke: var(--epoll); } .line.fam-blocking { stroke: var(--blocking); }
+.dot { stroke: var(--surface); stroke-width: 2; } .dot.fam-io_uring { fill: var(--io_uring); } .dot.fam-epoll { fill: var(--epoll); } .dot.fam-blocking { fill: var(--blocking); }
+.hit { fill: transparent; } .row:hover .bar, .pt:hover .dot { filter: brightness(0.85); }
+#tip { position: fixed; pointer-events:none; background: var(--surface-2); color: var(--text); border: 1px solid var(--grid); border-radius: 6px; padding: 6px 9px; font-size: 12px; max-width: 420px; display:none; z-index: 9; }
+.tablewrap { overflow:auto; border: 1px solid var(--grid); border-radius: 6px; }
+table { border-collapse: collapse; font-size: 12.5px; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { position: sticky; top: 0; background: var(--surface-2); cursor: pointer; text-align: right; }
+td:first-child, th:first-child, td:nth-child(2), th:nth-child(2), td:nth-child(14), th:nth-child(14), td:nth-child(15), th:nth-child(15) { text-align: left; }
+code { background: var(--surface-2); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+</style></head><body><main><h1>phhtp runtime benchmarks</h1>
+<p class="meta">129 measurements · 2 source files · medians of 3 repetitions where noted · identical runs on the shared benchmark box differ by up to ±15%, so treat smaller gaps as noise</p>
+<div class="legend"><span style="--c:var(--io_uring)">io_uring (completion)</span><span style="--c:var(--epoll)">epoll / readiness</span><span style="--c:var(--blocking)">blocking threads</span><span style="--c:transparent">◆ built in this repository (uring / uring-async are the from-scratch runtimes)</span></div>
+<section id="matrix"><h2>Endpoint matrix</h2>
+<p class="lead">Throughput and tail latency per endpoint, every runtime on the same handler code. Bars are sorted; color is the I/O model family, the name is the runtime, ◆ marks the runtimes built in this repository.</p>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="GET / — throughput">
+<text x="0" y="16" class="t-title">GET / — throughput</text>
+<text x="0" y="32" class="t-sub">64 keep-alive connections · higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">50k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">100k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">150k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">200k</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="uring-async · GET / · 64 conns · 151k req/s · p50 0.34 ms · p90 0.81 ms · p99 1.54 ms · median of 3 (147k–159k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,49.0 h276.883715 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-276.883715 z" class="bar fam-io_uring"/>
+<text x="404.9" y="62.0" class="t-value">151k</text>
+</g>
+<g class="row" data-tip="uring · GET / · 64 conns · 147k req/s · p50 0.35 ms · p90 0.84 ms · p99 1.56 ms · median of 3 (129k–147k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,77.0 h269.04521 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-269.04521 z" class="bar fam-io_uring"/>
+<text x="397.0" y="90.0" class="t-value">147k</text>
+</g>
+<g class="row" data-tip="mio · GET / · 64 conns · 145k req/s · p50 0.34 ms · p90 0.87 ms · p99 1.65 ms · median of 3 (135k–146k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h266.0999 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-266.0999 z" class="bar fam-epoll"/>
+<text x="394.1" y="118.0" class="t-value">145k</text>
+</g>
+<g class="row" data-tip="tokio · GET / · 64 conns · 127k req/s · p50 0.46 ms · p90 0.79 ms · p99 1.25 ms · median of 3 (125k–129k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,133.0 h232.672445 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-232.672445 z" class="bar fam-epoll"/>
+<text x="360.7" y="146.0" class="t-value">127k</text>
+</g>
+<g class="row" data-tip="compio · GET / · 64 conns · 112k req/s · p50 0.43 ms · p90 1.13 ms · p99 2.29 ms · median of 3 (111k–113k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,161.0 h204.83801 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-204.83801 z" class="bar fam-io_uring"/>
+<text x="332.8" y="174.0" class="t-value">112k</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET / · 64 conns · 108k req/s · p50 0.45 ms · p90 1.15 ms · p99 2.38 ms · median of 3 (103k–112k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,189.0 h196.91627 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-196.91627 z" class="bar fam-io_uring"/>
+<text x="324.9" y="202.0" class="t-value">108k</text>
+</g>
+<g class="row" data-tip="monoio · GET / · 64 conns · 107k req/s · p50 0.45 ms · p90 1.16 ms · p99 2.23 ms · median of 3 (107k–114k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,217.0 h195.94813999999997 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-195.94813999999997 z" class="bar fam-io_uring"/>
+<text x="323.9" y="230.0" class="t-value">107k</text>
+</g>
+<g class="row" data-tip="tokio-st · GET / · 64 conns · 107k req/s · p50 0.56 ms · p90 0.89 ms · p99 1.44 ms · median of 3 (107k–108k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,245.0 h195.75284 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-195.75284 z" class="bar fam-epoll"/>
+<text x="323.8" y="258.0" class="t-value">107k</text>
+</g>
+<g class="row" data-tip="pool · GET / · 64 conns · 97k req/s · p50 0.60 ms · p90 1.03 ms · p99 2.02 ms · median of 3 (71k–99k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,273.0 h177.16028 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-177.16028 z" class="bar fam-blocking"/>
+<text x="305.2" y="286.0" class="t-value">97k</text>
+</g>
+<g class="row" data-tip="threads · GET / · 64 conns · 89k req/s · p50 0.65 ms · p90 1.12 ms · p99 2.22 ms · median of 3 (76k–97k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,301.0 h161.9585 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-161.9585 z" class="bar fam-blocking"/>
+<text x="290.0" y="314.0" class="t-value">89k</text>
+</g>
+<g class="row" data-tip="glommio · GET / · 64 conns · 74k req/s · p50 0.64 ms · p90 1.61 ms · p99 4.57 ms · median of 3 (72k–75k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,329.0 h132.995045 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-132.995045 z" class="bar fam-io_uring"/>
+<text x="261.0" y="342.0" class="t-value">74k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="GET / — p99 latency">
+<text x="0" y="16" class="t-title">GET / — p99 latency</text>
+<text x="0" y="32" class="t-sub">64 connections · lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">1.2</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">2.5</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">3.8</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">5.0</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="tokio · GET / · 64 conns · 127k req/s · p50 0.46 ms · p90 0.79 ms · p99 1.25 ms · median of 3 (125k–129k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,49.0 h88.85119999999999 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-88.85119999999999 z" class="bar fam-epoll"/>
+<text x="216.9" y="62.0" class="t-value">1.2</text>
+</g>
+<g class="row" data-tip="tokio-st · GET / · 64 conns · 107k req/s · p50 0.56 ms · p90 0.89 ms · p99 1.44 ms · median of 3 (107k–108k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,77.0 h102.76400000000001 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-102.76400000000001 z" class="bar fam-epoll"/>
+<text x="230.8" y="90.0" class="t-value">1.4</text>
+</g>
+<g class="row" data-tip="uring-async · GET / · 64 conns · 151k req/s · p50 0.34 ms · p90 0.81 ms · p99 1.54 ms · median of 3 (147k–159k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,105.0 h110.4272 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-110.4272 z" class="bar fam-io_uring"/>
+<text x="238.4" y="118.0" class="t-value">1.5</text>
+</g>
+<g class="row" data-tip="uring · GET / · 64 conns · 147k req/s · p50 0.35 ms · p90 0.84 ms · p99 1.56 ms · median of 3 (129k–147k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,133.0 h112.436 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-112.436 z" class="bar fam-io_uring"/>
+<text x="240.4" y="146.0" class="t-value">1.6</text>
+</g>
+<g class="row" data-tip="mio · GET / · 64 conns · 145k req/s · p50 0.34 ms · p90 0.87 ms · p99 1.65 ms · median of 3 (135k–146k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,161.0 h118.4624 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-118.4624 z" class="bar fam-epoll"/>
+<text x="246.5" y="174.0" class="t-value">1.6</text>
+</g>
+<g class="row" data-tip="pool · GET / · 64 conns · 97k req/s · p50 0.60 ms · p90 1.03 ms · p99 2.02 ms · median of 3 (71k–99k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,189.0 h146.3624 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-146.3624 z" class="bar fam-blocking"/>
+<text x="274.4" y="202.0" class="t-value">2.0</text>
+</g>
+<g class="row" data-tip="threads · GET / · 64 conns · 89k req/s · p50 0.65 ms · p90 1.12 ms · p99 2.22 ms · median of 3 (76k–97k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,217.0 h160.94480000000001 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-160.94480000000001 z" class="bar fam-blocking"/>
+<text x="288.9" y="230.0" class="t-value">2.2</text>
+</g>
+<g class="row" data-tip="monoio · GET / · 64 conns · 107k req/s · p50 0.45 ms · p90 1.16 ms · p99 2.23 ms · median of 3 (107k–114k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,245.0 h162.1352 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-162.1352 z" class="bar fam-io_uring"/>
+<text x="290.1" y="258.0" class="t-value">2.2</text>
+</g>
+<g class="row" data-tip="compio · GET / · 64 conns · 112k req/s · p50 0.43 ms · p90 1.13 ms · p99 2.29 ms · median of 3 (111k–113k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,273.0 h166.4504 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-166.4504 z" class="bar fam-io_uring"/>
+<text x="294.5" y="286.0" class="t-value">2.3</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET / · 64 conns · 108k req/s · p50 0.45 ms · p90 1.15 ms · p99 2.38 ms · median of 3 (103k–112k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,301.0 h172.7 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-172.7 z" class="bar fam-io_uring"/>
+<text x="300.7" y="314.0" class="t-value">2.4</text>
+</g>
+<g class="row" data-tip="glommio · GET / · 64 conns · 74k req/s · p50 0.64 ms · p90 1.61 ms · p99 4.57 ms · median of 3 (72k–75k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,329.0 h335.7848 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-335.7848 z" class="bar fam-io_uring"/>
+<text x="463.8" y="342.0" class="t-value">4.6</text>
+</g>
+</svg>
+</div>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="GET /json — throughput">
+<text x="0" y="16" class="t-title">GET /json — throughput</text>
+<text x="0" y="32" class="t-sub">64 keep-alive connections · higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">50k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">100k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">150k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">200k</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="uring · GET /json · 64 conns · 145k req/s · p50 0.35 ms · p90 0.84 ms · p99 1.59 ms · median of 3 (138k–151k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,49.0 h264.91229 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-264.91229 z" class="bar fam-io_uring"/>
+<text x="392.9" y="62.0" class="t-value">145k</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 64 conns · 144k req/s · p50 0.35 ms · p90 0.86 ms · p99 1.62 ms · median of 3 (139k–149k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,77.0 h264.45194 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-264.45194 z" class="bar fam-io_uring"/>
+<text x="392.5" y="90.0" class="t-value">144k</text>
+</g>
+<g class="row" data-tip="mio · GET /json · 64 conns · 136k req/s · p50 0.36 ms · p90 0.92 ms · p99 1.75 ms · median of 3 (131k–149k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h249.04509500000003 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-249.04509500000003 z" class="bar fam-epoll"/>
+<text x="377.0" y="118.0" class="t-value">136k</text>
+</g>
+<g class="row" data-tip="tokio · GET /json · 64 conns · 126k req/s · p50 0.47 ms · p90 0.80 ms · p99 1.26 ms · median of 3 (124k–127k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,133.0 h231.06122000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-231.06122000000002 z" class="bar fam-epoll"/>
+<text x="359.1" y="146.0" class="t-value">126k</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 64 conns · 117k req/s · p50 0.42 ms · p90 1.06 ms · p99 2.19 ms · median of 3 (109k–120k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,161.0 h213.05549 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-213.05549 z" class="bar fam-io_uring"/>
+<text x="341.1" y="174.0" class="t-value">117k</text>
+</g>
+<g class="row" data-tip="pool · GET /json · 64 conns · 114k req/s · p50 0.52 ms · p90 0.87 ms · p99 1.59 ms · median of 3 (97k–130k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,189.0 h207.60103999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-207.60103999999998 z" class="bar fam-blocking"/>
+<text x="335.6" y="202.0" class="t-value">114k</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 64 conns · 110k req/s · p50 0.45 ms · p90 1.16 ms · p99 2.37 ms · median of 3 (99k–110k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,217.0 h200.21125999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-200.21125999999998 z" class="bar fam-io_uring"/>
+<text x="328.2" y="230.0" class="t-value">110k</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 64 conns · 106k req/s · p50 0.46 ms · p90 1.16 ms · p99 2.60 ms · median of 3 (97k–110k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,245.0 h193.0763 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-193.0763 z" class="bar fam-io_uring"/>
+<text x="321.1" y="258.0" class="t-value">106k</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 64 conns · 103k req/s · p50 0.59 ms · p90 0.86 ms · p99 1.36 ms · median of 3 (100k–111k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,273.0 h188.28540499999997 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-188.28540499999997 z" class="bar fam-epoll"/>
+<text x="316.3" y="286.0" class="t-value">103k</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 64 conns · 95k req/s · p50 0.61 ms · p90 1.06 ms · p99 2.05 ms · median of 3 (94k–98k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,301.0 h172.888325 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-172.888325 z" class="bar fam-blocking"/>
+<text x="300.9" y="314.0" class="t-value">95k</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 64 conns · 75k req/s · p50 0.64 ms · p90 1.56 ms · p99 4.55 ms · median of 3 (73k–76k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,329.0 h135.46187 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-135.46187 z" class="bar fam-io_uring"/>
+<text x="263.5" y="342.0" class="t-value">75k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="GET /json — p99 latency">
+<text x="0" y="16" class="t-title">GET /json — p99 latency</text>
+<text x="0" y="32" class="t-sub">64 connections · lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">1.2</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">2.5</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">3.8</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">5.0</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="tokio · GET /json · 64 conns · 126k req/s · p50 0.47 ms · p90 0.80 ms · p99 1.26 ms · median of 3 (124k–127k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,49.0 h89.744 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-89.744 z" class="bar fam-epoll"/>
+<text x="217.7" y="62.0" class="t-value">1.3</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /json · 64 conns · 103k req/s · p50 0.59 ms · p90 0.86 ms · p99 1.36 ms · median of 3 (100k–111k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,77.0 h97.55600000000001 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-97.55600000000001 z" class="bar fam-epoll"/>
+<text x="225.6" y="90.0" class="t-value">1.4</text>
+</g>
+<g class="row" data-tip="uring · GET /json · 64 conns · 145k req/s · p50 0.35 ms · p90 0.84 ms · p99 1.59 ms · median of 3 (138k–151k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,105.0 h114.0728 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-114.0728 z" class="bar fam-io_uring"/>
+<text x="242.1" y="118.0" class="t-value">1.6</text>
+</g>
+<g class="row" data-tip="pool · GET /json · 64 conns · 114k req/s · p50 0.52 ms · p90 0.87 ms · p99 1.59 ms · median of 3 (97k–130k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,133.0 h114.37039999999999 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-114.37039999999999 z" class="bar fam-blocking"/>
+<text x="242.4" y="146.0" class="t-value">1.6</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json · 64 conns · 144k req/s · p50 0.35 ms · p90 0.86 ms · p99 1.62 ms · median of 3 (139k–149k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,161.0 h116.23040000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-116.23040000000002 z" class="bar fam-io_uring"/>
+<text x="244.2" y="174.0" class="t-value">1.6</text>
+</g>
+<g class="row" data-tip="mio · GET /json · 64 conns · 136k req/s · p50 0.36 ms · p90 0.92 ms · p99 1.75 ms · median of 3 (131k–149k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,189.0 h126.34879999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-126.34879999999998 z" class="bar fam-epoll"/>
+<text x="254.3" y="202.0" class="t-value">1.8</text>
+</g>
+<g class="row" data-tip="threads · GET /json · 64 conns · 95k req/s · p50 0.61 ms · p90 1.06 ms · p99 2.05 ms · median of 3 (94k–98k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,217.0 h148.5944 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-148.5944 z" class="bar fam-blocking"/>
+<text x="276.6" y="230.0" class="t-value">2.1</text>
+</g>
+<g class="row" data-tip="compio · GET /json · 64 conns · 117k req/s · p50 0.42 ms · p90 1.06 ms · p99 2.19 ms · median of 3 (109k–120k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,245.0 h159.308 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-159.308 z" class="bar fam-io_uring"/>
+<text x="287.3" y="258.0" class="t-value">2.2</text>
+</g>
+<g class="row" data-tip="monoio · GET /json · 64 conns · 110k req/s · p50 0.45 ms · p90 1.16 ms · p99 2.37 ms · median of 3 (99k–110k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,273.0 h172.5512 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-172.5512 z" class="bar fam-io_uring"/>
+<text x="300.6" y="286.0" class="t-value">2.4</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json · 64 conns · 106k req/s · p50 0.46 ms · p90 1.16 ms · p99 2.60 ms · median of 3 (97k–110k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,301.0 h189.21679999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-189.21679999999998 z" class="bar fam-io_uring"/>
+<text x="317.2" y="314.0" class="t-value">2.6</text>
+</g>
+<g class="row" data-tip="glommio · GET /json · 64 conns · 75k req/s · p50 0.64 ms · p90 1.56 ms · p99 4.55 ms · median of 3 (73k–76k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,329.0 h334.5944 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-334.5944 z" class="bar fam-io_uring"/>
+<text x="462.6" y="342.0" class="t-value">4.6</text>
+</g>
+</svg>
+</div>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="POST /sign — throughput">
+<text x="0" y="16" class="t-title">POST /sign — throughput</text>
+<text x="0" y="32" class="t-sub">64 keep-alive connections · higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">50k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">100k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">150k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">200k</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="uring-async · POST /sign · 64 conns · 126k req/s · p50 0.42 ms · p90 0.94 ms · p99 1.82 ms · median of 3 (121k–134k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,49.0 h230.039615 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-230.039615 z" class="bar fam-io_uring"/>
+<text x="358.0" y="62.0" class="t-value">126k</text>
+</g>
+<g class="row" data-tip="uring · POST /sign · 64 conns · 122k req/s · p50 0.43 ms · p90 0.98 ms · p99 1.92 ms · median of 3 (121k–125k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,77.0 h222.77631499999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-222.77631499999998 z" class="bar fam-io_uring"/>
+<text x="350.8" y="90.0" class="t-value">122k</text>
+</g>
+<g class="row" data-tip="mio · POST /sign · 64 conns · 118k req/s · p50 0.40 ms · p90 1.10 ms · p99 2.28 ms · median of 3 (115k–122k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h215.58602 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-215.58602 z" class="bar fam-epoll"/>
+<text x="343.6" y="118.0" class="t-value">118k</text>
+</g>
+<g class="row" data-tip="pool · POST /sign · 64 conns · 116k req/s · p50 0.51 ms · p90 0.83 ms · p99 1.54 ms · median of 3 (111k–120k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,133.0 h212.68442000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-212.68442000000002 z" class="bar fam-blocking"/>
+<text x="340.7" y="146.0" class="t-value">116k</text>
+</g>
+<g class="row" data-tip="tokio · POST /sign · 64 conns · 109k req/s · p50 0.55 ms · p90 0.93 ms · p99 1.66 ms · median of 3 (107k–111k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,161.0 h197.867195 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-197.867195 z" class="bar fam-epoll"/>
+<text x="325.9" y="174.0" class="t-value">109k</text>
+</g>
+<g class="row" data-tip="monoio · POST /sign · 64 conns · 96k req/s · p50 0.53 ms · p90 1.25 ms · p99 2.66 ms · median of 3 (95k–100k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,189.0 h174.98826499999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-174.98826499999998 z" class="bar fam-io_uring"/>
+<text x="303.0" y="202.0" class="t-value">96k</text>
+</g>
+<g class="row" data-tip="compio · POST /sign · 64 conns · 96k req/s · p50 0.53 ms · p90 1.24 ms · p99 2.57 ms · median of 3 (96k–98k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,217.0 h174.36005 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-174.36005 z" class="bar fam-io_uring"/>
+<text x="302.4" y="230.0" class="t-value">96k</text>
+</g>
+<g class="row" data-tip="tokio-uring · POST /sign · 64 conns · 92k req/s · p50 0.56 ms · p90 1.29 ms · p99 2.77 ms · median of 3 (91k–93k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,245.0 h166.28439500000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-166.28439500000002 z" class="bar fam-io_uring"/>
+<text x="294.3" y="258.0" class="t-value">92k</text>
+</g>
+<g class="row" data-tip="threads · POST /sign · 64 conns · 89k req/s · p50 0.66 ms · p90 1.14 ms · p99 2.25 ms · median of 3 (89k–96k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,273.0 h160.980605 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-160.980605 z" class="bar fam-blocking"/>
+<text x="289.0" y="286.0" class="t-value">89k</text>
+</g>
+<g class="row" data-tip="tokio-st · POST /sign · 64 conns · 77k req/s · p50 0.70 ms · p90 1.40 ms · p99 2.06 ms · median of 3 (74k–82k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,301.0 h139.63292 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-139.63292 z" class="bar fam-epoll"/>
+<text x="267.6" y="314.0" class="t-value">77k</text>
+</g>
+<g class="row" data-tip="glommio · POST /sign · 64 conns · 69k req/s · p50 0.75 ms · p90 1.64 ms · p99 4.61 ms · median of 3 (61k–69k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,329.0 h123.45836 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-123.45836 z" class="bar fam-io_uring"/>
+<text x="251.5" y="342.0" class="t-value">69k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="POST /sign — p99 latency">
+<text x="0" y="16" class="t-title">POST /sign — p99 latency</text>
+<text x="0" y="32" class="t-sub">64 connections · lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">1.2</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">2.5</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">3.8</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">5.0</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="pool · POST /sign · 64 conns · 116k req/s · p50 0.51 ms · p90 0.83 ms · p99 1.54 ms · median of 3 (111k–120k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,49.0 h110.576 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-110.576 z" class="bar fam-blocking"/>
+<text x="238.6" y="62.0" class="t-value">1.5</text>
+</g>
+<g class="row" data-tip="tokio · POST /sign · 64 conns · 109k req/s · p50 0.55 ms · p90 0.93 ms · p99 1.66 ms · median of 3 (107k–111k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,77.0 h119.4296 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-119.4296 z" class="bar fam-epoll"/>
+<text x="247.4" y="90.0" class="t-value">1.7</text>
+</g>
+<g class="row" data-tip="uring-async · POST /sign · 64 conns · 126k req/s · p50 0.42 ms · p90 0.94 ms · p99 1.82 ms · median of 3 (121k–134k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,105.0 h131.1104 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-131.1104 z" class="bar fam-io_uring"/>
+<text x="259.1" y="118.0" class="t-value">1.8</text>
+</g>
+<g class="row" data-tip="uring · POST /sign · 64 conns · 122k req/s · p50 0.43 ms · p90 0.98 ms · p99 1.92 ms · median of 3 (121k–125k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,133.0 h138.848 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-138.848 z" class="bar fam-io_uring"/>
+<text x="266.8" y="146.0" class="t-value">1.9</text>
+</g>
+<g class="row" data-tip="tokio-st · POST /sign · 64 conns · 77k req/s · p50 0.70 ms · p90 1.40 ms · p99 2.06 ms · median of 3 (74k–82k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,161.0 h149.0408 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-149.0408 z" class="bar fam-epoll"/>
+<text x="277.0" y="174.0" class="t-value">2.1</text>
+</g>
+<g class="row" data-tip="threads · POST /sign · 64 conns · 89k req/s · p50 0.66 ms · p90 1.14 ms · p99 2.25 ms · median of 3 (89k–96k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,189.0 h163.772 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-163.772 z" class="bar fam-blocking"/>
+<text x="291.8" y="202.0" class="t-value">2.3</text>
+</g>
+<g class="row" data-tip="mio · POST /sign · 64 conns · 118k req/s · p50 0.40 ms · p90 1.10 ms · p99 2.28 ms · median of 3 (115k–122k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,217.0 h165.55759999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-165.55759999999998 z" class="bar fam-epoll"/>
+<text x="293.6" y="230.0" class="t-value">2.3</text>
+</g>
+<g class="row" data-tip="compio · POST /sign · 64 conns · 96k req/s · p50 0.53 ms · p90 1.24 ms · p99 2.57 ms · median of 3 (96k–98k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,245.0 h187.4312 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-187.4312 z" class="bar fam-io_uring"/>
+<text x="315.4" y="258.0" class="t-value">2.6</text>
+</g>
+<g class="row" data-tip="monoio · POST /sign · 64 conns · 96k req/s · p50 0.53 ms · p90 1.25 ms · p99 2.66 ms · median of 3 (95k–100k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,273.0 h193.6808 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-193.6808 z" class="bar fam-io_uring"/>
+<text x="321.7" y="286.0" class="t-value">2.7</text>
+</g>
+<g class="row" data-tip="tokio-uring · POST /sign · 64 conns · 92k req/s · p50 0.56 ms · p90 1.29 ms · p99 2.77 ms · median of 3 (91k–93k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,301.0 h201.8648 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-201.8648 z" class="bar fam-io_uring"/>
+<text x="329.9" y="314.0" class="t-value">2.8</text>
+</g>
+<g class="row" data-tip="glommio · POST /sign · 64 conns · 69k req/s · p50 0.75 ms · p90 1.64 ms · p99 4.61 ms · median of 3 (61k–69k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,329.0 h338.7608 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-338.7608 z" class="bar fam-io_uring"/>
+<text x="466.8" y="342.0" class="t-value">4.6</text>
+</g>
+</svg>
+</div>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="GET /compute?n=2000 — throughput">
+<text x="0" y="16" class="t-title">GET /compute?n=2000 — throughput</text>
+<text x="0" y="32" class="t-sub">64 keep-alive connections · higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">2.5k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">5.0k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">7.5k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">10k</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="compio · GET /compute?n=2000 · 64 conns · 5.5k req/s · p50 11 ms · p90 17 ms · p99 25 ms · median of 3 (5.3k–5.5k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,49.0 h199.5398 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-199.5398 z" class="bar fam-io_uring"/>
+<text x="327.5" y="62.0" class="t-value">5.5k</text>
+</g>
+<g class="row" data-tip="glommio · GET /compute?n=2000 · 64 conns · 5.5k req/s · p50 12 ms · p90 16 ms · p99 22 ms · median of 3 (5.0k–5.5k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,77.0 h199.0097 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-199.0097 z" class="bar fam-io_uring"/>
+<text x="327.0" y="90.0" class="t-value">5.5k</text>
+</g>
+<g class="row" data-tip="uring-async · GET /compute?n=2000 · 64 conns · 5.3k req/s · p50 11 ms · p90 17 ms · p99 22 ms · median of 3 (5.2k–5.5k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,105.0 h192.43460000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-192.43460000000002 z" class="bar fam-io_uring"/>
+<text x="320.4" y="118.0" class="t-value">5.3k</text>
+</g>
+<g class="row" data-tip="monoio · GET /compute?n=2000 · 64 conns · 5.1k req/s · p50 12 ms · p90 18 ms · p99 23 ms · median of 3 (4.6k–5.2k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,133.0 h186.9104 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-186.9104 z" class="bar fam-io_uring"/>
+<text x="314.9" y="146.0" class="t-value">5.1k</text>
+</g>
+<g class="row" data-tip="uring · GET /compute?n=2000 · 64 conns · 5.1k req/s · p50 12 ms · p90 19 ms · p99 25 ms · median of 3 (5.0k–5.3k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,161.0 h184.8179 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-184.8179 z" class="bar fam-io_uring"/>
+<text x="312.8" y="174.0" class="t-value">5.1k</text>
+</g>
+<g class="row" data-tip="threads · GET /compute?n=2000 · 64 conns · 5.0k req/s · p50 11 ms · p90 22 ms · p99 35 ms · median of 3 (4.8k–5.0k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,189.0 h182.75330000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-182.75330000000002 z" class="bar fam-blocking"/>
+<text x="310.8" y="202.0" class="t-value">5.0k</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /compute?n=2000 · 64 conns · 5.0k req/s · p50 12 ms · p90 17 ms · p99 21 ms · median of 3 (4.5k–5.1k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,217.0 h180.95839999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-180.95839999999998 z" class="bar fam-io_uring"/>
+<text x="309.0" y="230.0" class="t-value">5.0k</text>
+</g>
+<g class="row" data-tip="tokio · GET /compute?n=2000 · 64 conns · 4.8k req/s · p50 13 ms · p90 20 ms · p99 26 ms · median of 3 (4.5k–4.9k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,245.0 h174.3833 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-174.3833 z" class="bar fam-epoll"/>
+<text x="302.4" y="258.0" class="t-value">4.8k</text>
+</g>
+<g class="row" data-tip="mio · GET /compute?n=2000 · 64 conns · 4.6k req/s · p50 13 ms · p90 21 ms · p99 25 ms · median of 3 (4.4k–4.8k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,273.0 h168.1616 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-168.1616 z" class="bar fam-epoll"/>
+<text x="296.2" y="286.0" class="t-value">4.6k</text>
+</g>
+<g class="row" data-tip="pool · GET /compute?n=2000 · 64 conns · 4.6k req/s · p50 13 ms · p90 24 ms · p99 37 ms · median of 3 (4.5k–4.7k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,301.0 h166.29229999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-166.29229999999998 z" class="bar fam-blocking"/>
+<text x="294.3" y="314.0" class="t-value">4.6k</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /compute?n=2000 · 64 conns · 1.3k req/s · p50 46 ms · p90 61 ms · p99 66 ms · median of 3 (1.2k–1.3k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,329.0 h45.1133 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-45.1133 z" class="bar fam-epoll"/>
+<text x="173.1" y="342.0" class="t-value">1.3k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="GET /compute?n=2000 — p99 latency">
+<text x="0" y="16" class="t-title">GET /compute?n=2000 — p99 latency</text>
+<text x="0" y="32" class="t-sub">64 connections · lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">25.0</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">50.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">75.0</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">100.0</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="tokio-uring · GET /compute?n=2000 · 64 conns · 5.0k req/s · p50 12 ms · p90 17 ms · p99 21 ms · median of 3 (4.5k–5.1k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,49.0 h75.75308 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-75.75308 z" class="bar fam-io_uring"/>
+<text x="203.8" y="62.0" class="t-value">21.4</text>
+</g>
+<g class="row" data-tip="uring-async · GET /compute?n=2000 · 64 conns · 5.3k req/s · p50 11 ms · p90 17 ms · p99 22 ms · median of 3 (5.2k–5.5k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,77.0 h75.99116 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-75.99116 z" class="bar fam-io_uring"/>
+<text x="204.0" y="90.0" class="t-value">21.5</text>
+</g>
+<g class="row" data-tip="glommio · GET /compute?n=2000 · 64 conns · 5.5k req/s · p50 12 ms · p90 16 ms · p99 22 ms · median of 3 (5.0k–5.5k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,105.0 h78.01484 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-78.01484 z" class="bar fam-io_uring"/>
+<text x="206.0" y="118.0" class="t-value">22.0</text>
+</g>
+<g class="row" data-tip="monoio · GET /compute?n=2000 · 64 conns · 5.1k req/s · p50 12 ms · p90 18 ms · p99 23 ms · median of 3 (4.6k–5.2k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,133.0 h82.53836 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-82.53836 z" class="bar fam-io_uring"/>
+<text x="210.5" y="146.0" class="t-value">23.3</text>
+</g>
+<g class="row" data-tip="uring · GET /compute?n=2000 · 64 conns · 5.1k req/s · p50 12 ms · p90 19 ms · p99 25 ms · median of 3 (5.0k–5.3k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,161.0 h88.78796 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-88.78796 z" class="bar fam-io_uring"/>
+<text x="216.8" y="174.0" class="t-value">24.9</text>
+</g>
+<g class="row" data-tip="mio · GET /compute?n=2000 · 64 conns · 4.6k req/s · p50 13 ms · p90 21 ms · p99 25 ms · median of 3 (4.4k–4.8k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,189.0 h90.15692 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-90.15692 z" class="bar fam-epoll"/>
+<text x="218.2" y="202.0" class="t-value">25.3</text>
+</g>
+<g class="row" data-tip="compio · GET /compute?n=2000 · 64 conns · 5.5k req/s · p50 11 ms · p90 17 ms · p99 25 ms · median of 3 (5.3k–5.5k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,217.0 h90.395 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-90.395 z" class="bar fam-io_uring"/>
+<text x="218.4" y="230.0" class="t-value">25.4</text>
+</g>
+<g class="row" data-tip="tokio · GET /compute?n=2000 · 64 conns · 4.8k req/s · p50 13 ms · p90 20 ms · p99 26 ms · median of 3 (4.5k–4.9k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,245.0 h92.47819999999999 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-92.47819999999999 z" class="bar fam-epoll"/>
+<text x="220.5" y="258.0" class="t-value">25.9</text>
+</g>
+<g class="row" data-tip="threads · GET /compute?n=2000 · 64 conns · 5.0k req/s · p50 11 ms · p90 22 ms · p99 35 ms · median of 3 (4.8k–5.0k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,273.0 h125.39276000000001 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-125.39276000000001 z" class="bar fam-blocking"/>
+<text x="253.4" y="286.0" class="t-value">34.8</text>
+</g>
+<g class="row" data-tip="pool · GET /compute?n=2000 · 64 conns · 4.6k req/s · p50 13 ms · p90 24 ms · p99 37 ms · median of 3 (4.5k–4.7k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,301.0 h133.60652000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-133.60652000000002 z" class="bar fam-blocking"/>
+<text x="261.6" y="314.0" class="t-value">37.0</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /compute?n=2000 · 64 conns · 1.3k req/s · p50 46 ms · p90 61 ms · p99 66 ms · median of 3 (1.2k–1.3k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,329.0 h240.02828000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-240.02828000000002 z" class="bar fam-epoll"/>
+<text x="368.0" y="342.0" class="t-value">65.6</text>
+</g>
+</svg>
+</div>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="GET /sleep?ms=5 — throughput">
+<text x="0" y="16" class="t-title">GET /sleep?ms=5 — throughput</text>
+<text x="0" y="32" class="t-sub">256 keep-alive connections · higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">12k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">25k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">38k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">50k</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="compio · GET /sleep?ms=5 · 256 conns · 46k req/s · p50 5.36 ms · p90 6.00 ms · p99 7.56 ms · median of 3 (46k–47k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,49.0 h339.89912 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-339.89912 z" class="bar fam-io_uring"/>
+<text x="467.9" y="62.0" class="t-value">46k</text>
+</g>
+<g class="row" data-tip="uring · GET /sleep?ms=5 · 256 conns · 46k req/s · p50 5.41 ms · p90 6.20 ms · p99 7.67 ms · median of 3 (45k–46k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,77.0 h337.4402 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-337.4402 z" class="bar fam-io_uring"/>
+<text x="465.4" y="90.0" class="t-value">46k</text>
+</g>
+<g class="row" data-tip="uring-async · GET /sleep?ms=5 · 256 conns · 46k req/s · p50 5.46 ms · p90 6.24 ms · p99 7.59 ms · median of 3 (45k–46k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,105.0 h335.14868 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-335.14868 z" class="bar fam-io_uring"/>
+<text x="463.1" y="118.0" class="t-value">46k</text>
+</g>
+<g class="row" data-tip="threads · GET /sleep?ms=5 · 256 conns · 44k req/s · p50 5.55 ms · p90 6.57 ms · p99 8.58 ms · median of 3 (44k–46k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,133.0 h326.16859999999997 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-326.16859999999997 z" class="bar fam-blocking"/>
+<text x="454.2" y="146.0" class="t-value">44k</text>
+</g>
+<g class="row" data-tip="glommio · GET /sleep?ms=5 · 256 conns · 42k req/s · p50 5.83 ms · p90 7.17 ms · p99 10 ms · median of 3 (41k–42k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,161.0 h307.76576 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-307.76576 z" class="bar fam-io_uring"/>
+<text x="435.8" y="174.0" class="t-value">42k</text>
+</g>
+<g class="row" data-tip="mio · GET /sleep?ms=5 · 256 conns · 42k req/s · p50 6.09 ms · p90 6.80 ms · p99 8.50 ms · median of 3 (41k–42k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,189.0 h305.02784 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-305.02784 z" class="bar fam-epoll"/>
+<text x="433.0" y="202.0" class="t-value">42k</text>
+</g>
+<g class="row" data-tip="monoio · GET /sleep?ms=5 · 256 conns · 38k req/s · p50 6.64 ms · p90 7.40 ms · p99 8.73 ms · median of 3 (37k–38k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,217.0 h280.29542 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-280.29542 z" class="bar fam-io_uring"/>
+<text x="408.3" y="230.0" class="t-value">38k</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /sleep?ms=5 · 256 conns · 37k req/s · p50 6.75 ms · p90 7.63 ms · p99 9.38 ms · median of 3 (37k–38k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,245.0 h274.46245999999996 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-274.46245999999996 z" class="bar fam-io_uring"/>
+<text x="402.5" y="258.0" class="t-value">37k</text>
+</g>
+<g class="row" data-tip="tokio · GET /sleep?ms=5 · 256 conns · 37k req/s · p50 6.76 ms · p90 7.72 ms · p99 8.99 ms · median of 3 (37k–38k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,273.0 h274.27646 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-274.27646 z" class="bar fam-epoll"/>
+<text x="402.3" y="286.0" class="t-value">37k</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /sleep?ms=5 · 256 conns · 34k req/s · p50 7.43 ms · p90 8.36 ms · p99 9.78 ms · median of 3 (34k–35k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,301.0 h251.36126000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-251.36126000000002 z" class="bar fam-epoll"/>
+<text x="379.4" y="314.0" class="t-value">34k</text>
+</g>
+<g class="row" data-tip="pool · GET /sleep?ms=5 · 256 conns · 12k req/s · p50 5.30 ms · p90 5.57 ms · p99 6.82 ms · median of 3 (12k–12k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,329.0 h84.58064 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-84.58064 z" class="bar fam-blocking"/>
+<text x="212.6" y="342.0" class="t-value">12k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 378" width="100%" style="max-width:560px" role="img" aria-label="GET /sleep?ms=5 — p99 latency">
+<text x="0" y="16" class="t-title">GET /sleep?ms=5 — p99 latency</text>
+<text x="0" y="32" class="t-sub">256 connections · lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="352" class="grid"/>
+<text x="118.0" y="368" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="352" class="grid"/>
+<text x="211.0" y="368" class="t-tick" text-anchor="middle">5.0</text>
+<line x1="304.0" y1="44" x2="304.0" y2="352" class="grid"/>
+<text x="304.0" y="368" class="t-tick" text-anchor="middle">10.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="352" class="grid"/>
+<text x="397.0" y="368" class="t-tick" text-anchor="middle">15.0</text>
+<line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
+<text x="490.0" y="368" class="t-tick" text-anchor="middle">20.0</text>
+<line x1="118" y1="44" x2="118" y2="352" class="axis"/>
+<g class="row" data-tip="pool · GET /sleep?ms=5 · 256 conns · 12k req/s · p50 5.30 ms · p90 5.57 ms · p99 6.82 ms · median of 3 (12k–12k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
+<path d="M118,49.0 h122.8334 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-122.8334 z" class="bar fam-blocking"/>
+<text x="250.8" y="62.0" class="t-value">6.8</text>
+</g>
+<g class="row" data-tip="compio · GET /sleep?ms=5 · 256 conns · 46k req/s · p50 5.36 ms · p90 6.00 ms · p99 7.56 ms · median of 3 (46k–47k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,77.0 h136.6718 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-136.6718 z" class="bar fam-io_uring"/>
+<text x="264.7" y="90.0" class="t-value">7.6</text>
+</g>
+<g class="row" data-tip="uring-async · GET /sleep?ms=5 · 256 conns · 46k req/s · p50 5.46 ms · p90 6.24 ms · p99 7.59 ms · median of 3 (45k–46k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,105.0 h137.267 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-137.267 z" class="bar fam-io_uring"/>
+<text x="265.3" y="118.0" class="t-value">7.6</text>
+</g>
+<g class="row" data-tip="uring · GET /sleep?ms=5 · 256 conns · 46k req/s · p50 5.41 ms · p90 6.20 ms · p99 7.67 ms · median of 3 (45k–46k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,133.0 h138.755 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-138.755 z" class="bar fam-io_uring"/>
+<text x="266.8" y="146.0" class="t-value">7.7</text>
+</g>
+<g class="row" data-tip="mio · GET /sleep?ms=5 · 256 conns · 42k req/s · p50 6.09 ms · p90 6.80 ms · p99 8.50 ms · median of 3 (41k–42k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,161.0 h154.1558 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-154.1558 z" class="bar fam-epoll"/>
+<text x="282.2" y="174.0" class="t-value">8.5</text>
+</g>
+<g class="row" data-tip="threads · GET /sleep?ms=5 · 256 conns · 44k req/s · p50 5.55 ms · p90 6.57 ms · p99 8.58 ms · median of 3 (44k–46k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,189.0 h155.6438 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-155.6438 z" class="bar fam-blocking"/>
+<text x="283.6" y="202.0" class="t-value">8.6</text>
+</g>
+<g class="row" data-tip="monoio · GET /sleep?ms=5 · 256 conns · 38k req/s · p50 6.64 ms · p90 7.40 ms · p99 8.73 ms · median of 3 (37k–38k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,217.0 h158.471 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-158.471 z" class="bar fam-io_uring"/>
+<text x="286.5" y="230.0" class="t-value">8.7</text>
+</g>
+<g class="row" data-tip="tokio · GET /sleep?ms=5 · 256 conns · 37k req/s · p50 6.76 ms · p90 7.72 ms · p99 8.99 ms · median of 3 (37k–38k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,245.0 h163.2326 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-163.2326 z" class="bar fam-epoll"/>
+<text x="291.2" y="258.0" class="t-value">9.0</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /sleep?ms=5 · 256 conns · 37k req/s · p50 6.75 ms · p90 7.63 ms · p99 9.38 ms · median of 3 (37k–38k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,273.0 h170.375 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-170.375 z" class="bar fam-io_uring"/>
+<text x="298.4" y="286.0" class="t-value">9.4</text>
+</g>
+<g class="row" data-tip="tokio-st · GET /sleep?ms=5 · 256 conns · 34k req/s · p50 7.43 ms · p90 8.36 ms · p99 9.78 ms · median of 3 (34k–35k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,301.0 h177.9638 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-177.9638 z" class="bar fam-epoll"/>
+<text x="306.0" y="314.0" class="t-value">9.8</text>
+</g>
+<g class="row" data-tip="glommio · GET /sleep?ms=5 · 256 conns · 42k req/s · p50 5.83 ms · p90 7.17 ms · p99 10 ms · median of 3 (41k–42k)">
+<rect x="0" y="324" width="560" height="28" class="hit"/>
+<text x="110" y="342.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,329.0 h182.7254 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-182.7254 z" class="bar fam-io_uring"/>
+<text x="310.7" y="342.0" class="t-value">10.0</text>
+</g>
+</svg>
+</div>
+</section>
+<section id="conns"><h2>Connection sweep</h2>
+<p class="lead">Throughput as keep-alive connections grow (one request in flight per connection), server pinned to 2 cores. Shared y scale; one panel per runtime because eleven converging lines on one plot cannot be read.</p>
+<svg class="viz" viewBox="0 0 800 440" width="100%" style="max-width:800px" role="img" aria-label="GET / throughput vs. connections">
+<text x="0" y="16" class="t-title">GET / throughput vs. connections</text>
+<text x="0" y="32" class="t-sub">req/s · 2-core server · connects paced</text>
+<text x="40" y="54" class="t-label t-ours">◆ uring-async</text>
+<line x1="40" y1="146.0" x2="156" y2="146.0" class="grid"/>
+<text x="36" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="104.0" x2="156" y2="104.0" class="grid"/>
+<text x="36" y="107.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="40" y1="62.0" x2="156" y2="62.0" class="grid"/>
+<text x="36" y="65.0" class="t-tick" text-anchor="end">200k</text>
+<path d="M40.0,77.7 L78.7,89.7 L117.3,99.7 L156.0,109.5" class="line fam-io_uring"/>
+<g class="pt" data-tip="uring-async · 64 connections · 163k"><circle cx="40.0" cy="77.7" r="12" class="hit"/><circle cx="40.0" cy="77.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 1024 connections · 134k"><circle cx="78.7" cy="89.7" r="12" class="hit"/><circle cx="78.7" cy="89.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 4096 connections · 110k"><circle cx="117.3" cy="99.7" r="12" class="hit"/><circle cx="117.3" cy="99.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 16000 connections · 87k"><circle cx="156.0" cy="109.5" r="12" class="hit"/><circle cx="156.0" cy="109.5" r="4" class="dot fam-io_uring"/></g>
+<text x="164.0" y="113.5" class="t-value">87k</text>
+<text x="40.0" y="160" class="t-tick" text-anchor="middle">64</text>
+<text x="78.7" y="160" class="t-tick" text-anchor="middle">1024</text>
+<text x="117.3" y="160" class="t-tick" text-anchor="middle">4096</text>
+<text x="156.0" y="160" class="t-tick" text-anchor="middle">16k</text>
+<text x="240" y="54" class="t-label t-ours">◆ uring</text>
+<line x1="240" y1="146.0" x2="356" y2="146.0" class="grid"/>
+<text x="236" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="104.0" x2="356" y2="104.0" class="grid"/>
+<text x="236" y="107.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="240" y1="62.0" x2="356" y2="62.0" class="grid"/>
+<text x="236" y="65.0" class="t-tick" text-anchor="end">200k</text>
+<path d="M240.0,74.2 L278.7,86.1 L317.3,93.2 L356.0,108.5" class="line fam-io_uring"/>
+<g class="pt" data-tip="uring · 64 connections · 171k"><circle cx="240.0" cy="74.2" r="12" class="hit"/><circle cx="240.0" cy="74.2" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 1024 connections · 143k"><circle cx="278.7" cy="86.1" r="12" class="hit"/><circle cx="278.7" cy="86.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 4096 connections · 126k"><circle cx="317.3" cy="93.2" r="12" class="hit"/><circle cx="317.3" cy="93.2" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 16000 connections · 89k"><circle cx="356.0" cy="108.5" r="12" class="hit"/><circle cx="356.0" cy="108.5" r="4" class="dot fam-io_uring"/></g>
+<text x="364.0" y="112.5" class="t-value">89k</text>
+<text x="240.0" y="160" class="t-tick" text-anchor="middle">64</text>
+<text x="278.7" y="160" class="t-tick" text-anchor="middle">1024</text>
+<text x="317.3" y="160" class="t-tick" text-anchor="middle">4096</text>
+<text x="356.0" y="160" class="t-tick" text-anchor="middle">16k</text>
+<text x="440" y="54" class="t-label">monoio</text>
+<line x1="440" y1="146.0" x2="556" y2="146.0" class="grid"/>
+<text x="436" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="104.0" x2="556" y2="104.0" class="grid"/>
+<text x="436" y="107.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="440" y1="62.0" x2="556" y2="62.0" class="grid"/>
+<text x="436" y="65.0" class="t-tick" text-anchor="end">200k</text>
+<path d="M440.0,94.2 L478.7,97.3 L517.3,100.7 L556.0,115.2" class="line fam-io_uring"/>
+<g class="pt" data-tip="monoio · 64 connections · 123k"><circle cx="440.0" cy="94.2" r="12" class="hit"/><circle cx="440.0" cy="94.2" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 1024 connections · 116k"><circle cx="478.7" cy="97.3" r="12" class="hit"/><circle cx="478.7" cy="97.3" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 4096 connections · 108k"><circle cx="517.3" cy="100.7" r="12" class="hit"/><circle cx="517.3" cy="100.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 16000 connections · 73k"><circle cx="556.0" cy="115.2" r="12" class="hit"/><circle cx="556.0" cy="115.2" r="4" class="dot fam-io_uring"/></g>
+<text x="564.0" y="119.2" class="t-value">73k</text>
+<text x="440.0" y="160" class="t-tick" text-anchor="middle">64</text>
+<text x="478.7" y="160" class="t-tick" text-anchor="middle">1024</text>
+<text x="517.3" y="160" class="t-tick" text-anchor="middle">4096</text>
+<text x="556.0" y="160" class="t-tick" text-anchor="middle">16k</text>
+<text x="640" y="54" class="t-label">compio</text>
+<line x1="640" y1="146.0" x2="756" y2="146.0" class="grid"/>
+<text x="636" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="640" y1="104.0" x2="756" y2="104.0" class="grid"/>
+<text x="636" y="107.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="640" y1="62.0" x2="756" y2="62.0" class="grid"/>
+<text x="636" y="65.0" class="t-tick" text-anchor="end">200k</text>
+<path d="M640.0,90.3 L678.7,103.7 L717.3,92.5 L756.0,118.9" class="line fam-io_uring"/>
+<g class="pt" data-tip="compio · 64 connections · 133k"><circle cx="640.0" cy="90.3" r="12" class="hit"/><circle cx="640.0" cy="90.3" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 1024 connections · 101k"><circle cx="678.7" cy="103.7" r="12" class="hit"/><circle cx="678.7" cy="103.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 4096 connections · 127k"><circle cx="717.3" cy="92.5" r="12" class="hit"/><circle cx="717.3" cy="92.5" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 16000 connections · 65k"><circle cx="756.0" cy="118.9" r="12" class="hit"/><circle cx="756.0" cy="118.9" r="4" class="dot fam-io_uring"/></g>
+<text x="764.0" y="122.9" class="t-value">65k</text>
+<text x="640.0" y="160" class="t-tick" text-anchor="middle">64</text>
+<text x="678.7" y="160" class="t-tick" text-anchor="middle">1024</text>
+<text x="717.3" y="160" class="t-tick" text-anchor="middle">4096</text>
+<text x="756.0" y="160" class="t-tick" text-anchor="middle">16k</text>
+<text x="40" y="184" class="t-label">glommio</text>
+<line x1="40" y1="276.0" x2="156" y2="276.0" class="grid"/>
+<text x="36" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="234.0" x2="156" y2="234.0" class="grid"/>
+<text x="36" y="237.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="40" y1="192.0" x2="156" y2="192.0" class="grid"/>
+<text x="36" y="195.0" class="t-tick" text-anchor="end">200k</text>
+<path d="M40.0,233.6 L78.7,236.0 L117.3,240.2 L156.0,252.5" class="line fam-io_uring"/>
+<g class="pt" data-tip="glommio · 64 connections · 101k"><circle cx="40.0" cy="233.6" r="12" class="hit"/><circle cx="40.0" cy="233.6" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 1024 connections · 95k"><circle cx="78.7" cy="236.0" r="12" class="hit"/><circle cx="78.7" cy="236.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 4096 connections · 85k"><circle cx="117.3" cy="240.2" r="12" class="hit"/><circle cx="117.3" cy="240.2" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 16000 connections · 56k"><circle cx="156.0" cy="252.5" r="12" class="hit"/><circle cx="156.0" cy="252.5" r="4" class="dot fam-io_uring"/></g>
+<text x="164.0" y="256.5" class="t-value">56k</text>
+<text x="40.0" y="290" class="t-tick" text-anchor="middle">64</text>
+<text x="78.7" y="290" class="t-tick" text-anchor="middle">1024</text>
+<text x="117.3" y="290" class="t-tick" text-anchor="middle">4096</text>
+<text x="156.0" y="290" class="t-tick" text-anchor="middle">16k</text>
+<text x="240" y="184" class="t-label">tokio-uring</text>
+<line x1="240" y1="276.0" x2="356" y2="276.0" class="grid"/>
+<text x="236" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="234.0" x2="356" y2="234.0" class="grid"/>
+<text x="236" y="237.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="240" y1="192.0" x2="356" y2="192.0" class="grid"/>
+<text x="236" y="195.0" class="t-tick" text-anchor="end">200k</text>
+<path d="M240.0,221.9 L278.7,227.8 L317.3,226.8 L356.0,241.3" class="line fam-io_uring"/>
+<g class="pt" data-tip="tokio-uring · 64 connections · 129k"><circle cx="240.0" cy="221.9" r="12" class="hit"/><circle cx="240.0" cy="221.9" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 1024 connections · 115k"><circle cx="278.7" cy="227.8" r="12" class="hit"/><circle cx="278.7" cy="227.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 4096 connections · 117k"><circle cx="317.3" cy="226.8" r="12" class="hit"/><circle cx="317.3" cy="226.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 16000 connections · 83k"><circle cx="356.0" cy="241.3" r="12" class="hit"/><circle cx="356.0" cy="241.3" r="4" class="dot fam-io_uring"/></g>
+<text x="364.0" y="245.3" class="t-value">83k</text>
+<text x="240.0" y="290" class="t-tick" text-anchor="middle">64</text>
+<text x="278.7" y="290" class="t-tick" text-anchor="middle">1024</text>
+<text x="317.3" y="290" class="t-tick" text-anchor="middle">4096</text>
+<text x="356.0" y="290" class="t-tick" text-anchor="middle">16k</text>
+<text x="440" y="184" class="t-label t-ours">◆ tokio</text>
+<line x1="440" y1="276.0" x2="556" y2="276.0" class="grid"/>
+<text x="436" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="234.0" x2="556" y2="234.0" class="grid"/>
+<text x="436" y="237.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="440" y1="192.0" x2="556" y2="192.0" class="grid"/>
+<text x="436" y="195.0" class="t-tick" text-anchor="end">200k</text>
+<path d="M440.0,206.6 L478.7,209.8 L517.3,215.2 L556.0,230.0" class="line fam-epoll"/>
+<g class="pt" data-tip="tokio · 64 connections · 165k"><circle cx="440.0" cy="206.6" r="12" class="hit"/><circle cx="440.0" cy="206.6" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 1024 connections · 158k"><circle cx="478.7" cy="209.8" r="12" class="hit"/><circle cx="478.7" cy="209.8" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 4096 connections · 145k"><circle cx="517.3" cy="215.2" r="12" class="hit"/><circle cx="517.3" cy="215.2" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 16000 connections · 110k"><circle cx="556.0" cy="230.0" r="12" class="hit"/><circle cx="556.0" cy="230.0" r="4" class="dot fam-epoll"/></g>
+<text x="564.0" y="234.0" class="t-value">110k</text>
+<text x="440.0" y="290" class="t-tick" text-anchor="middle">64</text>
+<text x="478.7" y="290" class="t-tick" text-anchor="middle">1024</text>
+<text x="517.3" y="290" class="t-tick" text-anchor="middle">4096</text>
+<text x="556.0" y="290" class="t-tick" text-anchor="middle">16k</text>
+<text x="640" y="184" class="t-label t-ours">◆ tokio-st</text>
+<line x1="640" y1="276.0" x2="756" y2="276.0" class="grid"/>
+<text x="636" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="640" y1="234.0" x2="756" y2="234.0" class="grid"/>
+<text x="636" y="237.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="640" y1="192.0" x2="756" y2="192.0" class="grid"/>
+<text x="636" y="195.0" class="t-tick" text-anchor="end">200k</text>
+<path d="M640.0,215.9 L678.7,240.6 L717.3,240.1 L756.0,250.4" class="line fam-epoll"/>
+<g class="pt" data-tip="tokio-st · 64 connections · 143k"><circle cx="640.0" cy="215.9" r="12" class="hit"/><circle cx="640.0" cy="215.9" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 1024 connections · 84k"><circle cx="678.7" cy="240.6" r="12" class="hit"/><circle cx="678.7" cy="240.6" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 4096 connections · 85k"><circle cx="717.3" cy="240.1" r="12" class="hit"/><circle cx="717.3" cy="240.1" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 16000 connections · 61k"><circle cx="756.0" cy="250.4" r="12" class="hit"/><circle cx="756.0" cy="250.4" r="4" class="dot fam-epoll"/></g>
+<text x="764.0" y="254.4" class="t-value">61k</text>
+<text x="640.0" y="290" class="t-tick" text-anchor="middle">64</text>
+<text x="678.7" y="290" class="t-tick" text-anchor="middle">1024</text>
+<text x="717.3" y="290" class="t-tick" text-anchor="middle">4096</text>
+<text x="756.0" y="290" class="t-tick" text-anchor="middle">16k</text>
+<text x="40" y="314" class="t-label t-ours">◆ mio</text>
+<line x1="40" y1="406.0" x2="156" y2="406.0" class="grid"/>
+<text x="36" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="364.0" x2="156" y2="364.0" class="grid"/>
+<text x="36" y="367.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="40" y1="322.0" x2="156" y2="322.0" class="grid"/>
+<text x="36" y="325.0" class="t-tick" text-anchor="end">200k</text>
+<path d="M40.0,346.7 L78.7,361.8 L117.3,353.6 L156.0,367.0" class="line fam-epoll"/>
+<g class="pt" data-tip="mio · 64 connections · 141k"><circle cx="40.0" cy="346.7" r="12" class="hit"/><circle cx="40.0" cy="346.7" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 1024 connections · 105k"><circle cx="78.7" cy="361.8" r="12" class="hit"/><circle cx="78.7" cy="361.8" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 4096 connections · 125k"><circle cx="117.3" cy="353.6" r="12" class="hit"/><circle cx="117.3" cy="353.6" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 16000 connections · 93k"><circle cx="156.0" cy="367.0" r="12" class="hit"/><circle cx="156.0" cy="367.0" r="4" class="dot fam-epoll"/></g>
+<text x="164.0" y="371.0" class="t-value">93k</text>
+<text x="40.0" y="420" class="t-tick" text-anchor="middle">64</text>
+<text x="78.7" y="420" class="t-tick" text-anchor="middle">1024</text>
+<text x="117.3" y="420" class="t-tick" text-anchor="middle">4096</text>
+<text x="156.0" y="420" class="t-tick" text-anchor="middle">16k</text>
+<text x="240" y="314" class="t-label t-ours">◆ threads</text>
+<line x1="240" y1="406.0" x2="356" y2="406.0" class="grid"/>
+<text x="236" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="364.0" x2="356" y2="364.0" class="grid"/>
+<text x="236" y="367.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="240" y1="322.0" x2="356" y2="322.0" class="grid"/>
+<text x="236" y="325.0" class="t-tick" text-anchor="end">200k</text>
+<path d="M240.0,355.7 L278.7,364.5 L317.3,366.8 L356.0,404.5" class="line fam-blocking"/>
+<g class="pt" data-tip="threads · 64 connections · 120k"><circle cx="240.0" cy="355.7" r="12" class="hit"/><circle cx="240.0" cy="355.7" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 1024 connections · 99k"><circle cx="278.7" cy="364.5" r="12" class="hit"/><circle cx="278.7" cy="364.5" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 4096 connections · 93k"><circle cx="317.3" cy="366.8" r="12" class="hit"/><circle cx="317.3" cy="366.8" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 16000 connections · 3.6k"><circle cx="356.0" cy="404.5" r="12" class="hit"/><circle cx="356.0" cy="404.5" r="4" class="dot fam-blocking"/></g>
+<text x="364.0" y="408.5" class="t-value">3.6k</text>
+<text x="240.0" y="420" class="t-tick" text-anchor="middle">64</text>
+<text x="278.7" y="420" class="t-tick" text-anchor="middle">1024</text>
+<text x="317.3" y="420" class="t-tick" text-anchor="middle">4096</text>
+<text x="356.0" y="420" class="t-tick" text-anchor="middle">16k</text>
+<text x="440" y="314" class="t-label t-ours">◆ pool</text>
+<line x1="440" y1="406.0" x2="556" y2="406.0" class="grid"/>
+<text x="436" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="364.0" x2="556" y2="364.0" class="grid"/>
+<text x="436" y="367.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="440" y1="322.0" x2="556" y2="322.0" class="grid"/>
+<text x="436" y="325.0" class="t-tick" text-anchor="end">200k</text>
+<path d="M440.0,355.4 L478.7,355.4 L517.3,356.5 L556.0,404.2" class="line fam-blocking"/>
+<g class="pt" data-tip="pool · 64 connections · 120k"><circle cx="440.0" cy="355.4" r="12" class="hit"/><circle cx="440.0" cy="355.4" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 1024 connections · 121k"><circle cx="478.7" cy="355.4" r="12" class="hit"/><circle cx="478.7" cy="355.4" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 4096 connections · 118k"><circle cx="517.3" cy="356.5" r="12" class="hit"/><circle cx="517.3" cy="356.5" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 16000 connections · 4.3k"><circle cx="556.0" cy="404.2" r="12" class="hit"/><circle cx="556.0" cy="404.2" r="4" class="dot fam-blocking"/></g>
+<text x="564.0" y="408.2" class="t-value">4.3k</text>
+<text x="440.0" y="420" class="t-tick" text-anchor="middle">64</text>
+<text x="478.7" y="420" class="t-tick" text-anchor="middle">1024</text>
+<text x="517.3" y="420" class="t-tick" text-anchor="middle">4096</text>
+<text x="556.0" y="420" class="t-tick" text-anchor="middle">16k</text>
+</svg>
+<svg class="viz" viewBox="0 0 800 440" width="100%" style="max-width:800px" role="img" aria-label="GET / p99 latency vs. connections">
+<text x="0" y="16" class="t-title">GET / p99 latency vs. connections</text>
+<text x="0" y="32" class="t-sub">ms · lower is better</text>
+<text x="40" y="54" class="t-label t-ours">◆ uring-async</text>
+<line x1="40" y1="146.0" x2="156" y2="146.0" class="grid"/>
+<text x="36" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="104.0" x2="156" y2="104.0" class="grid"/>
+<text x="36" y="107.0" class="t-tick" text-anchor="end">2500</text>
+<line x1="40" y1="62.0" x2="156" y2="62.0" class="grid"/>
+<text x="36" y="65.0" class="t-tick" text-anchor="end">5000</text>
+<path d="M40.0,146.0 L78.7,145.1 L117.3,141.9 L156.0,127.4" class="line fam-io_uring"/>
+<g class="pt" data-tip="uring-async · 64 connections · 1"><circle cx="40.0" cy="146.0" r="12" class="hit"/><circle cx="40.0" cy="146.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 1024 connections · 53"><circle cx="78.7" cy="145.1" r="12" class="hit"/><circle cx="78.7" cy="145.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 4096 connections · 246"><circle cx="117.3" cy="141.9" r="12" class="hit"/><circle cx="117.3" cy="141.9" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 16000 connections · 1106"><circle cx="156.0" cy="127.4" r="12" class="hit"/><circle cx="156.0" cy="127.4" r="4" class="dot fam-io_uring"/></g>
+<text x="164.0" y="131.4" class="t-value">1106</text>
+<text x="40.0" y="160" class="t-tick" text-anchor="middle">64</text>
+<text x="78.7" y="160" class="t-tick" text-anchor="middle">1024</text>
+<text x="117.3" y="160" class="t-tick" text-anchor="middle">4096</text>
+<text x="156.0" y="160" class="t-tick" text-anchor="middle">16k</text>
+<text x="240" y="54" class="t-label t-ours">◆ uring</text>
+<line x1="240" y1="146.0" x2="356" y2="146.0" class="grid"/>
+<text x="236" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="104.0" x2="356" y2="104.0" class="grid"/>
+<text x="236" y="107.0" class="t-tick" text-anchor="end">2500</text>
+<line x1="240" y1="62.0" x2="356" y2="62.0" class="grid"/>
+<text x="236" y="65.0" class="t-tick" text-anchor="end">5000</text>
+<path d="M240.0,146.0 L278.7,145.2 L317.3,142.5 L356.0,126.8" class="line fam-io_uring"/>
+<g class="pt" data-tip="uring · 64 connections · 1"><circle cx="240.0" cy="146.0" r="12" class="hit"/><circle cx="240.0" cy="146.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 1024 connections · 49"><circle cx="278.7" cy="145.2" r="12" class="hit"/><circle cx="278.7" cy="145.2" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 4096 connections · 209"><circle cx="317.3" cy="142.5" r="12" class="hit"/><circle cx="317.3" cy="142.5" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 16000 connections · 1145"><circle cx="356.0" cy="126.8" r="12" class="hit"/><circle cx="356.0" cy="126.8" r="4" class="dot fam-io_uring"/></g>
+<text x="364.0" y="130.8" class="t-value">1145</text>
+<text x="240.0" y="160" class="t-tick" text-anchor="middle">64</text>
+<text x="278.7" y="160" class="t-tick" text-anchor="middle">1024</text>
+<text x="317.3" y="160" class="t-tick" text-anchor="middle">4096</text>
+<text x="356.0" y="160" class="t-tick" text-anchor="middle">16k</text>
+<text x="440" y="54" class="t-label">monoio</text>
+<line x1="440" y1="146.0" x2="556" y2="146.0" class="grid"/>
+<text x="436" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="104.0" x2="556" y2="104.0" class="grid"/>
+<text x="436" y="107.0" class="t-tick" text-anchor="end">2500</text>
+<line x1="440" y1="62.0" x2="556" y2="62.0" class="grid"/>
+<text x="436" y="65.0" class="t-tick" text-anchor="end">5000</text>
+<path d="M440.0,146.0 L478.7,145.1 L517.3,142.0 L556.0,125.9" class="line fam-io_uring"/>
+<g class="pt" data-tip="monoio · 64 connections · 1"><circle cx="440.0" cy="146.0" r="12" class="hit"/><circle cx="440.0" cy="146.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 1024 connections · 52"><circle cx="478.7" cy="145.1" r="12" class="hit"/><circle cx="478.7" cy="145.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 4096 connections · 238"><circle cx="517.3" cy="142.0" r="12" class="hit"/><circle cx="517.3" cy="142.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 16000 connections · 1194"><circle cx="556.0" cy="125.9" r="12" class="hit"/><circle cx="556.0" cy="125.9" r="4" class="dot fam-io_uring"/></g>
+<text x="564.0" y="129.9" class="t-value">1194</text>
+<text x="440.0" y="160" class="t-tick" text-anchor="middle">64</text>
+<text x="478.7" y="160" class="t-tick" text-anchor="middle">1024</text>
+<text x="517.3" y="160" class="t-tick" text-anchor="middle">4096</text>
+<text x="556.0" y="160" class="t-tick" text-anchor="middle">16k</text>
+<text x="640" y="54" class="t-label">compio</text>
+<line x1="640" y1="146.0" x2="756" y2="146.0" class="grid"/>
+<text x="636" y="149.0" class="t-tick" text-anchor="end">0</text>
+<line x1="640" y1="104.0" x2="756" y2="104.0" class="grid"/>
+<text x="636" y="107.0" class="t-tick" text-anchor="end">2500</text>
+<line x1="640" y1="62.0" x2="756" y2="62.0" class="grid"/>
+<text x="636" y="65.0" class="t-tick" text-anchor="end">5000</text>
+<path d="M640.0,146.0 L678.7,145.1 L717.3,142.4 L756.0,125.7" class="line fam-io_uring"/>
+<g class="pt" data-tip="compio · 64 connections · 1"><circle cx="640.0" cy="146.0" r="12" class="hit"/><circle cx="640.0" cy="146.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 1024 connections · 56"><circle cx="678.7" cy="145.1" r="12" class="hit"/><circle cx="678.7" cy="145.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 4096 connections · 212"><circle cx="717.3" cy="142.4" r="12" class="hit"/><circle cx="717.3" cy="142.4" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 16000 connections · 1208"><circle cx="756.0" cy="125.7" r="12" class="hit"/><circle cx="756.0" cy="125.7" r="4" class="dot fam-io_uring"/></g>
+<text x="764.0" y="129.7" class="t-value">1208</text>
+<text x="640.0" y="160" class="t-tick" text-anchor="middle">64</text>
+<text x="678.7" y="160" class="t-tick" text-anchor="middle">1024</text>
+<text x="717.3" y="160" class="t-tick" text-anchor="middle">4096</text>
+<text x="756.0" y="160" class="t-tick" text-anchor="middle">16k</text>
+<text x="40" y="184" class="t-label">glommio</text>
+<line x1="40" y1="276.0" x2="156" y2="276.0" class="grid"/>
+<text x="36" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="234.0" x2="156" y2="234.0" class="grid"/>
+<text x="36" y="237.0" class="t-tick" text-anchor="end">2500</text>
+<line x1="40" y1="192.0" x2="156" y2="192.0" class="grid"/>
+<text x="36" y="195.0" class="t-tick" text-anchor="end">5000</text>
+<path d="M40.0,276.0 L78.7,275.0 L117.3,272.4 L156.0,249.8" class="line fam-io_uring"/>
+<g class="pt" data-tip="glommio · 64 connections · 1"><circle cx="40.0" cy="276.0" r="12" class="hit"/><circle cx="40.0" cy="276.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 1024 connections · 57"><circle cx="78.7" cy="275.0" r="12" class="hit"/><circle cx="78.7" cy="275.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 4096 connections · 212"><circle cx="117.3" cy="272.4" r="12" class="hit"/><circle cx="117.3" cy="272.4" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 16000 connections · 1562"><circle cx="156.0" cy="249.8" r="12" class="hit"/><circle cx="156.0" cy="249.8" r="4" class="dot fam-io_uring"/></g>
+<text x="164.0" y="253.8" class="t-value">1562</text>
+<text x="40.0" y="290" class="t-tick" text-anchor="middle">64</text>
+<text x="78.7" y="290" class="t-tick" text-anchor="middle">1024</text>
+<text x="117.3" y="290" class="t-tick" text-anchor="middle">4096</text>
+<text x="156.0" y="290" class="t-tick" text-anchor="middle">16k</text>
+<text x="240" y="184" class="t-label">tokio-uring</text>
+<line x1="240" y1="276.0" x2="356" y2="276.0" class="grid"/>
+<text x="236" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="234.0" x2="356" y2="234.0" class="grid"/>
+<text x="236" y="237.0" class="t-tick" text-anchor="end">2500</text>
+<line x1="240" y1="192.0" x2="356" y2="192.0" class="grid"/>
+<text x="236" y="195.0" class="t-tick" text-anchor="end">5000</text>
+<path d="M240.0,276.0 L278.7,275.2 L317.3,273.3 L356.0,256.9" class="line fam-io_uring"/>
+<g class="pt" data-tip="tokio-uring · 64 connections · 1"><circle cx="240.0" cy="276.0" r="12" class="hit"/><circle cx="240.0" cy="276.0" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 1024 connections · 47"><circle cx="278.7" cy="275.2" r="12" class="hit"/><circle cx="278.7" cy="275.2" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 4096 connections · 163"><circle cx="317.3" cy="273.3" r="12" class="hit"/><circle cx="317.3" cy="273.3" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 16000 connections · 1140"><circle cx="356.0" cy="256.9" r="12" class="hit"/><circle cx="356.0" cy="256.9" r="4" class="dot fam-io_uring"/></g>
+<text x="364.0" y="260.9" class="t-value">1140</text>
+<text x="240.0" y="290" class="t-tick" text-anchor="middle">64</text>
+<text x="278.7" y="290" class="t-tick" text-anchor="middle">1024</text>
+<text x="317.3" y="290" class="t-tick" text-anchor="middle">4096</text>
+<text x="356.0" y="290" class="t-tick" text-anchor="middle">16k</text>
+<text x="440" y="184" class="t-label t-ours">◆ tokio</text>
+<line x1="440" y1="276.0" x2="556" y2="276.0" class="grid"/>
+<text x="436" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="234.0" x2="556" y2="234.0" class="grid"/>
+<text x="436" y="237.0" class="t-tick" text-anchor="end">2500</text>
+<line x1="440" y1="192.0" x2="556" y2="192.0" class="grid"/>
+<text x="436" y="195.0" class="t-tick" text-anchor="end">5000</text>
+<path d="M440.0,276.0 L478.7,275.2 L517.3,272.7 L556.0,258.7" class="line fam-epoll"/>
+<g class="pt" data-tip="tokio · 64 connections · 1"><circle cx="440.0" cy="276.0" r="12" class="hit"/><circle cx="440.0" cy="276.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 1024 connections · 45"><circle cx="478.7" cy="275.2" r="12" class="hit"/><circle cx="478.7" cy="275.2" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 4096 connections · 199"><circle cx="517.3" cy="272.7" r="12" class="hit"/><circle cx="517.3" cy="272.7" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 16000 connections · 1030"><circle cx="556.0" cy="258.7" r="12" class="hit"/><circle cx="556.0" cy="258.7" r="4" class="dot fam-epoll"/></g>
+<text x="564.0" y="262.7" class="t-value">1030</text>
+<text x="440.0" y="290" class="t-tick" text-anchor="middle">64</text>
+<text x="478.7" y="290" class="t-tick" text-anchor="middle">1024</text>
+<text x="517.3" y="290" class="t-tick" text-anchor="middle">4096</text>
+<text x="556.0" y="290" class="t-tick" text-anchor="middle">16k</text>
+<text x="640" y="184" class="t-label t-ours">◆ tokio-st</text>
+<line x1="640" y1="276.0" x2="756" y2="276.0" class="grid"/>
+<text x="636" y="279.0" class="t-tick" text-anchor="end">0</text>
+<line x1="640" y1="234.0" x2="756" y2="234.0" class="grid"/>
+<text x="636" y="237.0" class="t-tick" text-anchor="end">2500</text>
+<line x1="640" y1="192.0" x2="756" y2="192.0" class="grid"/>
+<text x="636" y="195.0" class="t-tick" text-anchor="end">5000</text>
+<path d="M640.0,276.0 L678.7,275.7 L717.3,274.9 L756.0,256.6" class="line fam-epoll"/>
+<g class="pt" data-tip="tokio-st · 64 connections · 1"><circle cx="640.0" cy="276.0" r="12" class="hit"/><circle cx="640.0" cy="276.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 1024 connections · 17"><circle cx="678.7" cy="275.7" r="12" class="hit"/><circle cx="678.7" cy="275.7" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 4096 connections · 65"><circle cx="717.3" cy="274.9" r="12" class="hit"/><circle cx="717.3" cy="274.9" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 16000 connections · 1152"><circle cx="756.0" cy="256.6" r="12" class="hit"/><circle cx="756.0" cy="256.6" r="4" class="dot fam-epoll"/></g>
+<text x="764.0" y="260.6" class="t-value">1152</text>
+<text x="640.0" y="290" class="t-tick" text-anchor="middle">64</text>
+<text x="678.7" y="290" class="t-tick" text-anchor="middle">1024</text>
+<text x="717.3" y="290" class="t-tick" text-anchor="middle">4096</text>
+<text x="756.0" y="290" class="t-tick" text-anchor="middle">16k</text>
+<text x="40" y="314" class="t-label t-ours">◆ mio</text>
+<line x1="40" y1="406.0" x2="156" y2="406.0" class="grid"/>
+<text x="36" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="40" y1="364.0" x2="156" y2="364.0" class="grid"/>
+<text x="36" y="367.0" class="t-tick" text-anchor="end">2500</text>
+<line x1="40" y1="322.0" x2="156" y2="322.0" class="grid"/>
+<text x="36" y="325.0" class="t-tick" text-anchor="end">5000</text>
+<path d="M40.0,406.0 L78.7,405.0 L117.3,402.1 L156.0,388.6" class="line fam-epoll"/>
+<g class="pt" data-tip="mio · 64 connections · 1"><circle cx="40.0" cy="406.0" r="12" class="hit"/><circle cx="40.0" cy="406.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 1024 connections · 57"><circle cx="78.7" cy="405.0" r="12" class="hit"/><circle cx="78.7" cy="405.0" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 4096 connections · 232"><circle cx="117.3" cy="402.1" r="12" class="hit"/><circle cx="117.3" cy="402.1" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 16000 connections · 1037"><circle cx="156.0" cy="388.6" r="12" class="hit"/><circle cx="156.0" cy="388.6" r="4" class="dot fam-epoll"/></g>
+<text x="164.0" y="392.6" class="t-value">1037</text>
+<text x="40.0" y="420" class="t-tick" text-anchor="middle">64</text>
+<text x="78.7" y="420" class="t-tick" text-anchor="middle">1024</text>
+<text x="117.3" y="420" class="t-tick" text-anchor="middle">4096</text>
+<text x="156.0" y="420" class="t-tick" text-anchor="middle">16k</text>
+<text x="240" y="314" class="t-label t-ours">◆ threads</text>
+<line x1="240" y1="406.0" x2="356" y2="406.0" class="grid"/>
+<text x="236" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="240" y1="364.0" x2="356" y2="364.0" class="grid"/>
+<text x="236" y="367.0" class="t-tick" text-anchor="end">2500</text>
+<line x1="240" y1="322.0" x2="356" y2="322.0" class="grid"/>
+<text x="236" y="325.0" class="t-tick" text-anchor="end">5000</text>
+<path d="M240.0,406.0 L278.7,405.1 L317.3,403.5 L356.0,388.6" class="line fam-blocking"/>
+<g class="pt" data-tip="threads · 64 connections · 1"><circle cx="240.0" cy="406.0" r="12" class="hit"/><circle cx="240.0" cy="406.0" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 1024 connections · 53"><circle cx="278.7" cy="405.1" r="12" class="hit"/><circle cx="278.7" cy="405.1" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 4096 connections · 150"><circle cx="317.3" cy="403.5" r="12" class="hit"/><circle cx="317.3" cy="403.5" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 16000 connections · 1035"><circle cx="356.0" cy="388.6" r="12" class="hit"/><circle cx="356.0" cy="388.6" r="4" class="dot fam-blocking"/></g>
+<text x="364.0" y="392.6" class="t-value">1035</text>
+<text x="240.0" y="420" class="t-tick" text-anchor="middle">64</text>
+<text x="278.7" y="420" class="t-tick" text-anchor="middle">1024</text>
+<text x="317.3" y="420" class="t-tick" text-anchor="middle">4096</text>
+<text x="356.0" y="420" class="t-tick" text-anchor="middle">16k</text>
+<text x="440" y="314" class="t-label t-ours">◆ pool</text>
+<line x1="440" y1="406.0" x2="556" y2="406.0" class="grid"/>
+<text x="436" y="409.0" class="t-tick" text-anchor="end">0</text>
+<line x1="440" y1="364.0" x2="556" y2="364.0" class="grid"/>
+<text x="436" y="367.0" class="t-tick" text-anchor="end">2500</text>
+<line x1="440" y1="322.0" x2="556" y2="322.0" class="grid"/>
+<text x="436" y="325.0" class="t-tick" text-anchor="end">5000</text>
+<path d="M440.0,406.0 L478.7,406.0 L517.3,405.9 L556.0,337.3" class="line fam-blocking"/>
+<g class="pt" data-tip="pool · 64 connections · 2"><circle cx="440.0" cy="406.0" r="12" class="hit"/><circle cx="440.0" cy="406.0" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 1024 connections · 2"><circle cx="478.7" cy="406.0" r="12" class="hit"/><circle cx="478.7" cy="406.0" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 4096 connections · 4"><circle cx="517.3" cy="405.9" r="12" class="hit"/><circle cx="517.3" cy="405.9" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 16000 connections · 4092"><circle cx="556.0" cy="337.3" r="12" class="hit"/><circle cx="556.0" cy="337.3" r="4" class="dot fam-blocking"/></g>
+<text x="564.0" y="341.3" class="t-value">4092</text>
+<text x="440.0" y="420" class="t-tick" text-anchor="middle">64</text>
+<text x="478.7" y="420" class="t-tick" text-anchor="middle">1024</text>
+<text x="517.3" y="420" class="t-tick" text-anchor="middle">4096</text>
+<text x="556.0" y="420" class="t-tick" text-anchor="middle">16k</text>
+</svg>
+</section>
+<section id="workers"><h2>Worker sweep</h2>
+<p class="lead">Throughput by worker count at 1024 connections on a 2-core server. One worker is the 1-vCPU droplet case; four workers on two cores is oversubscription.</p>
+<svg class="viz" viewBox="0 0 720 256" width="100%" style="max-width:720px" role="img" aria-label="GET / throughput by worker count">
+<text x="0" y="16" class="t-title">GET / throughput by worker count</text>
+<text x="0" y="32" class="t-sub">1024 connections · 2-core server</text>
+<line x1="48" y1="204.0" x2="710" y2="204.0" class="grid"/>
+<text x="42" y="207.0" class="t-tick" text-anchor="end">0</text>
+<line x1="48" y1="164.0" x2="710" y2="164.0" class="grid"/>
+<text x="42" y="167.0" class="t-tick" text-anchor="end">50k</text>
+<line x1="48" y1="124.0" x2="710" y2="124.0" class="grid"/>
+<text x="42" y="127.0" class="t-tick" text-anchor="end">100k</text>
+<line x1="48" y1="84.0" x2="710" y2="84.0" class="grid"/>
+<text x="42" y="87.0" class="t-tick" text-anchor="end">150k</text>
+<line x1="48" y1="44.0" x2="710" y2="44.0" class="grid"/>
+<text x="42" y="47.0" class="t-tick" text-anchor="end">200k</text>
+<g class="row" data-tip="uring-async · 1 worker · 94k"><rect x="52.1" y="44" width="18.0" height="160" class="hit"/>
+<path d="M52.1,132.7428 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v71.2572 h-18 z" class="bar" style="fill:var(--ord-0)"/></g>
+<g class="row" data-tip="uring-async · 2 workers · 146k"><rect x="72.1" y="44" width="18.0" height="160" class="hit"/>
+<path d="M72.1,91.55180000000001 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v112.44819999999999 h-18 z" class="bar" style="fill:var(--ord-1)"/></g>
+<g class="row" data-tip="uring-async · 4 workers · 118k"><rect x="92.1" y="44" width="18.0" height="160" class="hit"/>
+<path d="M92.1,113.62379999999999 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v90.37620000000001 h-18 z" class="bar" style="fill:var(--ord-2)"/></g>
+<text x="81.1" y="220" class="t-label t-ours" text-anchor="middle">◆ uring-async</text>
+<g class="row" data-tip="uring · 1 worker · 105k"><rect x="118.3" y="44" width="18.0" height="160" class="hit"/>
+<path d="M118.30000000000001,124.1734 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v79.8266 h-18 z" class="bar" style="fill:var(--ord-0)"/></g>
+<g class="row" data-tip="uring · 2 workers · 127k"><rect x="138.3" y="44" width="18.0" height="160" class="hit"/>
+<path d="M138.3,106.4116 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v97.5884 h-18 z" class="bar" style="fill:var(--ord-1)"/></g>
+<g class="row" data-tip="uring · 4 workers · 112k"><rect x="158.3" y="44" width="18.0" height="160" class="hit"/>
+<path d="M158.3,118.5144 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v85.4856 h-18 z" class="bar" style="fill:var(--ord-2)"/></g>
+<text x="147.3" y="220" class="t-label t-ours" text-anchor="middle">◆ uring</text>
+<g class="row" data-tip="monoio · 1 worker · 81k"><rect x="184.5" y="44" width="18.0" height="160" class="hit"/>
+<path d="M184.5,143.5648 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v60.43520000000001 h-18 z" class="bar" style="fill:var(--ord-0)"/></g>
+<g class="row" data-tip="monoio · 2 workers · 99k"><rect x="204.5" y="44" width="18.0" height="160" class="hit"/>
+<path d="M204.5,128.78379999999999 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v75.2162 h-18 z" class="bar" style="fill:var(--ord-1)"/></g>
+<g class="row" data-tip="monoio · 4 workers · 112k"><rect x="224.5" y="44" width="18.0" height="160" class="hit"/>
+<path d="M224.5,118.6712 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v85.3288 h-18 z" class="bar" style="fill:var(--ord-2)"/></g>
+<text x="213.5" y="220" class="t-label" text-anchor="middle">monoio</text>
+<g class="row" data-tip="compio · 1 worker · 70k"><rect x="250.7" y="44" width="18.0" height="160" class="hit"/>
+<path d="M250.70000000000002,152.375 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v51.625 h-18 z" class="bar" style="fill:var(--ord-0)"/></g>
+<g class="row" data-tip="compio · 2 workers · 101k"><rect x="270.7" y="44" width="18.0" height="160" class="hit"/>
+<path d="M270.70000000000005,127.0026 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v76.9974 h-18 z" class="bar" style="fill:var(--ord-1)"/></g>
+<g class="row" data-tip="compio · 4 workers · 118k"><rect x="290.7" y="44" width="18.0" height="160" class="hit"/>
+<path d="M290.70000000000005,113.8092 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v90.1908 h-18 z" class="bar" style="fill:var(--ord-2)"/></g>
+<text x="279.7" y="220" class="t-label" text-anchor="middle">compio</text>
+<g class="row" data-tip="glommio · 1 worker · 68k"><rect x="316.9" y="44" width="18.0" height="160" class="hit"/>
+<path d="M316.90000000000003,153.4484 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v50.5516 h-18 z" class="bar" style="fill:var(--ord-0)"/></g>
+<g class="row" data-tip="glommio · 2 workers · 97k"><rect x="336.9" y="44" width="18.0" height="160" class="hit"/>
+<path d="M336.90000000000003,130.4182 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v73.5818 h-18 z" class="bar" style="fill:var(--ord-1)"/></g>
+<g class="row" data-tip="glommio · 4 workers · 112k"><rect x="356.9" y="44" width="18.0" height="160" class="hit"/>
+<path d="M356.90000000000003,118.35759999999999 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v85.64240000000001 h-18 z" class="bar" style="fill:var(--ord-2)"/></g>
+<text x="345.9" y="220" class="t-label" text-anchor="middle">glommio</text>
+<g class="row" data-tip="tokio-uring · 1 worker · 83k"><rect x="383.1" y="44" width="18.0" height="160" class="hit"/>
+<path d="M383.1,141.6218 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v62.37819999999999 h-18 z" class="bar" style="fill:var(--ord-0)"/></g>
+<g class="row" data-tip="tokio-uring · 2 workers · 104k"><rect x="403.1" y="44" width="18.0" height="160" class="hit"/>
+<path d="M403.1,124.7878 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v79.2122 h-18 z" class="bar" style="fill:var(--ord-1)"/></g>
+<g class="row" data-tip="tokio-uring · 4 workers · 117k"><rect x="423.1" y="44" width="18.0" height="160" class="hit"/>
+<path d="M423.1,114.2224 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v89.7776 h-18 z" class="bar" style="fill:var(--ord-2)"/></g>
+<text x="412.1" y="220" class="t-label" text-anchor="middle">tokio-uring</text>
+<g class="row" data-tip="tokio · 1 worker · 132k"><rect x="449.3" y="44" width="18.0" height="160" class="hit"/>
+<path d="M449.30000000000007,102.4736 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v101.5264 h-18 z" class="bar" style="fill:var(--ord-0)"/></g>
+<g class="row" data-tip="tokio · 2 workers · 160k"><rect x="469.3" y="44" width="18.0" height="160" class="hit"/>
+<path d="M469.30000000000007,79.94120000000001 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v124.05879999999999 h-18 z" class="bar" style="fill:var(--ord-1)"/></g>
+<g class="row" data-tip="tokio · 4 workers · 180k"><rect x="489.3" y="44" width="18.0" height="160" class="hit"/>
+<path d="M489.30000000000007,64.19560000000001 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v139.8044 h-18 z" class="bar" style="fill:var(--ord-2)"/></g>
+<text x="478.3" y="220" class="t-label t-ours" text-anchor="middle">◆ tokio</text>
+<g class="row" data-tip="tokio-st · 1 worker · 99k"><rect x="515.5" y="44" width="18.0" height="160" class="hit"/>
+<path d="M515.5,128.834 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v75.166 h-18 z" class="bar" style="fill:var(--ord-0)"/></g>
+<g class="row" data-tip="tokio-st · 2 workers · 74k"><rect x="535.5" y="44" width="18.0" height="160" class="hit"/>
+<path d="M535.5,148.8996 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v55.10040000000001 h-18 z" class="bar" style="fill:var(--ord-1)"/></g>
+<g class="row" data-tip="tokio-st · 4 workers · 86k"><rect x="555.5" y="44" width="18.0" height="160" class="hit"/>
+<path d="M555.5,139.0958 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v64.9042 h-18 z" class="bar" style="fill:var(--ord-2)"/></g>
+<text x="544.5" y="220" class="t-label t-ours" text-anchor="middle">◆ tokio-st</text>
+<g class="row" data-tip="mio · 1 worker · 98k"><rect x="581.7" y="44" width="18.0" height="160" class="hit"/>
+<path d="M581.7,129.92020000000002 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v74.07979999999999 h-18 z" class="bar" style="fill:var(--ord-0)"/></g>
+<g class="row" data-tip="mio · 2 workers · 127k"><rect x="601.7" y="44" width="18.0" height="160" class="hit"/>
+<path d="M601.7,106.31400000000001 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v97.68599999999999 h-18 z" class="bar" style="fill:var(--ord-1)"/></g>
+<g class="row" data-tip="mio · 4 workers · 123k"><rect x="621.7" y="44" width="18.0" height="160" class="hit"/>
+<path d="M621.7,109.685 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v94.315 h-18 z" class="bar" style="fill:var(--ord-2)"/></g>
+<text x="610.7" y="220" class="t-label t-ours" text-anchor="middle">◆ mio</text>
+<g class="row" data-tip="pool · 1 worker · 18k"><rect x="647.9" y="44" width="18.0" height="160" class="hit"/>
+<path d="M647.9000000000001,193.537 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v10.463 h-18 z" class="bar" style="fill:var(--ord-0)"/></g>
+<g class="row" data-tip="pool · 2 workers · 33k"><rect x="667.9" y="44" width="18.0" height="160" class="hit"/>
+<path d="M667.9000000000001,181.359 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v22.641 h-18 z" class="bar" style="fill:var(--ord-1)"/></g>
+<g class="row" data-tip="pool · 4 workers · 54k"><rect x="687.9" y="44" width="18.0" height="160" class="hit"/>
+<path d="M687.9000000000001,164.781 a4,4 0 0 1 4,-4 h10 a4,4 0 0 1 4,4 v39.219 h-18 z" class="bar" style="fill:var(--ord-2)"/></g>
+<text x="676.9" y="220" class="t-label t-ours" text-anchor="middle">◆ pool</text>
+<rect x="48" y="242" width="10" height="10" rx="2" style="fill:var(--ord-0)"/>
+<text x="62" y="251" class="t-tick">1 worker</text>
+<rect x="128" y="242" width="10" height="10" rx="2" style="fill:var(--ord-1)"/>
+<text x="142" y="251" class="t-tick">2 workers</text>
+<rect x="208" y="242" width="10" height="10" rx="2" style="fill:var(--ord-2)"/>
+<text x="222" y="251" class="t-tick">4 workers</text>
+</svg>
+</section>
+<section id="dataset"><h2>Dataset</h2>
+<p class="lead">Every row behind the charts, as recorded by <code>phhtp-bench --json</code>. Click a header to sort. Source files: <code>matrix.jsonl</code>, <code>scale.jsonl</code>.</p>
+<div class="tablewrap"><table id="data"><thead><tr><th data-k="0">runtime</th><th data-k="1">endpoint</th><th data-k="2">conns</th><th data-k="3">workers</th><th data-k="4">req/s</th><th data-k="5">p50</th><th data-k="6">p90</th><th data-k="7">p99</th><th data-k="8">max</th><th data-k="9">errors</th><th data-k="10">RSS MB</th><th data-k="11">threads</th><th data-k="12">reps</th><th data-k="13">note</th><th data-k="14">file</th></tr></thead><tbody>
+<tr><td data-v="threads">threads</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="89225.0">89225</td><td data-v="653">0.65 ms</td><td data-v="1123">1.12 ms</td><td data-v="2217">2.22 ms</td><td data-v="14519">15 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="95101.25">95101</td><td data-v="610">0.61 ms</td><td data-v="1065">1.06 ms</td><td data-v="2051">2.05 ms</td><td data-v="13567">14 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="POST /sign">POST /sign</td><td data-v="64">64</td><td data-v=""></td><td data-v="88699.25">88699</td><td data-v="657">0.66 ms</td><td data-v="1136">1.14 ms</td><td data-v="2255">2.25 ms</td><td data-v="11623">12 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /compute?n=2000">GET /compute?n=2000</td><td data-v="64">64</td><td data-v=""></td><td data-v="5020.25">5020</td><td data-v="11047">11 ms</td><td data-v="22351">22 ms</td><td data-v="34783">35 ms</td><td data-v="80063">80 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /sleep?ms=5">GET /sleep?ms=5</td><td data-v="256">256</td><td data-v=""></td><td data-v="44377.5">44378</td><td data-v="5555">5.55 ms</td><td data-v="6567">6.57 ms</td><td data-v="8583">8.58 ms</td><td data-v="23423">23 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="97398.0">97398</td><td data-v="601">0.60 ms</td><td data-v="1027">1.03 ms</td><td data-v="2021">2.02 ms</td><td data-v="12335">12 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="113764.0">113764</td><td data-v="517">0.52 ms</td><td data-v="870">0.87 ms</td><td data-v="1591">1.59 ms</td><td data-v="13271">13 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="POST /sign">POST /sign</td><td data-v="64">64</td><td data-v=""></td><td data-v="116497.0">116497</td><td data-v="514">0.51 ms</td><td data-v="827">0.83 ms</td><td data-v="1540">1.54 ms</td><td data-v="15055">15 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /compute?n=2000">GET /compute?n=2000</td><td data-v="64">64</td><td data-v=""></td><td data-v="4577.75">4578</td><td data-v="12543">13 ms</td><td data-v="24047">24 ms</td><td data-v="36991">37 ms</td><td data-v="83135">83 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /sleep?ms=5">GET /sleep?ms=5</td><td data-v="256">256</td><td data-v=""></td><td data-v="11906.0">11906</td><td data-v="5303">5.30 ms</td><td data-v="5567">5.57 ms</td><td data-v="6819">6.82 ms</td><td data-v="12423">12 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="145215.0">145215</td><td data-v="344">0.34 ms</td><td data-v="866">0.87 ms</td><td data-v="1646">1.65 ms</td><td data-v="7591">7.59 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="136045.75">136046</td><td data-v="363">0.36 ms</td><td data-v="921">0.92 ms</td><td data-v="1752">1.75 ms</td><td data-v="7091">7.09 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="POST /sign">POST /sign</td><td data-v="64">64</td><td data-v=""></td><td data-v="118057.0">118057</td><td data-v="403">0.40 ms</td><td data-v="1100">1.10 ms</td><td data-v="2279">2.28 ms</td><td data-v="8951">8.95 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /compute?n=2000">GET /compute?n=2000</td><td data-v="64">64</td><td data-v=""></td><td data-v="4628.0">4628</td><td data-v="13343">13 ms</td><td data-v="21455">21 ms</td><td data-v="25311">25 ms</td><td data-v="37823">38 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /sleep?ms=5">GET /sleep?ms=5</td><td data-v="256">256</td><td data-v=""></td><td data-v="41536.0">41536</td><td data-v="6095">6.09 ms</td><td data-v="6803">6.80 ms</td><td data-v="8503">8.50 ms</td><td data-v="16623">17 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="127243.25">127243</td><td data-v="463">0.46 ms</td><td data-v="792">0.79 ms</td><td data-v="1248">1.25 ms</td><td data-v="7451">7.45 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="126377.0">126377</td><td data-v="465">0.47 ms</td><td data-v="797">0.80 ms</td><td data-v="1260">1.26 ms</td><td data-v="8111">8.11 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="POST /sign">POST /sign</td><td data-v="64">64</td><td data-v=""></td><td data-v="108530.75">108531</td><td data-v="546">0.55 ms</td><td data-v="925">0.93 ms</td><td data-v="1659">1.66 ms</td><td data-v="7167">7.17 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /compute?n=2000">GET /compute?n=2000</td><td data-v="64">64</td><td data-v=""></td><td data-v="4795.25">4795</td><td data-v="13247">13 ms</td><td data-v="19743">20 ms</td><td data-v="25935">26 ms</td><td data-v="34559">35 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /sleep?ms=5">GET /sleep?ms=5</td><td data-v="256">256</td><td data-v=""></td><td data-v="37402.75">37403</td><td data-v="6763">6.76 ms</td><td data-v="7719">7.72 ms</td><td data-v="8991">8.99 ms</td><td data-v="12751">13 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="107394.0">107394</td><td data-v="565">0.56 ms</td><td data-v="890">0.89 ms</td><td data-v="1435">1.44 ms</td><td data-v="9159">9.16 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="103379.25">103379</td><td data-v="589">0.59 ms</td><td data-v="862">0.86 ms</td><td data-v="1365">1.36 ms</td><td data-v="8287">8.29 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="POST /sign">POST /sign</td><td data-v="64">64</td><td data-v=""></td><td data-v="77222.0">77222</td><td data-v="696">0.70 ms</td><td data-v="1395">1.40 ms</td><td data-v="2057">2.06 ms</td><td data-v="6355">6.36 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /compute?n=2000">GET /compute?n=2000</td><td data-v="64">64</td><td data-v=""></td><td data-v="1320.25">1320</td><td data-v="45503">46 ms</td><td data-v="60831">61 ms</td><td data-v="65599">66 ms</td><td data-v="72703">73 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /sleep?ms=5">GET /sleep?ms=5</td><td data-v="256">256</td><td data-v=""></td><td data-v="34322.75">34323</td><td data-v="7427">7.43 ms</td><td data-v="8359">8.36 ms</td><td data-v="9783">9.78 ms</td><td data-v="13087">13 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="146798.5">146798</td><td data-v="348">0.35 ms</td><td data-v="841">0.84 ms</td><td data-v="1565">1.56 ms</td><td data-v="14343">14 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="144576.5">144576</td><td data-v="352">0.35 ms</td><td data-v="844">0.84 ms</td><td data-v="1587">1.59 ms</td><td data-v="8543">8.54 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="POST /sign">POST /sign</td><td data-v="64">64</td><td data-v=""></td><td data-v="121922.75">121923</td><td data-v="426">0.43 ms</td><td data-v="977">0.98 ms</td><td data-v="1920">1.92 ms</td><td data-v="12687">13 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /compute?n=2000">GET /compute?n=2000</td><td data-v="64">64</td><td data-v=""></td><td data-v="5075.75">5076</td><td data-v="11655">12 ms</td><td data-v="18671">19 ms</td><td data-v="24943">25 ms</td><td data-v="37375">37 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /sleep?ms=5">GET /sleep?ms=5</td><td data-v="256">256</td><td data-v=""></td><td data-v="45892.5">45892</td><td data-v="5407">5.41 ms</td><td data-v="6203">6.20 ms</td><td data-v="7675">7.67 ms</td><td data-v="16991">17 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="151012.75">151013</td><td data-v="335">0.34 ms</td><td data-v="813">0.81 ms</td><td data-v="1538">1.54 ms</td><td data-v="10591">11 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="144329.0">144329</td><td data-v="346">0.35 ms</td><td data-v="857">0.86 ms</td><td data-v="1616">1.62 ms</td><td data-v="8487">8.49 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="POST /sign">POST /sign</td><td data-v="64">64</td><td data-v=""></td><td data-v="125827.75">125828</td><td data-v="417">0.42 ms</td><td data-v="937">0.94 ms</td><td data-v="1816">1.82 ms</td><td data-v="7999">8.00 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /compute?n=2000">GET /compute?n=2000</td><td data-v="64">64</td><td data-v=""></td><td data-v="5280.5">5280</td><td data-v="10895">11 ms</td><td data-v="16767">17 ms</td><td data-v="21503">22 ms</td><td data-v="31679">32 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /sleep?ms=5">GET /sleep?ms=5</td><td data-v="256">256</td><td data-v=""></td><td data-v="45584.5">45584</td><td data-v="5455">5.46 ms</td><td data-v="6243">6.24 ms</td><td data-v="7595">7.59 ms</td><td data-v="12871">13 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="107499.0">107499</td><td data-v="454">0.45 ms</td><td data-v="1160">1.16 ms</td><td data-v="2233">2.23 ms</td><td data-v="9415">9.41 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="109791.0">109791</td><td data-v="446">0.45 ms</td><td data-v="1159">1.16 ms</td><td data-v="2373">2.37 ms</td><td data-v="12047">12 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="POST /sign">POST /sign</td><td data-v="64">64</td><td data-v=""></td><td data-v="96230.25">96230</td><td data-v="529">0.53 ms</td><td data-v="1245">1.25 ms</td><td data-v="2657">2.66 ms</td><td data-v="9103">9.10 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /compute?n=2000">GET /compute?n=2000</td><td data-v="64">64</td><td data-v=""></td><td data-v="5132.0">5132</td><td data-v="11527">12 ms</td><td data-v="18127">18 ms</td><td data-v="23263">23 ms</td><td data-v="29775">30 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /sleep?ms=5">GET /sleep?ms=5</td><td data-v="256">256</td><td data-v=""></td><td data-v="38211.75">38212</td><td data-v="6643">6.64 ms</td><td data-v="7403">7.40 ms</td><td data-v="8735">8.73 ms</td><td data-v="14959">15 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="112278.5">112278</td><td data-v="429">0.43 ms</td><td data-v="1131">1.13 ms</td><td data-v="2291">2.29 ms</td><td data-v="7163">7.16 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="116696.5">116696</td><td data-v="418">0.42 ms</td><td data-v="1062">1.06 ms</td><td data-v="2195">2.19 ms</td><td data-v="8103">8.10 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="POST /sign">POST /sign</td><td data-v="64">64</td><td data-v=""></td><td data-v="95892.5">95892</td><td data-v="530">0.53 ms</td><td data-v="1242">1.24 ms</td><td data-v="2573">2.57 ms</td><td data-v="9503">9.50 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /compute?n=2000">GET /compute?n=2000</td><td data-v="64">64</td><td data-v=""></td><td data-v="5471.5">5472</td><td data-v="11207">11 ms</td><td data-v="16655">17 ms</td><td data-v="25375">25 ms</td><td data-v="30831">31 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /sleep?ms=5">GET /sleep?ms=5</td><td data-v="256">256</td><td data-v=""></td><td data-v="46223.0">46223</td><td data-v="5355">5.36 ms</td><td data-v="5995">6.00 ms</td><td data-v="7563">7.56 ms</td><td data-v="19439">19 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="73653.25">73653</td><td data-v="636">0.64 ms</td><td data-v="1606">1.61 ms</td><td data-v="4567">4.57 ms</td><td data-v="12703">13 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="74979.5">74980</td><td data-v="638">0.64 ms</td><td data-v="1556">1.56 ms</td><td data-v="4551">4.55 ms</td><td data-v="14623">15 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="POST /sign">POST /sign</td><td data-v="64">64</td><td data-v=""></td><td data-v="68526.0">68526</td><td data-v="750">0.75 ms</td><td data-v="1640">1.64 ms</td><td data-v="4607">4.61 ms</td><td data-v="21039">21 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /compute?n=2000">GET /compute?n=2000</td><td data-v="64">64</td><td data-v=""></td><td data-v="5457.25">5457</td><td data-v="11911">12 ms</td><td data-v="15519">16 ms</td><td data-v="22047">22 ms</td><td data-v="28847">29 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /sleep?ms=5">GET /sleep?ms=5</td><td data-v="256">256</td><td data-v=""></td><td data-v="41904.0">41904</td><td data-v="5835">5.83 ms</td><td data-v="7175">7.17 ms</td><td data-v="10039">10 ms</td><td data-v="20271">20 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="108019.5">108020</td><td data-v="452">0.45 ms</td><td data-v="1145">1.15 ms</td><td data-v="2375">2.38 ms</td><td data-v="9463">9.46 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="105955.0">105955</td><td data-v="461">0.46 ms</td><td data-v="1160">1.16 ms</td><td data-v="2597">2.60 ms</td><td data-v="7791">7.79 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="POST /sign">POST /sign</td><td data-v="64">64</td><td data-v=""></td><td data-v="91550.75">91551</td><td data-v="559">0.56 ms</td><td data-v="1293">1.29 ms</td><td data-v="2767">2.77 ms</td><td data-v="14487">14 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /compute?n=2000">GET /compute?n=2000</td><td data-v="64">64</td><td data-v=""></td><td data-v="4972.0">4972</td><td data-v="12479">12 ms</td><td data-v="17407">17 ms</td><td data-v="21439">21 ms</td><td data-v="41855">42 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /sleep?ms=5">GET /sleep?ms=5</td><td data-v="256">256</td><td data-v=""></td><td data-v="37427.75">37428</td><td data-v="6755">6.75 ms</td><td data-v="7635">7.63 ms</td><td data-v="9375">9.38 ms</td><td data-v="14951">15 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v="default">default</td><td data-v="119869.75">119870</td><td data-v="494">0.49 ms</td><td data-v="794">0.79 ms</td><td data-v="1435">1.44 ms</td><td data-v="38015">38 ms</td><td data-v="0">0</td><td data-v="6.7">6.7</td><td data-v="65">65</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="default">default</td><td data-v="98910.0">98910</td><td data-v="7387">7.39 ms</td><td data-v="23135">23 ms</td><td data-v="52895">53 ms</td><td data-v="599551">600 ms</td><td data-v="0">0</td><td data-v="38.7">38.7</td><td data-v="1025">1025</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /">GET /</td><td data-v="4096">4096</td><td data-v="default">default</td><td data-v="93261.25">93261</td><td data-v="16879">17 ms</td><td data-v="50527">51 ms</td><td data-v="149503">150 ms</td><td data-v="1108991">1109 ms</td><td data-v="0">0</td><td data-v="74.6">74.6</td><td data-v="2103">2103</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v="default">default</td><td data-v="120429.0">120429</td><td data-v="479">0.48 ms</td><td data-v="811">0.81 ms</td><td data-v="1611">1.61 ms</td><td data-v="14751">15 ms</td><td data-v="0">0</td><td data-v="6.6">6.6</td><td data-v="65">65</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="default">default</td><td data-v="120502.0">120502</td><td data-v="489">0.49 ms</td><td data-v="809">0.81 ms</td><td data-v="1545">1.54 ms</td><td data-v="1992703">1993 ms</td><td data-v="0">0</td><td data-v="6.6">6.6</td><td data-v="65">65</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /">GET /</td><td data-v="4096">4096</td><td data-v="default">default</td><td data-v="117921.75">117922</td><td data-v="481">0.48 ms</td><td data-v="854">0.85 ms</td><td data-v="4077">4.08 ms</td><td data-v="2016255">2016 ms</td><td data-v="0">0</td><td data-v="6.7">6.7</td><td data-v="65">65</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v="default">default</td><td data-v="141233.5">141234</td><td data-v="413">0.41 ms</td><td data-v="697">0.70 ms</td><td data-v="1224">1.22 ms</td><td data-v="11407">11 ms</td><td data-v="0">0</td><td data-v="5.1">5.1</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="default">default</td><td data-v="105209.5">105210</td><td data-v="3617">3.62 ms</td><td data-v="36991">37 ms</td><td data-v="56863">57 ms</td><td data-v="80831">81 ms</td><td data-v="0">0</td><td data-v="20.4">20.4</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /">GET /</td><td data-v="4096">4096</td><td data-v="default">default</td><td data-v="124830.75">124831</td><td data-v="3473">3.47 ms</td><td data-v="157055">157 ms</td><td data-v="231807">232 ms</td><td data-v="317695">318 ms</td><td data-v="0">0</td><td data-v="69.7">69.7</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v="default">default</td><td data-v="165259.5">165260</td><td data-v="360">0.36 ms</td><td data-v="557">0.56 ms</td><td data-v="1040">1.04 ms</td><td data-v="5783">5.78 ms</td><td data-v="0">0</td><td data-v="5.2">5.2</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="default">default</td><td data-v="157551.25">157551</td><td data-v="2469">2.47 ms</td><td data-v="24159">24 ms</td><td data-v="44767">45 ms</td><td data-v="63903">64 ms</td><td data-v="0">0</td><td data-v="21.6">21.6</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /">GET /</td><td data-v="4096">4096</td><td data-v="default">default</td><td data-v="144784.75">144785</td><td data-v="3107">3.11 ms</td><td data-v="136063">136 ms</td><td data-v="198655">199 ms</td><td data-v="253311">253 ms</td><td data-v="0">0</td><td data-v="73.2">73.2</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v="default">default</td><td data-v="143098.5">143098</td><td data-v="422">0.42 ms</td><td data-v="632">0.63 ms</td><td data-v="1105">1.10 ms</td><td data-v="7515">7.51 ms</td><td data-v="0">0</td><td data-v="5.4">5.4</td><td data-v="1">1</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="default">default</td><td data-v="84343.5">84344</td><td data-v="12135">12 ms</td><td data-v="15199">15 ms</td><td data-v="16543">17 ms</td><td data-v="18399">18 ms</td><td data-v="0">0</td><td data-v="28.7">28.7</td><td data-v="1">1</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /">GET /</td><td data-v="4096">4096</td><td data-v="default">default</td><td data-v="85426.75">85427</td><td data-v="45951">46 ms</td><td data-v="58751">59 ms</td><td data-v="64671">65 ms</td><td data-v="91263">91 ms</td><td data-v="0">0</td><td data-v="102.6">102.6</td><td data-v="1">1</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v="default">default</td><td data-v="171040.5">171040</td><td data-v="341">0.34 ms</td><td data-v="568">0.57 ms</td><td data-v="954">0.95 ms</td><td data-v="39679">40 ms</td><td data-v="0">0</td><td data-v="7.5">7.5</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="default">default</td><td data-v="142673.75">142674</td><td data-v="2541">2.54 ms</td><td data-v="26543">27 ms</td><td data-v="48511">49 ms</td><td data-v="80639">81 ms</td><td data-v="0">0</td><td data-v="15.4">15.4</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /">GET /</td><td data-v="4096">4096</td><td data-v="default">default</td><td data-v="125753.0">125753</td><td data-v="3267">3.27 ms</td><td data-v="152575">153 ms</td><td data-v="208895">209 ms</td><td data-v="264191">264 ms</td><td data-v="0">0</td><td data-v="40.4">40.4</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v="default">default</td><td data-v="162660.5">162660</td><td data-v="362">0.36 ms</td><td data-v="583">0.58 ms</td><td data-v="1093">1.09 ms</td><td data-v="5315">5.32 ms</td><td data-v="0">0</td><td data-v="7.6">7.6</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="default">default</td><td data-v="134122.75">134123</td><td data-v="2681">2.68 ms</td><td data-v="31119">31 ms</td><td data-v="53247">53 ms</td><td data-v="74623">75 ms</td><td data-v="0">0</td><td data-v="15.8">15.8</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /">GET /</td><td data-v="4096">4096</td><td data-v="default">default</td><td data-v="110260.0">110260</td><td data-v="3925">3.92 ms</td><td data-v="189311">189 ms</td><td data-v="246143">246 ms</td><td data-v="271871">272 ms</td><td data-v="0">0</td><td data-v="42.4">42.4</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v="default">default</td><td data-v="123244.75">123245</td><td data-v="488">0.49 ms</td><td data-v="744">0.74 ms</td><td data-v="1162">1.16 ms</td><td data-v="13911">14 ms</td><td data-v="0">0</td><td data-v="5.6">5.6</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="default">default</td><td data-v="115851.25">115851</td><td data-v="4583">4.58 ms</td><td data-v="27023">27 ms</td><td data-v="51775">52 ms</td><td data-v="81919">82 ms</td><td data-v="0">0</td><td data-v="18.8">18.8</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /">GET /</td><td data-v="4096">4096</td><td data-v="default">default</td><td data-v="107878.75">107879</td><td data-v="5931">5.93 ms</td><td data-v="160383">160 ms</td><td data-v="237951">238 ms</td><td data-v="261119">261 ms</td><td data-v="0">0</td><td data-v="59.6">59.6</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v="default">default</td><td data-v="132572.75">132573</td><td data-v="438">0.44 ms</td><td data-v="730">0.73 ms</td><td data-v="1261">1.26 ms</td><td data-v="13679">14 ms</td><td data-v="0">0</td><td data-v="4.9">4.9</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="default">default</td><td data-v="100727.25">100727</td><td data-v="5947">5.95 ms</td><td data-v="29359">29 ms</td><td data-v="55967">56 ms</td><td data-v="76735">77 ms</td><td data-v="0">0</td><td data-v="17.4">17.4</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /">GET /</td><td data-v="4096">4096</td><td data-v="default">default</td><td data-v="127458.5">127458</td><td data-v="25743">26 ms</td><td data-v="43935">44 ms</td><td data-v="212351">212 ms</td><td data-v="253055">253 ms</td><td data-v="0">0</td><td data-v="57.4">57.4</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v="default">default</td><td data-v="101000.5">101000</td><td data-v="584">0.58 ms</td><td data-v="928">0.93 ms</td><td data-v="1463">1.46 ms</td><td data-v="13479">13 ms</td><td data-v="0">0</td><td data-v="25.4">25.4</td><td data-v="5">5</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="default">default</td><td data-v="95225.25">95225</td><td data-v="8119">8.12 ms</td><td data-v="13975">14 ms</td><td data-v="57407">57 ms</td><td data-v="75903">76 ms</td><td data-v="0">0</td><td data-v="41.6">41.6</td><td data-v="7">7</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /">GET /</td><td data-v="4096">4096</td><td data-v="default">default</td><td data-v="85254.5">85254</td><td data-v="38111">38 ms</td><td data-v="96895">97 ms</td><td data-v="212095">212 ms</td><td data-v="258815">259 ms</td><td data-v="0">0</td><td data-v="93.1">93.1</td><td data-v="7">7</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v="default">default</td><td data-v="128756.5">128756</td><td data-v="460">0.46 ms</td><td data-v="758">0.76 ms</td><td data-v="1213">1.21 ms</td><td data-v="4795">4.79 ms</td><td data-v="0">0</td><td data-v="4.9">4.9</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="default">default</td><td data-v="114878.25">114878</td><td data-v="5783">5.78 ms</td><td data-v="22351">22 ms</td><td data-v="47327">47 ms</td><td data-v="69631">70 ms</td><td data-v="0">0</td><td data-v="17.0">17.0</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /">GET /</td><td data-v="4096">4096</td><td data-v="default">default</td><td data-v="117246.25">117246</td><td data-v="29967">30 ms</td><td data-v="52671">53 ms</td><td data-v="162815">163 ms</td><td data-v="208383">208 ms</td><td data-v="0">0</td><td data-v="55.7">55.7</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns">sweep=conns</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="1">1</td><td data-v="18078.75">18079</td><td data-v="51">0.05 ms</td><td data-v="67">0.07 ms</td><td data-v="1950719">1951 ms</td><td data-v="1997823">1998 ms</td><td data-v="0">0</td><td data-v="3.9">3.9</td><td data-v="2">2</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="2">2</td><td data-v="33301.25">33301</td><td data-v="50">0.05 ms</td><td data-v="82">0.08 ms</td><td data-v="482">0.48 ms</td><td data-v="2001919">2002 ms</td><td data-v="0">0</td><td data-v="3.9">3.9</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="4">4</td><td data-v="54023.75">54024</td><td data-v="67">0.07 ms</td><td data-v="114">0.11 ms</td><td data-v="239">0.24 ms</td><td data-v="1994751">1995 ms</td><td data-v="0">0</td><td data-v="4.0">4.0</td><td data-v="5">5</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="1">1</td><td data-v="97599.75">97600</td><td data-v="9815">9.81 ms</td><td data-v="14167">14 ms</td><td data-v="15855">16 ms</td><td data-v="19839">20 ms</td><td data-v="0">0</td><td data-v="20.3">20.3</td><td data-v="2">2</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="2">2</td><td data-v="127107.5">127108</td><td data-v="2869">2.87 ms</td><td data-v="29775">30 ms</td><td data-v="52895">53 ms</td><td data-v="73919">74 ms</td><td data-v="0">0</td><td data-v="20.5">20.5</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="4">4</td><td data-v="122893.75">122894</td><td data-v="2781">2.78 ms</td><td data-v="28543">29 ms</td><td data-v="55487">55 ms</td><td data-v="273407">273 ms</td><td data-v="0">0</td><td data-v="20.4">20.4</td><td data-v="5">5</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="1">1</td><td data-v="131908.0">131908</td><td data-v="1610">1.61 ms</td><td data-v="2817">2.82 ms</td><td data-v="153343">153 ms</td><td data-v="170623">171 ms</td><td data-v="0">0</td><td data-v="21.5">21.5</td><td data-v="2">2</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="2">2</td><td data-v="160073.5">160074</td><td data-v="2397">2.40 ms</td><td data-v="24399">24 ms</td><td data-v="43615">44 ms</td><td data-v="65663">66 ms</td><td data-v="0">0</td><td data-v="21.6">21.6</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="4">4</td><td data-v="179755.5">179756</td><td data-v="2795">2.79 ms</td><td data-v="16687">17 ms</td><td data-v="32351">32 ms</td><td data-v="57983">58 ms</td><td data-v="0">0</td><td data-v="21.6">21.6</td><td data-v="5">5</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="1">1</td><td data-v="98957.5">98958</td><td data-v="9935">9.94 ms</td><td data-v="12791">13 ms</td><td data-v="16607">17 ms</td><td data-v="38623">39 ms</td><td data-v="0">0</td><td data-v="28.4">28.4</td><td data-v="1">1</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="2">2</td><td data-v="73875.5">73876</td><td data-v="13927">14 ms</td><td data-v="17183">17 ms</td><td data-v="21855">22 ms</td><td data-v="32527">33 ms</td><td data-v="0">0</td><td data-v="28.7">28.7</td><td data-v="1">1</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="4">4</td><td data-v="86130.25">86130</td><td data-v="11287">11 ms</td><td data-v="14935">15 ms</td><td data-v="17471">17 ms</td><td data-v="23935">24 ms</td><td data-v="0">0</td><td data-v="28.8">28.8</td><td data-v="1">1</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="1">1</td><td data-v="104783.25">104783</td><td data-v="9495">9.49 ms</td><td data-v="12295">12 ms</td><td data-v="15271">15 ms</td><td data-v="62783">63 ms</td><td data-v="0">0</td><td data-v="13.9">13.9</td><td data-v="2">2</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="2">2</td><td data-v="126985.5">126986</td><td data-v="3043">3.04 ms</td><td data-v="29103">29 ms</td><td data-v="46783">47 ms</td><td data-v="65247">65 ms</td><td data-v="0">0</td><td data-v="15.3">15.3</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="4">4</td><td data-v="111857.0">111857</td><td data-v="3529">3.53 ms</td><td data-v="30815">31 ms</td><td data-v="48095">48 ms</td><td data-v="76351">76 ms</td><td data-v="0">0</td><td data-v="18.5">18.5</td><td data-v="5">5</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="1">1</td><td data-v="94071.5">94072</td><td data-v="10279">10 ms</td><td data-v="14543">15 ms</td><td data-v="16399">16 ms</td><td data-v="20063">20 ms</td><td data-v="0">0</td><td data-v="14.3">14.3</td><td data-v="2">2</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="2">2</td><td data-v="145560.25">145560</td><td data-v="2479">2.48 ms</td><td data-v="26223">26 ms</td><td data-v="48639">49 ms</td><td data-v="71743">72 ms</td><td data-v="0">0</td><td data-v="15.8">15.8</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="4">4</td><td data-v="117970.25">117970</td><td data-v="3513">3.51 ms</td><td data-v="27967">28 ms</td><td data-v="44447">44 ms</td><td data-v="60735">61 ms</td><td data-v="0">0</td><td data-v="18.9">18.9</td><td data-v="5">5</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="1">1</td><td data-v="80544.0">80544</td><td data-v="11271">11 ms</td><td data-v="15839">16 ms</td><td data-v="25423">25 ms</td><td data-v="79871">80 ms</td><td data-v="0">0</td><td data-v="18.1">18.1</td><td data-v="2">2</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="2">2</td><td data-v="99020.25">99020</td><td data-v="4707">4.71 ms</td><td data-v="35359">35 ms</td><td data-v="60191">60 ms</td><td data-v="75967">76 ms</td><td data-v="0">0</td><td data-v="18.8">18.8</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="4">4</td><td data-v="111661.0">111661</td><td data-v="5075">5.08 ms</td><td data-v="25647">26 ms</td><td data-v="51487">51 ms</td><td data-v="78847">79 ms</td><td data-v="0">0</td><td data-v="19.6">19.6</td><td data-v="5">5</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="1">1</td><td data-v="69531.25">69531</td><td data-v="14047">14 ms</td><td data-v="19631">20 ms</td><td data-v="25023">25 ms</td><td data-v="34079">34 ms</td><td data-v="0">0</td><td data-v="17.3">17.3</td><td data-v="2">2</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="2">2</td><td data-v="101246.75">101247</td><td data-v="5535">5.54 ms</td><td data-v="31663">32 ms</td><td data-v="54655">55 ms</td><td data-v="83775">84 ms</td><td data-v="0">0</td><td data-v="17.4">17.4</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="4">4</td><td data-v="117738.5">117738</td><td data-v="3895">3.90 ms</td><td data-v="28815">29 ms</td><td data-v="52095">52 ms</td><td data-v="75775">76 ms</td><td data-v="0">0</td><td data-v="17.7">17.7</td><td data-v="5">5</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="1">1</td><td data-v="68189.5">68190</td><td data-v="14703">15 ms</td><td data-v="19887">20 ms</td><td data-v="22751">23 ms</td><td data-v="25679">26 ms</td><td data-v="0">0</td><td data-v="31.5">31.5</td><td data-v="4">4</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="2">2</td><td data-v="96977.25">96977</td><td data-v="8999">9.00 ms</td><td data-v="14239">14 ms</td><td data-v="47039">47 ms</td><td data-v="74239">74 ms</td><td data-v="0">0</td><td data-v="41.8">41.8</td><td data-v="7">7</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="4">4</td><td data-v="112053.0">112053</td><td data-v="7351">7.35 ms</td><td data-v="14671">15 ms</td><td data-v="39935">40 ms</td><td data-v="59519">60 ms</td><td data-v="0">0</td><td data-v="62.0">62.0</td><td data-v="13">13</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="1">1</td><td data-v="82972.75">82973</td><td data-v="11447">11 ms</td><td data-v="16255">16 ms</td><td data-v="20463">20 ms</td><td data-v="23711">24 ms</td><td data-v="0">0</td><td data-v="16.9">16.9</td><td data-v="2">2</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="2">2</td><td data-v="104015.25">104015</td><td data-v="5991">5.99 ms</td><td data-v="28159">28 ms</td><td data-v="50847">51 ms</td><td data-v="77951">78 ms</td><td data-v="0">0</td><td data-v="17.1">17.1</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /">GET /</td><td data-v="1024">1024</td><td data-v="4">4</td><td data-v="117222.0">117222</td><td data-v="5275">5.28 ms</td><td data-v="23407">23 ms</td><td data-v="45439">45 ms</td><td data-v="63391">63 ms</td><td data-v="0">0</td><td data-v="17.4">17.4</td><td data-v="5">5</td><td data-v="1">1</td><td data-v="sweep=workers">sweep=workers</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /">GET /</td><td data-v="16000">16000</td><td data-v="default">default</td><td data-v="3637.75">3638</td><td data-v="285439">285 ms</td><td data-v="876543">877 ms</td><td data-v="1034751">1035 ms</td><td data-v="3987455">3987 ms</td><td data-v="0">0</td><td data-v="48.9">48.9</td><td data-v="1392">1392</td><td data-v="1">1</td><td data-v="sweep=conns somaxconn=65535">sweep=conns somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="pool">pool</td><td data-v="GET /">GET /</td><td data-v="16000">16000</td><td data-v="default">default</td><td data-v="4251.25">4251</td><td data-v="1345535">1346 ms</td><td data-v="3307519">3308 ms</td><td data-v="4091903">4092 ms</td><td data-v="4206591">4207 ms</td><td data-v="0">0</td><td data-v="6.9">6.9</td><td data-v="65">65</td><td data-v="1">1</td><td data-v="sweep=conns somaxconn=65535">sweep=conns somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /">GET /</td><td data-v="16000">16000</td><td data-v="default">default</td><td data-v="92790.25">92790</td><td data-v="4531">4.53 ms</td><td data-v="588287">588 ms</td><td data-v="1036799">1037 ms</td><td data-v="1180671">1181 ms</td><td data-v="0">0</td><td data-v="191.8">191.8</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns somaxconn=65535">sweep=conns somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /">GET /</td><td data-v="16000">16000</td><td data-v="default">default</td><td data-v="109625.0">109625</td><td data-v="4127">4.13 ms</td><td data-v="550911">551 ms</td><td data-v="1030143">1030 ms</td><td data-v="1053695">1054 ms</td><td data-v="0">0</td><td data-v="251.2">251.2</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns somaxconn=65535">sweep=conns somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-st">tokio-st</td><td data-v="GET /">GET /</td><td data-v="16000">16000</td><td data-v="default">default</td><td data-v="60923.5">60924</td><td data-v="178047">178 ms</td><td data-v="235903">236 ms</td><td data-v="1151999">1152 ms</td><td data-v="1226751">1227 ms</td><td data-v="0">0</td><td data-v="388.0">388.0</td><td data-v="1">1</td><td data-v="1">1</td><td data-v="sweep=conns somaxconn=65535">sweep=conns somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring">uring</td><td data-v="GET /">GET /</td><td data-v="16000">16000</td><td data-v="default">default</td><td data-v="89402.0">89402</td><td data-v="4435">4.43 ms</td><td data-v="715775">716 ms</td><td data-v="1144831">1145 ms</td><td data-v="1198079">1198 ms</td><td data-v="0">0</td><td data-v="121.9">121.9</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns somaxconn=65535">sweep=conns somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /">GET /</td><td data-v="16000">16000</td><td data-v="default">default</td><td data-v="86829.5">86830</td><td data-v="4515">4.51 ms</td><td data-v="697855">698 ms</td><td data-v="1105919">1106 ms</td><td data-v="1128447">1128 ms</td><td data-v="0">0</td><td data-v="126.2">126.2</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns somaxconn=65535">sweep=conns somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="monoio">monoio</td><td data-v="GET /">GET /</td><td data-v="16000">16000</td><td data-v="default">default</td><td data-v="73370.5">73370</td><td data-v="7795">7.79 ms</td><td data-v="831999">832 ms</td><td data-v="1193983">1194 ms</td><td data-v="2086911">2087 ms</td><td data-v="0">0</td><td data-v="198.1">198.1</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns somaxconn=65535">sweep=conns somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="compio">compio</td><td data-v="GET /">GET /</td><td data-v="16000">16000</td><td data-v="default">default</td><td data-v="64503.0">64503</td><td data-v="37311">37 ms</td><td data-v="911871">912 ms</td><td data-v="1208319">1208 ms</td><td data-v="2111487">2111 ms</td><td data-v="0">0</td><td data-v="197.4">197.4</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns somaxconn=65535">sweep=conns somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="glommio">glommio</td><td data-v="GET /">GET /</td><td data-v="16000">16000</td><td data-v="default">default</td><td data-v="55997.25">55997</td><td data-v="18271">18 ms</td><td data-v="914431">914 ms</td><td data-v="1561599">1562 ms</td><td data-v="1654783">1655 ms</td><td data-v="0">0</td><td data-v="231.2">231.2</td><td data-v="7">7</td><td data-v="1">1</td><td data-v="sweep=conns somaxconn=65535">sweep=conns somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+<tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /">GET /</td><td data-v="16000">16000</td><td data-v="default">default</td><td data-v="82692.0">82692</td><td data-v="33215">33 ms</td><td data-v="619519">620 ms</td><td data-v="1139711">1140 ms</td><td data-v="1864703">1865 ms</td><td data-v="0">0</td><td data-v="194.3">194.3</td><td data-v="3">3</td><td data-v="1">1</td><td data-v="sweep=conns somaxconn=65535">sweep=conns somaxconn=65535</td><td data-v="scale.jsonl">scale.jsonl</td></tr>
+</tbody></table></div></section>
+</main><div id="tip"></div><script>
+const tip = document.getElementById('tip');
+document.querySelectorAll('[data-tip]').forEach(el => {
+  el.addEventListener('mousemove', e => { tip.textContent = el.dataset.tip; tip.style.display = 'block';
+    tip.style.left = Math.min(e.clientX + 14, window.innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; });
+  el.addEventListener('mouseleave', () => tip.style.display = 'none');
+});
+document.querySelectorAll('#data th').forEach(th => th.addEventListener('click', () => {
+  const k = +th.dataset.k, tb = document.querySelector('#data tbody'), rows = [...tb.rows];
+  const asc = th.dataset.asc !== '1'; th.dataset.asc = asc ? '1' : '0';
+  rows.sort((a, b) => { const x = a.cells[k].dataset.v, y = b.cells[k].dataset.v; const nx = parseFloat(x), ny = parseFloat(y);
+    const c = (!isNaN(nx) && !isNaN(ny)) ? nx - ny : String(x).localeCompare(String(y)); return asc ? c : -c; });
+  rows.forEach(r => tb.appendChild(r));
+}));
+</script></body></html>

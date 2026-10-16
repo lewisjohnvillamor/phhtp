@@ -232,54 +232,60 @@ Or drive it by hand:
 throughput, errors and non-2xx counts. Cross-check with
 [`oha`](https://github.com/hatoo/oha) if you like: `oha -z 10s -c 64 http://127.0.0.1:8080/`.
 
-### Sample results (4-core container, client and server on the same box)
+### Results: eleven runtimes, charted
 
-Full table in [`bench/results/sample-4core-container.md`](bench/results/sample-4core-container.md)
-(unpinned, all seven runtimes, one 4-second run each). Indicative only: on this
-shared box two identical runs differ by up to ±15 %, so differences below that
-are noise. For decisions, the interleaved repeated measurement below is the one
-to read.
+The full dataset (every row `phhtp-bench` recorded, 129 measurements) is committed
+in [`bench/results/dataset/`](bench/results/dataset/) and rendered as an
+interactive report with charts, hover tooltips and a sortable table in
+[`bench/report.html`](bench/report.html), also hosted at
+<https://claude.ai/artifact/Kd38ay5T3BLRxneBd3d1co> (`scripts/report.py` regenerates it). Matrix rows are
+**medians of three repetitions**; sweep rows are single runs. Identical runs
+on this shared 4-core box differ by up to ±15 %, so treat smaller gaps as noise.
+Color is the I/O-model family; ◆ marks the runtimes written in this repository.
 
-| runtime | `GET /json` req/s | p50 | p90 | p99 | `GET /sleep?ms=5` ×256 req/s | p50 | p90 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| threads     | 87k  | 0.67ms | 1.18ms | 2.25ms | 45.5k | 5.46ms | 6.24ms |
-| pool(64)    | 90k  | 0.65ms | 1.12ms | 2.20ms | **12.0k** | 5.29ms | 5.51ms |
-| mio         | 142k | 0.34ms | 0.91ms | 1.74ms | 42.2k | 6.01ms | 6.56ms |
-| tokio       | 137k | 0.42ms | **0.73ms** | **1.25ms** | 37.9k | 6.71ms | 7.55ms |
-| tokio-st    | 129k | 0.46ms | 0.73ms | 1.27ms | 33.6k | 7.59ms | 8.63ms |
-| uring       | 131k | 0.39ms | 0.94ms | 1.75ms | 45.2k | 5.50ms | 6.33ms |
-| uring-async | **155k** | **0.32ms** | 0.80ms | 1.50ms | **45.7k** | **5.43ms** | **6.22ms** |
+![GET /json throughput, all runtimes](bench/charts/matrix-json-rps.svg)
 
-**Tokio versus `ringrt` after multishot recv + provided buffers**, server pinned
-to 2 cores, client on the other 2, `GET /`, three interleaved repetitions,
-medians (`bench/results/multishot-reps.txt`):
+![GET /json p99 latency, all runtimes](bench/charts/matrix-json-p99.svg)
 
-| connections | tokio req/s (range) | uring-async req/s (range) | tokio p50 / p99 | uring-async p50 / p99 |
-|---:|---:|---:|---|---|
-| 1 024 | 148k (136–169k) | 130k (129–158k) | 2.80 / 45.3 ms | 2.84 / 46.6 ms |
-| 16 000 | 48k (41–62k) | 92k (89–93k) | 5.44 / 1117 ms | 4.45 / 1167 ms |
+![GET /sleep throughput, all runtimes](bench/charts/matrix-sleep-rps.svg)
 
-And at 64 connections in a same-session A/B before the environment changed:
-`uring-async` 178k vs tokio 177k; the callback `uring` loop 198k.
+![Throughput versus connections, one panel per runtime](bench/charts/conns-rps.svg)
 
-What the shapes show:
+| runtime | `GET /json` req/s (median of 3, range) | p50 | p99 | `/sleep?ms=5` ×256 req/s | 16 000 conns req/s | RSS at 16 000 |
+|---|---:|---:|---:|---:|---:|---:|
+| ◆ uring       | **145k** (138–151k) | **0.35ms** | 1.59ms | 45.9k | 89k | 122 MB |
+| ◆ uring-async | 144k (139–149k) | **0.35ms** | 1.62ms | 45.6k | 87k | 126 MB |
+| ◆ mio         | 136k (131–149k) | 0.36ms | 1.75ms | 41.5k | 93k | 192 MB |
+| ◆ tokio       | 126k (124–127k) | 0.47ms | **1.26ms** | 37.4k | **110k** | 251 MB |
+| compio        | 117k (109–120k) | 0.42ms | 2.19ms | **46.2k** | 65k | 197 MB |
+| ◆ pool(64)    | 114k (97–130k) | 0.52ms | 1.59ms | 11.9k | fails | – |
+| monoio        | 110k (99–110k) | 0.45ms | 2.37ms | 38.2k | 73k | 198 MB |
+| tokio-uring   | 106k (97–110k) | 0.46ms | 2.60ms | 37.4k | 83k | 194 MB |
+| ◆ tokio-st    | 103k (100–111k) | 0.59ms | 1.36ms | 34.3k | 61k | 388 MB |
+| ◆ threads     | 95k (94–98k) | 0.61ms | 2.05ms | 44.4k | fails | – |
+| glommio       | 75k (73–76k) | 0.64ms | 4.55ms | 41.9k | 56k | 231 MB |
 
-* **At light and moderate load `ringrt` now matches Tokio**: equal throughput
-  and p50 at 64 connections, 10 % behind at 1 024 with overlapping ranges.
-  Multishot recv with a provided-buffer ring was worth ~10 % on its own
-  (163k → 178k at 64 connections in the A/B).
-* **Under a 16 000-connection load `ringrt` is now ~2× Tokio and far more
-  stable** (89–93k across runs versus 41–62k). One `RECV` per connection for
-  its lifetime instead of one per request is what changes at that scale.
-* **Tokio keeps the tightest p99 at moderate load** (work stealing), and the
-  single-core `tokio` tail problem from the scale study is unchanged.
-* **The async layer costs ~10 % over the callback loop** on the same ring
-  (178k vs 198k at 64 connections): boxed task, waker clone, `RefCell` borrow.
-* **Where the server waits** (`/sleep`), io_uring's kernel timers keep the
-  lead they had before: 45–46k vs 38k req/s.
-* **Provided-buffer ring size did not matter** once measured properly (256,
-  1 024 and 2 048 entries within noise at both 1 024 and 16 000 connections);
-  an earlier single run that suggested otherwise was noise. Default is 256.
+What the eleven-way comparison shows:
+
+* **The from-scratch runtimes top the throughput and p50 columns on this box.**
+  `uring` and `uring-async` lead every published io_uring runtime on `/json`,
+  by 25 % over compio, 30 % over monoio and tokio-uring, and nearly 2× glommio.
+  All of them drive the same handler and the same per-worker listener layout,
+  so the difference is runtime overhead: the executors in the published crates
+  carry task machinery, buffer traits and cross-platform abstraction that a
+  600-line single-purpose runtime does not.
+* **Tokio still wins p99 at moderate load and the 16 000-connection point**,
+  which is where work stealing earns its keep. It also uses the most memory per
+  connection after `tokio-st`.
+* **Under `/sleep` (waiting on an upstream), the completion runtimes with
+  kernel timers cluster at the top**: compio, uring, uring-async, then the
+  blocking `threads` model, with Tokio and tokio-uring 20 % behind.
+* **glommio is the outlier**, slowest on every endpoint here. It was designed for
+  storage-heavy workloads with its own buffered I/O layer; the `futures`-trait
+  path we used copies through its internal buffer on every read. Its own
+  reactor-level API may do better; this benchmark measures the portable path.
+* **`pool` and `threads` fail at 16 000 connections** (the queue and the thread
+  limit respectively); everything event-driven serves them.
 
 ### Scale and failure modes
 
