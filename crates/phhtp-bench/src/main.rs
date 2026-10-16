@@ -103,6 +103,24 @@ struct RunArgs {
     /// by the load generator itself; 0 = unbounded.
     #[arg(long, default_value_t = 256)]
     connect_concurrency: usize,
+    /// HTTP pipelining depth: write this many requests back-to-back on a
+    /// connection before reading the responses. Latency is per batch (the
+    /// time until the last response of the batch arrives). 1 = off.
+    #[arg(long, default_value_t = 1)]
+    pipeline: usize,
+    /// Extra idle connections held open for the whole run without sending
+    /// anything measured (they cost the server a socket and per-connection
+    /// state). With `--idle-partial` each one first sends half a request line
+    /// and then stalls, like a slow or hostile client.
+    #[arg(long, default_value_t = 0)]
+    idle: usize,
+    #[arg(long)]
+    idle_partial: bool,
+    /// Mixed workload: extra GET paths to rotate through round-robin with the
+    /// URL's path (e.g. `--mix /json --mix "/compute?n=2000"`). Rotation is per
+    /// connection, so every connection sees every path.
+    #[arg(long)]
+    mix: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -129,6 +147,8 @@ struct Summary {
     p90_us: u64,
     p99_us: u64,
     p999_us: u64,
+    #[serde(default)]
+    p9999_us: u64,
     max_us: u64,
     mean_us: f64,
     /// Server-side resource deltas over the measured window, from `/stats`.
@@ -266,7 +286,15 @@ fn run(args: RunArgs) {
             std::process::exit(2);
         }
     };
-    let request = Arc::new(build_request(&args, &host, port, &path));
+    let mut reqs = vec![build_request(&args, &host, port, &path)];
+    for p in &args.mix {
+        let mut a = args.clone();
+        a.method = "GET".into();
+        a.body = None;
+        a.body_size = None;
+        reqs.push(build_request(&a, &host, port, p));
+    }
+    let request = Arc::new(reqs);
     let threads = args.threads.unwrap_or_else(|| {
         std::thread::available_parallelism()
             .map(|n| n.get())
@@ -299,7 +327,7 @@ fn measure(
     rt: &tokio::runtime::Runtime,
     args: &RunArgs,
     addr: SocketAddr,
-    request: &Arc<Vec<u8>>,
+    request: &Arc<Vec<Vec<u8>>>,
 ) -> Summary {
     let (total, server, client_cpu_s) = rt.block_on(async {
         let start = Instant::now();
@@ -345,7 +373,17 @@ fn measure(
                 gate: Arc::clone(&gate),
                 interval,
                 close: args.close,
+                pipeline: args.pipeline.max(1),
             })));
+        }
+        let mut idlers = Vec::with_capacity(args.idle);
+        for _ in 0..args.idle {
+            idlers.push(tokio::spawn(idle_conn(
+                addr,
+                deadline,
+                Arc::clone(&gate),
+                args.idle_partial,
+            )));
         }
         let mut total = WorkerOut {
             hist: Histogram::new_with_bounds(1, 60_000_000, 3).unwrap(),
@@ -361,6 +399,9 @@ fn measure(
             total.errors += w.errors;
             total.non_2xx += w.non_2xx;
             total.bytes += w.bytes;
+        }
+        for t in idlers {
+            let _ = t.await;
         }
         let server = match stats_task {
             Some(t) => t
@@ -394,6 +435,7 @@ fn measure(
         p90_us: h.value_at_quantile(0.90),
         p99_us: h.value_at_quantile(0.99),
         p999_us: h.value_at_quantile(0.999),
+        p9999_us: h.value_at_quantile(0.9999),
         max_us: h.max(),
         mean_us: h.mean(),
         server,
@@ -411,7 +453,27 @@ fn measure(
             } else {
                 ", keep-alive"
             }
-        ),
+        ) + &if args.pipeline > 1 {
+            format!(", pipeline {}", args.pipeline)
+        } else {
+            String::new()
+        } + &if args.idle > 0 {
+            format!(
+                ", {} idle{}",
+                args.idle,
+                if args.idle_partial {
+                    " (partial request)"
+                } else {
+                    ""
+                }
+            )
+        } else {
+            String::new()
+        } + &if args.mix.is_empty() {
+            String::new()
+        } else {
+            format!(", mix of {} paths", args.mix.len() + 1)
+        },
     }
 }
 
@@ -519,6 +581,7 @@ fn median_summary(mut runs: Vec<Summary>) -> Summary {
     out.p90_us = med_u64(&mut runs.iter().map(|r| r.p90_us).collect::<Vec<_>>());
     out.p99_us = med_u64(&mut runs.iter().map(|r| r.p99_us).collect::<Vec<_>>());
     out.p999_us = med_u64(&mut runs.iter().map(|r| r.p999_us).collect::<Vec<_>>());
+    out.p9999_us = med_u64(&mut runs.iter().map(|r| r.p9999_us).collect::<Vec<_>>());
     out.max_us = med_u64(&mut runs.iter().map(|r| r.max_us).collect::<Vec<_>>());
     out.mean_us = med_f64(&mut runs.iter().map(|r| r.mean_us).collect::<Vec<_>>());
     let servers: Vec<&ServerUse> = runs.iter().filter_map(|r| r.server.as_ref()).collect();
@@ -556,13 +619,50 @@ impl Summary {
 
 struct WorkerCfg {
     addr: SocketAddr,
-    req: Arc<Vec<u8>>,
+    req: Arc<Vec<Vec<u8>>>,
     warm_end: Instant,
     deadline: Instant,
     timeout: Duration,
     gate: Arc<tokio::sync::Semaphore>,
     interval: Option<Duration>,
     close: bool,
+    pipeline: usize,
+}
+
+/// Hold one connection open until `deadline`, sending nothing (or, with
+/// `partial`, half a request line and then nothing). Reconnects if the server
+/// closes it, so a server that times out idle clients is still measured with
+/// `n` idle sockets rather than zero.
+async fn idle_conn(
+    addr: SocketAddr,
+    deadline: Instant,
+    gate: Arc<tokio::sync::Semaphore>,
+    partial: bool,
+) {
+    let mut sink = [0u8; 256];
+    while Instant::now() < deadline {
+        let s = {
+            let _permit = gate.acquire().await.expect("semaphore never closed");
+            match tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(addr)).await {
+                Ok(Ok(s)) => s,
+                _ => {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    continue;
+                }
+            }
+        };
+        let mut s = s;
+        if partial
+            && s.write_all(b"GET /json HTTP/1.1\r\nHost: idle\r\nX-Slow: ")
+                .await
+                .is_err()
+        {
+            continue;
+        }
+        // Wait for the deadline or for the server to hang up, whichever first.
+        let left = deadline.saturating_duration_since(Instant::now());
+        let _ = tokio::time::timeout(left, s.read(&mut sink)).await;
+    }
 }
 
 async fn worker(cfg: WorkerCfg) -> WorkerOut {
@@ -575,6 +675,7 @@ async fn worker(cfg: WorkerCfg) -> WorkerOut {
         gate,
         interval,
         close,
+        pipeline,
     } = cfg;
     let mut out = WorkerOut {
         hist: Histogram::new_with_bounds(1, 60_000_000, 3).unwrap(),
@@ -588,6 +689,10 @@ async fn worker(cfg: WorkerCfg) -> WorkerOut {
     // Open loop: each connection has its own schedule of intended send times.
     let next_intended = Instant::now();
     let mut seq: u64 = 0;
+    // Mixed workloads rotate through the request set; pipelining writes
+    // `pipeline` consecutive entries of that rotation in one go.
+    let mut rr: usize = 0;
+    let mut batch: Vec<u8> = Vec::new();
 
     loop {
         let now = Instant::now();
@@ -648,40 +753,66 @@ async fn worker(cfg: WorkerCfg) -> WorkerOut {
         } else {
             Instant::now()
         };
-        if s.write_all(&req).await.is_err() {
+        let wire: &[u8] = if pipeline == 1 && req.len() == 1 {
+            &req[0]
+        } else {
+            batch.clear();
+            for _ in 0..pipeline {
+                batch.extend_from_slice(&req[rr % req.len()]);
+                rr += 1;
+            }
+            &batch
+        };
+        if s.write_all(wire).await.is_err() {
             stream = None;
             if t0 >= warm_end {
                 out.errors += 1;
             }
             continue;
         }
-        let resp = match tokio::time::timeout(timeout, read_response(s, &mut buf)).await {
-            Ok(r) => r,
-            Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "request timed out")),
-        };
-        match resp {
-            Ok(resp) => {
-                let latency = t0.elapsed();
-                if t0 >= warm_end {
-                    out.requests += 1;
-                    out.bytes += resp.len as u64;
+        // Read every response of the batch; the batch's latency is recorded
+        // once per request so pipelined rows stay comparable per request.
+        let mut got = 0usize;
+        let mut bytes = 0u64;
+        let mut non_2xx = 0u64;
+        let mut closed = false;
+        let mut failed = false;
+        while got < pipeline && !closed {
+            let resp = match tokio::time::timeout(timeout, read_response(s, &mut buf)).await {
+                Ok(r) => r,
+                Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "request timed out")),
+            };
+            match resp {
+                Ok(resp) => {
+                    got += 1;
+                    bytes += resp.len as u64;
                     if !(200..300).contains(&resp.status) {
-                        out.non_2xx += 1;
+                        non_2xx += 1;
                     }
-                    let _ = out.hist.record(latency.as_micros().max(1) as u64);
+                    buf.drain(..resp.len);
+                    closed = resp.close;
                 }
-                buf.drain(..resp.len);
-                if resp.close {
-                    stream = None;
-                    buf.clear();
-                }
-            }
-            Err(_) => {
-                stream = None;
-                if t0 >= warm_end {
-                    out.errors += 1;
+                Err(_) => {
+                    failed = true;
+                    break;
                 }
             }
+        }
+        let latency = t0.elapsed();
+        if t0 >= warm_end {
+            out.requests += got as u64;
+            out.bytes += bytes;
+            out.non_2xx += non_2xx;
+            for _ in 0..got {
+                let _ = out.hist.record(latency.as_micros().max(1) as u64);
+            }
+            if failed || (closed && got < pipeline) {
+                out.errors += (pipeline - got).max(1) as u64;
+            }
+        }
+        if failed || closed {
+            stream = None;
+            buf.clear();
         }
     }
     out
@@ -793,11 +924,12 @@ fn print_human(s: &Summary) {
         );
     }
     println!(
-        "  latency     p50 {}  p90 {}  p99 {}  p99.9 {}  max {}  mean {}",
+        "  latency     p50 {}  p90 {}  p99 {}  p99.9 {}  p99.99 {}  max {}  mean {}",
         ms(s.p50_us),
         ms(s.p90_us),
         ms(s.p99_us),
         ms(s.p999_us),
+        ms(s.p9999_us),
         ms(s.max_us),
         ms(s.mean_us as u64)
     );
