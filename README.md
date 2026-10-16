@@ -78,6 +78,7 @@ bench/results/    sample results
 docs/LANDSCAPE.md the study: existing io_uring runtimes, and what ringrt trades off
 docs/SCALE.md     how far each runtime goes, what breaks first, and how it fails
 docs/EXPANDED.md  the second round of load shapes, and what is different about ringrt
+docs/NEXT.md      what the evidence says we need, and the next target (an edge tier)
 ```
 
 The core is deliberately **sans-IO**: `phhtp_core::process(app, inbuf, outbuf)`

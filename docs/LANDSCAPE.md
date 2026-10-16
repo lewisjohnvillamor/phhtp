@@ -151,6 +151,65 @@ on this repository's own benchmark (see the README) and on the sources below.
 engine. crates.io convention discourages a `rust-` prefix, so `rust-phttp` was
 not considered.
 
+## 6. Prior art: what was already known before this study
+
+Added after the expanded round (October 2026), from a search of the published
+comparisons. The honest summary: the io_uring-versus-epoll question for
+networking has been studied many times since 2020, the results conflict, and
+two of this repository's findings are rediscoveries. What is new here is the
+harness, not the conclusion.
+
+### 6.1 Results we rediscovered
+
+| Our finding | Where it was already published |
+|---|---|
+| Multishot accept, multishot recv and a provided-buffer ring are what make a completion runtime cheap per request (0.17 syscalls/req, EXPANDED.md §1). | Jens Axboe's *io_uring and networking in 2023* describes exactly this design and why a completion model needs it. We implemented it from the ABI; we did not invent it. |
+| On few cores with few connections Tokio spends less CPU per request than our io_uring runtime (README matrix, 9.3 vs 11.6 µs). | ByteDance's 2021 Monoio benchmark, run on separate machines over a real network, reports that at one core with few connections io_uring has *higher* latency and lower throughput than Tokio, and that the io_uring runtime only pulls ahead at 4–16 cores with many connections. |
+| The scheduler matters more than the kernel interface: thread-per-core wins the median and memory, work stealing wins the tail under a noisy neighbour and on mixed paths (EXPANDED.md §4–5). | An independent loopback echo test found Monoio-on-epoll and Monoio-on-io_uring essentially tied (≈1.65 M vs 1.63 M msg/s) and concluded the gap to Tokio was the thread-per-core architecture, not io_uring. |
+| Many of our runtime-to-runtime gaps are inside the ±15 % noise band of the box. | A liburing issue thread concluded io_uring wins ping-pong traffic and loses streaming traffic; a production team that rewrote on io_uring and rolled back reported a 0–15 % gap for keep-alive TCP servers, often not in io_uring's favour. |
+
+### 6.2 The mistake we repeated
+
+**Loopback on one shared machine, with the load generator beside the
+server.** The widely cited `frevib/io_uring-echo-server` benchmarks, most
+blog comparisons, and all 283 rows of our dataset share this. Loopback skips
+the NIC, its interrupts and most of the TCP stack, which on real hardware
+dominate the per-request cost; the syscall savings of io_uring therefore look
+larger on loopback than they are in production, and the client's CPU becomes
+the ceiling exactly where the fast runtimes are being ranked (our client sat
+at 187–197 % of its two cores on the top rows). The DBMS study on arXiv
+makes a related point: SQPOLL's benefit comes from removing submission
+syscalls and disappears once NAPI busy-polling is on. The droplet run with a
+separate load generator is therefore not an extra; without it the throughput
+ordering among `uring`, `uring-async`, `mio` and `tokio` is unresolved.
+
+### 6.3 What is not a performance question at all
+
+* **Deployability.** Google disabled io_uring on its production servers,
+  ChromeOS and Android after about 60 % of its 2022 kernel bug-bounty
+  exploits targeted it; Docker's default seccomp profile blocks the
+  `io_uring_*` syscalls, and GKE Autopilot inherits containerd's default
+  profile. A runtime without an epoll fallback does not start in a default
+  container. A DigitalOcean droplet is a VM, so it is unaffected, but this
+  decides the runtime's reach more than any row of the dataset.
+* **The handler.** On `/compute` all eleven runtimes measured the same. A
+  webapp spends its time in the database driver and serialization; the I/O
+  model is second-order there, and the ecosystem (hyper, axum, sqlx,
+  rustls) is first-order.
+
+### 6.4 What this repository adds that we did not find elsewhere
+
+No published comparison we found runs the *same handler* on eleven runtimes
+with the server's own CPU, memory, context switches, page faults, disk I/O
+and syscalls per row; measures open-loop latency from the intended send
+time; and includes connection churn, pipelining, stalled connections, a
+noisy co-tenant and long-window tails. The existing comparisons are mostly
+one runtime's echo server against another's, single runs, client-side
+latency only. That harness is the reusable result. The runtime is a
+learning artifact whose one measured advantage (fewer kernel crossings,
+hence memory per connection and median latency) is real, and smaller on
+real hardware than on loopback.
+
 ## Sources
 
 * [Choose the async runtime: monoio vs compio vs tokio (ruxen issue #272)](https://github.com/gvozdetsky/ruxen/issues/272)
@@ -171,3 +230,10 @@ not considered.
 * [io_uring (Wikipedia)](https://en.wikipedia.org/wiki/Io_uring)
 * [Thread-Per-Core Async in Rust (Chrysostomos Nanakos)](https://www.include.gr/writing/rust-thread-per-core-async.html)
 * [Rust Async Runtimes: Tokio vs async-std vs smol (2026)](https://lucaberton.com/blog/rust-async-runtimes-tokio-2026/)
+* [io_uring and networking in 2023 (Jens Axboe, liburing wiki)](https://github.com/axboe/liburing/wiki/io_uring-and-networking-in-2023)
+* [Yet another comparison between io_uring and epoll on network performance (liburing #536)](https://github.com/axboe/liburing/issues/536)
+* [io_uring echo server benchmarks (frevib)](https://github.com/frevib/io_uring-echo-server/blob/master/benchmarks/benchmarks.md)
+* [Why you should use io_uring for network I/O (Red Hat Developer)](https://developers.redhat.com/articles/2023/04/12/why-you-should-use-iouring-network-io)
+* [High-Performance DBMSs with io_uring: When and How to use it (arXiv 2512.04859)](https://arxiv.org/pdf/2512.04859)
+* [Production io_uring rewrite rolled back (Habr, Russian)](https://habr.com/ru/articles/1039820/)
+* [How we built Pingora (Cloudflare)](https://blog.cloudflare.com/how-we-built-pingora-the-proxy-that-connects-cloudflare-to-the-internet/)
