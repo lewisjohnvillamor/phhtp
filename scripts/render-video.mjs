@@ -11,11 +11,13 @@ const FPS = 24;
 const page_url = 'file://' + resolve('bench/video/explainer.html');
 const outDir = resolve('bench/video/frames');
 const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
-const page = await browser.newPage({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
+const page = await browser.newPage({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: 1 });
 await page.goto(page_url);
 await page.waitForFunction(() => window.__explainer);
 await page.evaluate(() => document.fonts.ready);
 await page.evaluate(() => { document.getElementById('big').remove(); });
+// Capture the stage at exactly 1280x720: no border, no rounding, page wider than the stage.
+await page.addStyleTag({ content: 'main{max-width:none} .stage{width:1280px;height:720px;border:0;border-radius:0}' });
 const total = await page.evaluate(() => window.__explainer.total);
 const canvas = page.locator('#c');
 
