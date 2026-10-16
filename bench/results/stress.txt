@@ -1,0 +1,68 @@
+# scripts/stress.sh on the 4-core container; see docs/SCALE.md
+== threads: fd exhaustion (server ulimit -n 512, 1024 connections)
+    under fd pressure          req/s     92713  p50   4.99ms  p99  15.40ms  errors 0
+    server process: alive
+    recovery probe (16 conns)  req/s     82736  p50   0.15ms  p99   0.72ms  errors 0
+    server log: accept: Too many open files (os error 24)
+== threads: thread exhaustion (server ulimit -u 600, 1200 connections)
+    under thread pressure      req/s     79768  p50  12.66ms  p99  34.66ms  errors 0
+    server process: alive
+    recovery probe (16 conns)  req/s     85614  p50   0.15ms  p99   0.65ms  errors 0
+== threads: CPU overload (/compute?n=20000, 256 connections)
+    cpu overload               req/s       554  p50 446.72ms  p99 758.78ms  errors 0
+    after overload (16 conns)  req/s     80286  p50   0.16ms  p99   0.69ms  errors 0
+    server process: alive
+== pool: fd exhaustion (server ulimit -n 512, 1024 connections)
+    under fd pressure          req/s    104954  p50   0.57ms  p99   1.93ms  errors 0
+    server process: alive
+    recovery probe (16 conns)  req/s     82882  p50   0.16ms  p99   0.66ms  errors 0
+    server log: accept: Too many open files (os error 24)
+== pool: CPU overload (/compute?n=20000, 256 connections)
+    cpu overload               req/s       594  p50 107.45ms  p99 177.66ms  errors 0
+    after overload (16 conns)  req/s     80862  p50   0.16ms  p99   0.68ms  errors 0
+    server process: alive
+== mio: fd exhaustion (server ulimit -n 512, 1024 connections)
+    under fd pressure          req/s    169379  p50   2.56ms  p99   8.85ms  errors 523
+    server process: alive
+    recovery probe (16 conns)  req/s     50226  p50   0.05ms  p99   0.15ms  errors 0
+    server log: accept: Too many open files (os error 24)
+== mio: CPU overload (/compute?n=20000, 256 connections)
+    cpu overload               req/s       596  p50 441.09ms  p99 562.17ms  errors 0
+    after overload (16 conns)  req/s     91041  p50   0.14ms  p99   0.50ms  errors 0
+    server process: alive
+== tokio: fd exhaustion (server ulimit -n 512, 1024 connections)
+    under fd pressure          req/s    174637  p50   2.49ms  p99   8.48ms  errors 0
+    server process: alive
+    recovery probe (16 conns)  req/s    116862  p50   0.12ms  p99   0.38ms  errors 0
+    server log: accept: Too many open files (os error 24)
+== tokio: CPU overload (/compute?n=20000, 256 connections)
+    cpu overload               req/s       578  p50 427.26ms  p99 879.10ms  errors 0
+    after overload (16 conns)  req/s    103747  p50   0.13ms  p99   0.49ms  errors 0
+    server process: alive
+== tokio-st: fd exhaustion (server ulimit -n 512, 1024 connections)
+    under fd pressure          req/s    113609  p50   4.12ms  p99   9.41ms  errors 0
+    server process: alive
+    recovery probe (16 conns)  req/s    111968  p50   0.13ms  p99   0.41ms  errors 0
+    server log: accept: Too many open files (os error 24)
+== tokio-st: CPU overload (/compute?n=20000, 256 connections)
+    cpu overload               req/s       136  p50 1843.20ms  p99 1893.38ms  errors 0
+    after overload (16 conns)  req/s    119100  p50   0.11ms  p99   0.40ms  errors 0
+    server process: alive
+== uring: fd exhaustion (server ulimit -n 512, 1024 connections)   [re-run after the async back-off fix; before it: 23126 req/s, p50 21.74ms]
+    under fd pressure          req/s    159266  p50   2.73ms  p99   9.73ms  errors 0
+    server process: alive
+    recovery probe (16 conns)  req/s     89862  p50   0.15ms  p99   0.57ms  errors 0
+    server log: accept: Too many open files (os error 24)
+== uring: CPU overload (/compute?n=20000, 256 connections)
+    cpu overload               req/s       548  p50 471.81ms  p99 622.08ms  errors 0
+    after overload (16 conns)  req/s     82254  p50   0.17ms  p99   0.59ms  errors 0
+    server process: alive
+== uring-async: fd exhaustion (server ulimit -n 512, 1024 connections)
+    under fd pressure          req/s    147612  p50   2.97ms  p99  10.94ms  errors 0
+    server process: alive
+    recovery probe (16 conns)  req/s     86124  p50   0.16ms  p99   0.57ms  errors 0
+    server log: accept: Too many open files (os error 24)
+== uring-async: CPU overload (/compute?n=20000, 256 connections)
+    cpu overload               req/s       571  p50 453.38ms  p99 519.68ms  errors 0
+    after overload (16 conns)  req/s     83630  p50   0.16ms  p99   0.56ms  errors 0
+    server process: alive

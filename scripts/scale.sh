@@ -51,13 +51,18 @@ run_case() {
   trap 'kill $pid 2>/dev/null || true' EXIT
   wait_port "$PORT"
   echo "== $rt workers=${workers:-default} conns=$conns" >&2
+  # Sample the server's footprint in the middle of the measured window, while
+  # every connection is open (threads of `threads` exit as soon as the bench
+  # closes its sockets, so sampling afterwards under-reports).
+  local sample="bench/results/.sample-$$"
+  ( sleep $((WARMUP + DURATION / 2)); awk '/VmRSS/ {r=$2} /Threads/ {t=$2} END {print r, t}' "/proc/$pid/status" > "$sample" 2>/dev/null ) &
+  local sampler=$!
   local line
   line=$("${PIN_C[@]}" "$BENCH" run "http://127.0.0.1:$PORT$PATH_" -c "$conns" -d "$DURATION" -w "$WARMUP" --timeout 5 --label "$rt" --note "$note" --json)
-  # Server footprint while the connections are still open (bench just closed
-  # them, but RSS does not shrink; threads of `threads` are exiting — read fast).
+  wait "$sampler" 2>/dev/null || true
   local rss threads
-  rss=$(awk '/VmRSS/ {print $2}' "/proc/$pid/status" 2>/dev/null || echo 0)
-  threads=$(awk '/Threads/ {print $2}' "/proc/$pid/status" 2>/dev/null || echo 0)
+  read -r rss threads < "$sample" || { rss=0; threads=0; }
+  rm -f "$sample"
   python3 - "$line" "$rss" "$threads" "$workers" >> "$OUT" <<'PY'
 import json, sys
 d = json.loads(sys.argv[1]); d["rss_mb"] = round(int(sys.argv[2]) / 1024, 1); d["threads"] = int(sys.argv[3]); d["workers"] = sys.argv[4] or "default"

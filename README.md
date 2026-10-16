@@ -54,9 +54,12 @@ crates/
     tests/runtimes.rs   boots every runtime and checks identical behaviour on a real socket
   phhtp-bench/    the `phhtp-bench` load generator (keep-alive, HDR histogram, p50/p90/p99)
 scripts/bench.sh  runs the runtime × endpoint matrix and prints a Markdown table
+scripts/scale.sh  connection-count and worker-count sweeps with server RSS/threads
+scripts/stress.sh fd exhaustion, thread exhaustion, CPU overload, with recovery probes
 deploy/           systemd unit and sysctl for the droplet
 bench/results/    sample results
 docs/LANDSCAPE.md the study: existing io_uring runtimes, and what ringrt trades off
+docs/SCALE.md     how far each runtime goes, what breaks first, and how it fails
 ```
 
 The core is deliberately **sans-IO**: `phhtp_core::process(app, inbuf, outbuf)`
@@ -258,6 +261,17 @@ What the shapes already show, independent of the exact numbers:
   1-vCPU droplet *every* runtime is in this situation; the question becomes how
   cheaply the runtime multiplexes I/O around the CPU work, which `WORKERS=1
   scripts/bench.sh` lets you measure.
+
+### Scale and failure modes
+
+[`docs/SCALE.md`](docs/SCALE.md) has the connection sweep to 16 000 keep-alive
+connections, the worker sweep on a pinned 2-core server, and the stress
+experiments (fd exhaustion, thread exhaustion, CPU overload), with the
+failure taxonomy in the order a droplet will meet them. Headline: the first
+thing that breaks is the kernel's accept backlog under a reconnect storm,
+not any runtime; `threads` is the only model that degrades from ~1 000
+connections; `pool` fails silently by never serving connections beyond its
+size; nothing crashes any more.
 
 ## Deploying to a $12 DigitalOcean droplet
 

@@ -41,6 +41,8 @@ const KIND_ACCEPT: u64 = 1;
 const KIND_RECV: u64 = 2;
 const KIND_SEND: u64 = 3;
 const KIND_TIMEOUT: u64 = 4;
+/// Timer that re-arms accept after `EMFILE`/`ENFILE` without blocking the worker.
+const KIND_ACCEPT_RETRY: u64 = 5;
 
 fn user_data(kind: u64, idx: usize) -> u64 {
     ((idx as u64) << 8) | kind
@@ -64,6 +66,9 @@ struct Worker {
     conns: Vec<Option<Box<Conn>>>,
     free: Vec<usize>,
     max_in: usize,
+    /// Address handed to the kernel for the accept-retry timer; `Worker` is
+    /// never moved after construction so this stays valid.
+    retry_ts: KernelTimespec,
 }
 
 pub fn run(cfg: Config, app: Arc<App>) -> io::Result<()> {
@@ -123,6 +128,7 @@ fn worker(listener: std::net::TcpListener, app: Arc<App>, log: bool) -> io::Resu
         multishot: true,
         conns: Vec::new(),
         free: Vec::new(),
+        retry_ts: KernelTimespec::default(),
     };
     w.submit_accept();
 
@@ -256,6 +262,7 @@ impl Worker {
             KIND_SEND => self.on_send(idx, cqe.res),
             // -ETIME is the normal "it fired" result for a TIMEOUT.
             KIND_TIMEOUT if self.conns[idx].is_some() => self.submit_send(idx),
+            KIND_ACCEPT_RETRY => self.submit_accept(),
             _ => {}
         }
     }
@@ -267,11 +274,27 @@ impl Worker {
             if err == libc::EINVAL && self.multishot {
                 // Kernel predates multishot accept (5.19): fall back.
                 self.multishot = false;
+            } else if err == libc::EMFILE || err == libc::ENFILE {
+                // Out of descriptors. Back off with a kernel timer instead of
+                // sleeping the thread, so this worker's live connections keep
+                // being served; the timer completion re-arms accept.
+                eprintln!("accept: {}", io::Error::from_raw_os_error(err));
+                self.retry_ts = KernelTimespec {
+                    tv_sec: 0,
+                    tv_nsec: 10_000_000,
+                };
+                let addr = &self.retry_ts as *const KernelTimespec as u64;
+                self.push(Sqe {
+                    opcode: sys::OP_TIMEOUT,
+                    fd: -1,
+                    addr,
+                    len: 1,
+                    user_data: user_data(KIND_ACCEPT_RETRY, 0),
+                    ..Default::default()
+                });
+                return;
             } else if err != libc::ECONNABORTED && err != libc::EAGAIN && err != libc::EINTR {
                 eprintln!("accept: {}", io::Error::from_raw_os_error(err));
-                if err == libc::EMFILE || err == libc::ENFILE {
-                    std::thread::sleep(std::time::Duration::from_millis(10));
-                }
             }
             if !more {
                 self.submit_accept();
