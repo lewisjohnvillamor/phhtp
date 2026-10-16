@@ -11,8 +11,8 @@ use std::cell::RefCell;
 use std::io;
 use std::task::Waker;
 
-use super::super::uring::ring::Ring;
-use super::super::uring::sys::{self, Cqe, Sqe};
+use crate::ring::Ring;
+use crate::sys::{self, Cqe, Sqe};
 
 /// `user_data` of cancel requests, whose completions carry no slot.
 const CANCEL_TAG: u64 = u64::MAX;
@@ -62,8 +62,28 @@ impl Reactor {
         REACTOR.with(|r| {
             f(r.borrow_mut()
                 .as_mut()
-                .expect("no reactor installed on this thread"))
+                .expect("no ringrt runtime on this thread"))
         })
+    }
+
+    /// Like [`Reactor::with`], but `None` when no reactor is installed. Used by
+    /// op futures' `Drop`: during runtime teardown the reactor has already
+    /// cancelled and reaped every op before the tasks holding those futures
+    /// are dropped, so there is nothing left to orphan.
+    pub fn try_with<R>(f: impl FnOnce(&mut Reactor) -> R) -> Option<R> {
+        REACTOR.with(|r| r.borrow_mut().as_mut().map(f))
+    }
+
+    pub fn is_installed() -> bool {
+        REACTOR.with(|r| r.borrow().is_some())
+    }
+
+    /// Remove this thread's reactor. In-flight operations are cancelled and
+    /// their completions reaped before the ring is closed, so no buffer is
+    /// freed while the kernel may still write to it.
+    pub fn uninstall() {
+        let reactor = REACTOR.with(|r| r.borrow_mut().take());
+        drop(reactor);
     }
 
     pub fn setup_flags(&self) -> u32 {
@@ -174,5 +194,46 @@ impl Reactor {
             }
         }
         n
+    }
+}
+
+impl Drop for Reactor {
+    fn drop(&mut self) {
+        // 1. Detach every waker (each may be the last reference to a parked
+        //    task) so nothing runs task code while we drain.
+        let mut wakers = Vec::new();
+        for slot in 0..self.slots.len() {
+            match std::mem::replace(&mut self.slots[slot], Slot::Free) {
+                Slot::Pending { waker } => {
+                    wakers.push(waker);
+                    self.slots[slot] = Slot::Orphan { keep: None };
+                }
+                other => self.slots[slot] = other,
+            }
+        }
+        // 2. Cancel everything in flight and wait for the kernel to confirm,
+        //    so orphaned buffers outlive every pending write into them.
+        for slot in 0..self.slots.len() {
+            if matches!(self.slots[slot], Slot::Orphan { .. }) {
+                let sqe = Sqe {
+                    opcode: sys::OP_ASYNC_CANCEL,
+                    fd: -1,
+                    addr: slot as u64,
+                    user_data: CANCEL_TAG,
+                    ..Default::default()
+                };
+                self.push(sqe);
+            }
+        }
+        while self.in_flight > 0 {
+            if self.ring.submit(1).is_err() {
+                break;
+            }
+            self.reap();
+        }
+        // 3. Now the tasks (and their op futures) can go; their `Drop` finds
+        //    no reactor via `try_with` and does nothing, which is correct
+        //    because every op has completed.
+        drop(wakers);
     }
 }

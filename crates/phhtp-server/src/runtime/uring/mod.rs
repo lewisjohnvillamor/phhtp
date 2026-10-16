@@ -1,4 +1,4 @@
-//! io_uring runtime, written against the raw syscalls (see [`sys`] and [`ring`]).
+//! io_uring runtime, callback style, on `ringrt::raw` (the ring without the executor).
 //!
 //! Unlike epoll (`mio`), io_uring is a *completion* model: we don't ask "is this
 //! socket readable?" and then call `read`; we hand the kernel a `RECV` with a
@@ -21,22 +21,19 @@
 //! Accept is multishot (one SQE yields a stream of completions) on kernels that
 //! support it (5.19+) and transparently falls back to single-shot otherwise.
 
-pub mod ring;
-pub mod sys;
-
 use std::io;
 use std::os::fd::AsRawFd;
 use std::sync::Arc;
 
 use phhtp_core::{conn, process, App, Flow, Step};
 
-use self::ring::Ring;
-use self::sys::{Cqe, KernelTimespec, Sqe};
+use ringrt::raw::{sys, Cqe, KernelTimespec, Ring, Sqe};
+
 use super::net::bind_reuseport;
 use super::READ_CHUNK;
 use crate::Config;
 
-pub use self::ring::available;
+pub use ringrt::raw::available;
 
 const ENTRIES: u32 = 4096;
 

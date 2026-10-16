@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/phhtp-core", "crates/phhtp-server", "crates/phhtp-bench"]
+members = ["crates/ringrt", "crates/phhtp-core", "crates/phhtp-server", "crates/phhtp-bench"]
 
 [workspace.package]
 version = "0.1.0"
@@ -21,6 +21,10 @@ mio = { version = "1", features = ["os-poll", "net"] }
 socket2 = { version = "0.5", features = ["all"] }
 hdrhistogram = "7"
 libc = "0.2"
+
+[workspace.metadata]
+# Only ringrt and phhtp-core are meant for crates.io; the server and bench are
+# marked publish = false in their own manifests.
 
 [profile.release]
 opt-level = 3

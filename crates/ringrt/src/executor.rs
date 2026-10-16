@@ -36,20 +36,22 @@ impl Task {
 
 const VTABLE: RawWakerVTable = RawWakerVTable::new(clone_raw, wake_raw, wake_by_ref_raw, drop_raw);
 
+// SAFETY (all four): `p` was produced by `Rc::into_raw` in `waker_for`, and
+// every call balances the strong count it implies.
 unsafe fn clone_raw(p: *const ()) -> RawWaker {
-    Rc::increment_strong_count(p as *const Task);
+    unsafe { Rc::increment_strong_count(p as *const Task) };
     RawWaker::new(p, &VTABLE)
 }
 unsafe fn wake_raw(p: *const ()) {
-    let task = Rc::from_raw(p as *const Task);
+    let task = unsafe { Rc::from_raw(p as *const Task) };
     task.schedule();
 }
 unsafe fn wake_by_ref_raw(p: *const ()) {
-    let task = ManuallyDrop::new(Rc::from_raw(p as *const Task));
+    let task = ManuallyDrop::new(unsafe { Rc::from_raw(p as *const Task) });
     task.schedule();
 }
 unsafe fn drop_raw(p: *const ()) {
-    drop(Rc::from_raw(p as *const Task));
+    drop(unsafe { Rc::from_raw(p as *const Task) });
 }
 
 fn waker_for(task: &Rc<Task>) -> Waker {
@@ -81,8 +83,22 @@ impl Executor {
         EXECUTOR.with(|e| {
             f(e.borrow()
                 .as_ref()
-                .expect("no executor installed on this thread"))
+                .expect("no ringrt runtime on this thread"))
         })
+    }
+
+    pub fn is_installed() -> bool {
+        EXECUTOR.with(|e| e.borrow().is_some())
+    }
+
+    /// Drop this thread's executor and every task on it. Dropping a task's
+    /// future drops its in-flight op futures, which orphan their buffers into
+    /// the reactor; uninstall the reactor *after* this.
+    pub fn uninstall() {
+        let ex = EXECUTOR.with(|e| e.borrow_mut().take());
+        if let Some(ex) = ex {
+            ex.queue.borrow_mut().clear();
+        }
     }
 
     /// Run every task that is ready. Returns `false` if nothing was runnable.
@@ -135,6 +151,7 @@ impl Future for YieldNow {
     }
 }
 
+/// Let other tasks run before continuing.
 pub fn yield_now() -> YieldNow {
     YieldNow(false)
 }

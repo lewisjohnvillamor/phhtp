@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Keep-alive HTTP/1.1 load generator reporting p50/p90/p99 latency"
+publish = false
 
 [[bin]]
 name = "phhtp-bench"

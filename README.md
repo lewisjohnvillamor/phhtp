@@ -32,6 +32,15 @@ directly: `io_uring_setup`, `io_uring_enter`, and the shared-memory rings.
 
 ```
 crates/
+  ringrt/         OUR RUNTIME, publishable: async/await on raw io_uring, libc only
+    src/sys.rs      io_uring ABI: struct layouts, constants, the syscalls
+    src/ring.rs     mmap'd submission/completion ring
+    src/executor.rs task scheduler + Rc-backed waker, std::task only
+    src/reactor.rs  completion → waker dispatch, orphan slots, cancel on drop
+    src/op.rs       raw accept / recv / send / sleep futures (owned buffers)
+    src/net.rs      TcpListener (bind, bind_reuseport, accept), TcpStream (recv, send_all)
+    src/time.rs     sleep
+    src/runtime.rs  Runtime::new / block_on; one per thread
   phhtp-core/     sans-IO engine: parse bytes → route → encode bytes. No sockets.
     src/http.rs     request parsing (httparse), Response encoding, limits
     src/conn.rs     process(): the per-connection step every runtime calls
@@ -39,19 +48,15 @@ crates/
     src/sig.rs      HMAC-SHA256 sign / constant-time verify, SHA-256 chain
     src/date.rs     cached Date: header
   phhtp-server/   the `phhtp` binary and the seven runtimes (src/runtime/*)
-    src/runtime/mio_loop.rs   edge-triggered epoll loop
-    src/runtime/uring/sys.rs  io_uring ABI: struct layouts, constants, the syscalls
-    src/runtime/uring/ring.rs mmap'd submission/completion ring
-    src/runtime/uring/mod.rs  the completion-driven (callback-style) server loop
-    src/runtime/uring_async/executor.rs  task scheduler + waker, std::task only
-    src/runtime/uring_async/reactor.rs   completion → waker dispatch, orphan slots
-    src/runtime/uring_async/io.rs        accept / recv / send_all / sleep_ms futures
-    src/runtime/uring_async/mod.rs       async fn serve_connection, same shape as tokio
+    src/runtime/mio_loop.rs      edge-triggered epoll loop
+    src/runtime/uring/mod.rs     callback-style loop on ringrt::raw (the ring alone)
+    src/runtime/uring_async/mod.rs  async fn serve_connection on ringrt, same shape as tokio
     tests/runtimes.rs   boots every runtime and checks identical behaviour on a real socket
   phhtp-bench/    the `phhtp-bench` load generator (keep-alive, HDR histogram, p50/p90/p99)
 scripts/bench.sh  runs the runtime × endpoint matrix and prints a Markdown table
 deploy/           systemd unit and sysctl for the droplet
 bench/results/    sample results
+docs/LANDSCAPE.md the study: existing io_uring runtimes, and what ringrt trades off
 ```
 
 The core is deliberately **sans-IO**: `phhtp_core::process(app, inbuf, outbuf)`
@@ -95,7 +100,9 @@ phhtp --runtime <threads|pool|mio|tokio|tokio-st|uring|uring-async> [--bind ADDR
 
 ## The io_uring runtime
 
-`--runtime uring` is written against the kernel ABI with nothing in between:
+`--runtime uring` is written against the kernel ABI with nothing in between.
+The ring lives in the `ringrt` crate (`ringrt::raw`); the server loop is in
+`crates/phhtp-server/src/runtime/uring/mod.rs`:
 
 * `sys.rs` transcribes `struct io_uring_sqe`, `io_uring_cqe`, `io_uring_params`
   and the offsets structs from `<linux/io_uring.h>`, with compile-time size
@@ -124,12 +131,33 @@ Requirements: Linux ≥ 5.6 (5.19+ for multishot accept) and
 via seccomp; the server then exits with a clear message and the integration
 test skips this runtime.
 
-## The `uring-async` runtime: replacing Tokio
+## The `uring-async` runtime: replacing Tokio, and the `ringrt` crate
 
 `uring` above is callback-shaped: handlers cannot `await`. To be a real Tokio
 replacement the runtime also needs a task scheduler, so `uring-async` adds one,
 written from scratch on `std::task` / `std::future` / `std::pin`. There is no
 tokio, mio, futures, or async-task crate anywhere in it.
+
+That runtime is now its own publishable crate, **[`ringrt`](crates/ringrt)**
+(`libc` is its only dependency; the name is free on crates.io as of 2026-10-16):
+
+```rust
+use ringrt::{net::TcpListener, spawn, Runtime};
+
+Runtime::new()?.block_on(async {
+    let listener = TcpListener::bind("0.0.0.0:8080".parse().unwrap())?;
+    loop {
+        let stream = listener.accept().await?;
+        spawn(async move { /* stream.recv(buf).await, stream.send_all(buf).await */ });
+    }
+})?
+```
+
+`cargo publish -p ringrt --dry-run` passes. Publishing for real is one command
+once you own the crates.io name. **Read [`docs/LANDSCAPE.md`](docs/LANDSCAPE.md)
+first**: it surveys monoio, glommio, compio, tokio-uring, ringline and ringcore,
+and lists what `ringrt` gives up against Tokio (p99, blocking pool, ecosystem,
+io_uring being blocked by Docker's default seccomp profile) and what it gains.
 
 * **Executor** (`executor.rs`): tasks are `Rc<Task>` holding a boxed future and a
   `queued` flag; the run queue is a `VecDeque`. The waker is a hand-written

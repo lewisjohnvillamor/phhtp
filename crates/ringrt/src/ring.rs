@@ -4,7 +4,7 @@
 use std::io;
 use std::sync::atomic::{AtomicU32, Ordering};
 
-use super::sys::{self, Cqe, Params, Sqe};
+use crate::sys::{self, Cqe, Params, Sqe};
 
 struct Mmap {
     ptr: *mut u8,
@@ -33,8 +33,10 @@ impl Mmap {
         })
     }
 
+    /// # Safety
+    /// `off` must be an offset the kernel reported for this mapping.
     unsafe fn at<T>(&self, off: u32) -> *mut T {
-        self.ptr.add(off as usize) as *mut T
+        unsafe { self.ptr.add(off as usize) as *mut T }
     }
 }
 
@@ -47,6 +49,7 @@ impl Drop for Mmap {
     }
 }
 
+/// A submission/completion ring pair on one `io_uring` fd.
 pub struct Ring {
     fd: i32,
     _sq_ring: Mmap,
@@ -67,7 +70,9 @@ pub struct Ring {
     cq_mask: u32,
     cqes: *const Cqe,
 
+    /// `IORING_FEAT_*` bits reported by the kernel.
     pub features: u32,
+    /// `IORING_SETUP_*` flags that were accepted.
     pub setup_flags: u32,
 }
 

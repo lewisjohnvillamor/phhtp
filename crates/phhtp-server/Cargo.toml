@@ -3,7 +3,8 @@ name = "phhtp-server"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "phhtp: one HTTP/1.1 server, five I/O runtimes, for benchmarking"
+description = "phhtp: one HTTP/1.1 server, seven I/O runtimes, for benchmarking"
+publish = false
 
 [[bin]]
 name = "phhtp"
@@ -16,6 +17,7 @@ tokio.workspace = true
 mio.workspace = true
 socket2.workspace = true
 libc.workspace = true
+ringrt = { path = "../ringrt" }
 
 [lib]
 path = "src/lib.rs"

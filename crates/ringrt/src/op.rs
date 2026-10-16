@@ -1,4 +1,4 @@
-//! Async I/O primitives: each is a future that submits one SQE on first poll
+//! Raw operation futures: each is a future that submits one SQE on first poll
 //! and resolves when its completion is reaped by the reactor.
 //!
 //! Buffers are passed **by value** and handed back with the result. That is the
@@ -11,9 +11,11 @@ use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use super::super::uring::sys::{self, KernelTimespec, Sqe};
-use super::super::READ_CHUNK;
-use super::reactor::Reactor;
+use crate::reactor::Reactor;
+use crate::sys::{self, KernelTimespec, Sqe};
+
+/// Minimum spare capacity a `recv` reserves in its buffer.
+pub const READ_CHUNK: usize = 16 * 1024;
 
 fn errno(res: i32) -> io::Error {
     io::Error::from_raw_os_error(-res)
@@ -61,7 +63,7 @@ impl Future for Accept {
 impl Drop for Accept {
     fn drop(&mut self) {
         if let Some(slot) = self.slot.take() {
-            Reactor::with(|r| r.orphan(slot, None));
+            Reactor::try_with(|r| r.orphan(slot, None));
         }
     }
 }
@@ -131,7 +133,7 @@ impl Drop for Recv {
                 .buf
                 .take()
                 .map(|b| Box::new(b) as Box<dyn std::any::Any>);
-            Reactor::with(|r| r.orphan(slot, keep));
+            Reactor::try_with(|r| r.orphan(slot, keep));
         }
     }
 }
@@ -187,8 +189,18 @@ impl Drop for Send {
                 .buf
                 .take()
                 .map(|b| Box::new(b) as Box<dyn std::any::Any>);
-            Reactor::with(|r| r.orphan(slot, keep));
+            Reactor::try_with(|r| r.orphan(slot, keep));
         }
+    }
+}
+
+/// Send `buf[offset..]` once; the result may be short.
+pub fn send(fd: i32, buf: Vec<u8>, offset: usize) -> Send {
+    Send {
+        fd,
+        buf: Some(buf),
+        offset,
+        slot: None,
     }
 }
 
@@ -197,13 +209,7 @@ pub async fn send_all(fd: i32, buf: Vec<u8>) -> (io::Result<()>, Vec<u8>) {
     let mut offset = 0;
     let mut buf = buf;
     while offset < buf.len() {
-        let (r, b) = Send {
-            fd,
-            buf: Some(buf),
-            offset,
-            slot: None,
-        }
-        .await;
+        let (r, b) = send(fd, buf, offset).await;
         buf = b;
         match r {
             Ok(0) => return (Err(io::ErrorKind::WriteZero.into()), buf),
@@ -265,7 +271,7 @@ impl Drop for Sleep {
     fn drop(&mut self) {
         if let Some(slot) = self.slot.take() {
             let keep = self.ts.take().map(|b| b as Box<dyn std::any::Any>);
-            Reactor::with(|r| r.orphan(slot, keep));
+            Reactor::try_with(|r| r.orphan(slot, keep));
         }
     }
 }

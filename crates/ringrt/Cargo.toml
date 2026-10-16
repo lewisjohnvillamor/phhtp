@@ -1,0 +1,14 @@
+[package]
+name = "ringrt"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "A small async runtime on raw Linux io_uring: std::task executor, completion reactor, owned-buffer TCP and timer futures. No tokio, no mio, no io-uring crate."
+repository = "https://github.com/lewisjohnvillamor/phhtp"
+readme = "README.md"
+keywords = ["io_uring", "async", "runtime", "linux", "thread-per-core"]
+categories = ["asynchronous", "network-programming", "os::linux-apis"]
+rust-version = "1.75"
+
+[dependencies]
+libc = "0.2"
