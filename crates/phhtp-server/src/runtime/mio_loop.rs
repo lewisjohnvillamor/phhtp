@@ -33,6 +33,8 @@ struct Conn {
     stream: TcpStream,
     inbuf: Vec<u8>,
     outbuf: Vec<u8>,
+    /// Read target; only the bytes that arrive are copied into `inbuf`.
+    scratch: Vec<u8>,
     written: usize,
     /// A `/sleep` timer is pending: do not process or write until it fires.
     waiting: bool,
@@ -50,6 +52,7 @@ impl Conn {
             stream,
             inbuf: Vec::with_capacity(READ_CHUNK),
             outbuf: Vec::with_capacity(READ_CHUNK),
+            scratch: vec![0u8; READ_CHUNK],
             written: 0,
             waiting: false,
             closing: false,
@@ -228,36 +231,25 @@ fn close(slab: &mut Slab, idx: usize, registry: &Registry) {
 /// Drain the socket into `inbuf`. Returns `false` if the connection must be dropped.
 fn read_all(c: &mut Conn, max_in: usize) -> bool {
     loop {
-        let start = c.inbuf.len();
-        c.inbuf.resize(start + READ_CHUNK, 0);
-        match c.stream.read(&mut c.inbuf[start..]) {
+        match c.stream.read(&mut c.scratch) {
             Ok(0) => {
-                c.inbuf.truncate(start);
                 c.peer_closed = true;
                 return true;
             }
             Ok(n) => {
-                c.inbuf.truncate(start + n);
+                c.inbuf.extend_from_slice(&c.scratch[..n]);
                 if c.inbuf.len() > max_in {
                     return false;
                 }
-                if n < READ_CHUNK {
+                if n < c.scratch.len() {
                     // Short read: the receive buffer is drained; the next arrival
                     // produces a fresh edge. Saves one EAGAIN syscall per wake-up.
                     return true;
                 }
             }
-            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
-                c.inbuf.truncate(start);
-                return true;
-            }
-            Err(e) if e.kind() == io::ErrorKind::Interrupted => {
-                c.inbuf.truncate(start);
-            }
-            Err(_) => {
-                c.inbuf.truncate(start);
-                return false;
-            }
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => return true,
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
+            Err(_) => return false,
         }
     }
 }

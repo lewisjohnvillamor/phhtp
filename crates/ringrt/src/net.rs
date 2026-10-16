@@ -6,21 +6,29 @@ use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
 
 use crate::op;
 
+/// Accept backlog requested by [`TcpListener::bind`] and
+/// [`TcpListener::bind_reuseport`]; the kernel clamps it to `net.core.somaxconn`.
+pub const BACKLOG: i32 = 65535;
+
 /// A listening socket. `accept` is an io_uring `ACCEPT` op.
 pub struct TcpListener {
     fd: OwnedFd,
 }
 
 impl TcpListener {
-    /// Bind with the standard library's defaults (`SO_REUSEADDR`).
+    /// Bind with `SO_REUSEADDR` and a [`BACKLOG`]-deep accept queue.
     pub fn bind(addr: SocketAddr) -> io::Result<TcpListener> {
-        Ok(Self::from_std(std::net::TcpListener::bind(addr)?))
+        Self::bind_opts(addr, false)
     }
 
     /// Bind with `SO_REUSEPORT` so one listener per worker thread can share a
     /// port; the kernel spreads new connections across them. This is how a
     /// thread-per-core server scales without any shared state.
     pub fn bind_reuseport(addr: SocketAddr) -> io::Result<TcpListener> {
+        Self::bind_opts(addr, true)
+    }
+
+    fn bind_opts(addr: SocketAddr, reuseport: bool) -> io::Result<TcpListener> {
         let (domain, sa, len) = sockaddr(addr);
         // SAFETY: plain socket syscalls with a correctly sized sockaddr.
         unsafe {
@@ -30,7 +38,12 @@ impl TcpListener {
             }
             let fd = OwnedFd::from_raw_fd(fd);
             let one: libc::c_int = 1;
-            for opt in [libc::SO_REUSEADDR, libc::SO_REUSEPORT] {
+            let opts: &[libc::c_int] = if reuseport {
+                &[libc::SO_REUSEADDR, libc::SO_REUSEPORT]
+            } else {
+                &[libc::SO_REUSEADDR]
+            };
+            for &opt in opts {
                 if libc::setsockopt(
                     fd.as_raw_fd(),
                     libc::SOL_SOCKET,
@@ -50,7 +63,7 @@ impl TcpListener {
             {
                 return Err(io::Error::last_os_error());
             }
-            if libc::listen(fd.as_raw_fd(), 4096) < 0 {
+            if libc::listen(fd.as_raw_fd(), BACKLOG) < 0 {
                 return Err(io::Error::last_os_error());
             }
             Ok(TcpListener { fd })

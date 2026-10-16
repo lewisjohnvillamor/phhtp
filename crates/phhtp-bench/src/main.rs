@@ -77,6 +77,11 @@ struct RunArgs {
     /// Free-form note stored with `--json` output (e.g. "workers=2").
     #[arg(long, default_value = "")]
     note: String,
+    /// Maximum simultaneous connection attempts. Bounds the SYN burst so the
+    /// server's accept backlog (and the kernel's SYN queue) is not overflowed
+    /// by the load generator itself; 0 = unbounded.
+    #[arg(long, default_value_t = 256)]
+    connect_concurrency: usize,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -213,6 +218,13 @@ fn run(args: RunArgs) {
         let start = Instant::now();
         let warm_end = start + Duration::from_secs(args.warmup);
         let deadline = warm_end + Duration::from_secs(args.duration);
+        let gate = Arc::new(tokio::sync::Semaphore::new(
+            if args.connect_concurrency == 0 {
+                tokio::sync::Semaphore::MAX_PERMITS
+            } else {
+                args.connect_concurrency
+            },
+        ));
         let mut tasks = Vec::with_capacity(args.connections);
         for _ in 0..args.connections {
             let req = Arc::clone(&request);
@@ -222,6 +234,7 @@ fn run(args: RunArgs) {
                 warm_end,
                 deadline,
                 Duration::from_secs(args.timeout),
+                Arc::clone(&gate),
             )));
         }
         let mut total = WorkerOut {
@@ -276,6 +289,7 @@ async fn worker(
     warm_end: Instant,
     deadline: Instant,
     timeout: Duration,
+    gate: Arc<tokio::sync::Semaphore>,
 ) -> WorkerOut {
     let mut out = WorkerOut {
         hist: Histogram::new_with_bounds(1, 60_000_000, 3).unwrap(),
@@ -296,6 +310,7 @@ async fn worker(
             Some(s) => s,
             None => {
                 buf.clear();
+                let _permit = gate.acquire().await.expect("semaphore never closed");
                 match tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(addr)).await {
                     Ok(Ok(s)) => {
                         let _ = s.set_nodelay(true);

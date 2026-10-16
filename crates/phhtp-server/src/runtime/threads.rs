@@ -1,7 +1,6 @@
 //! Thread-per-connection. The simplest possible model: `accept`, spawn, block.
 
 use std::io;
-use std::net::TcpListener;
 use std::sync::Arc;
 
 use phhtp_core::App;
@@ -10,7 +9,7 @@ use super::blocking::serve_connection;
 use crate::Config;
 
 pub fn run(cfg: Config, app: Arc<App>) -> io::Result<()> {
-    let listener = TcpListener::bind(cfg.bind)?;
+    let listener = super::net::bind(cfg.bind, false)?;
     if let Some(tx) = cfg.ready {
         let _ = tx.send(listener.local_addr()?);
     }

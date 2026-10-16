@@ -6,7 +6,7 @@
 //! the channel until a worker frees up. That queueing shows up directly in p90.
 
 use std::io;
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 
@@ -16,7 +16,7 @@ use super::blocking::serve_connection;
 use crate::Config;
 
 pub fn run(cfg: Config, app: Arc<App>) -> io::Result<()> {
-    let listener = TcpListener::bind(cfg.bind)?;
+    let listener = super::net::bind(cfg.bind, false)?;
     if let Some(tx) = cfg.ready {
         let _ = tx.send(listener.local_addr()?);
     }

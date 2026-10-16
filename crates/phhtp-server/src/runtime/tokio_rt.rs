@@ -26,7 +26,7 @@ pub fn run(cfg: Config, app: Arc<App>, multi_thread: bool) -> io::Result<()> {
     };
 
     rt.block_on(async move {
-        let listener = TcpListener::bind(cfg.bind).await?;
+        let listener = TcpListener::from_std(super::net::bind(cfg.bind, true)?)?;
         if let Some(tx) = cfg.ready {
             let _ = tx.send(listener.local_addr()?);
         }
@@ -51,19 +51,13 @@ async fn serve_connection(app: &App, mut stream: TcpStream) -> io::Result<()> {
     stream.set_nodelay(true)?;
     let mut inbuf: Vec<u8> = Vec::with_capacity(READ_CHUNK);
     let mut outbuf: Vec<u8> = Vec::with_capacity(READ_CHUNK);
+    let mut scratch = vec![0u8; READ_CHUNK];
     let max_in = conn::max_inbuf(app);
 
     loop {
-        let start = inbuf.len();
-        inbuf.resize(start + READ_CHUNK, 0);
-        let n = match stream.read(&mut inbuf[start..]).await {
-            Ok(n) => n,
-            Err(e) => {
-                inbuf.truncate(start);
-                return Err(e);
-            }
-        };
-        inbuf.truncate(start + n);
+        // Read via scratch and copy what arrived; see `blocking::read_append`.
+        let n = stream.read(&mut scratch).await?;
+        inbuf.extend_from_slice(&scratch[..n]);
         if n == 0 {
             return Ok(());
         }
