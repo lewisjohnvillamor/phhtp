@@ -340,3 +340,66 @@ Tokio on every row (it is not), it is that for the first time the same
 handler has been measured on eleven runtimes under the same load shapes with
 the server's own resources in every row, and that the io_uring runtime in
 that comparison is one whose every line we can read and change.
+
+## 10. Milestones M1 and M2: hardening, files through the ring, and what zero-copy did
+
+Added after `docs/NEXT.md`. Everything here is loopback on the same box, same
+pinning as the rest of the dataset.
+
+### 10.1 What was built
+
+| Item | Where | Evidence |
+|---|---|---|
+| Idle-connection sweeper (one task per worker, `shutdown(2)` on stale sockets; no timer op per request) | `uring-async`, `--idle-timeout` | test `uring_async_idle_timeout_cap_and_graceful_shutdown`; A/B below |
+| Connection cap with shedding | `uring-async`, `--max-conns` | same test: third connection closed at once, first two keep serving |
+| Graceful shutdown (SIGTERM/SIGINT or `Config::stop`): stop accepting, drain for `--shutdown-grace`, then cut | `uring-async` | same test: a request completes during the drain, the listener is gone after |
+| `JoinHandle` with `abort`, `time::timeout`, `TcpStream::shutdown` | `ringrt` | tests `join_handle_returns_output_and_abort_cancels`, `timeout_fires_and_passes_through` |
+| Files through the ring: `openat`, `statx`, `read` as io_uring ops into the buffer that already holds the response head | `ringrt::fs`, `uring-async --static-dir` | test `fs_read_through_the_ring`; `static_files_are_served_where_implemented_and_501_elsewhere` on all eleven runtimes |
+| Per-worker open-file cache (fd + size, 10 s re-`statx`), the nginx `open_file_cache` idea | `uring-async`, `PHHTP_FILE_CACHE` | §10.3 |
+| `SEND_ZC` detached sends with notification handling and a plain-send fallback | `ringrt`, `PHHTP_ZC_MIN` | test `zero_copy_send_delivers_everything_in_order`; §10.2 |
+| The same `/static` route on `threads`, `pool`, `mio` (blocking read on the loop) and `tokio` (`tokio::fs`, i.e. `spawn_blocking`) | `phhtp-core::process_fs` | the same test |
+
+### 10.2 Zero-copy send loses on loopback
+
+`SEND_ZC` was the throughput item of the plan. Measured, 64 connections,
+`uring-async`, medians of two:
+
+| Response | SEND_ZC | req/s | MB/s | p50 | p99 | server µs CPU/req |
+|---|---|---:|---:|---:|---:|---:|
+| `/blob` 64 KiB | off | **75.9 k** | 4 975 | 0.95 ms | 1.95 ms | 26.6 |
+| `/blob` 64 KiB | on | 54.6 k | 3 578 | 1.22 ms | 4.37 ms | 37.2 |
+| `/blob` 256 KiB | off | **15.0 k** | 3 927 | 5.28 ms | 10.1 ms | 153.8 |
+| `/blob` 256 KiB | on | 12.7 k | 3 332 | 5.42 ms | 9.83 ms | 139.8 |
+| `/static` 64 KiB file | off | **57.2 k** | 3 748 | 1.10 ms | 2.38 ms | 35.5 |
+| `/static` 64 KiB file | on | 39.0 k | 2 553 | 1.58 ms | 3.61 ms | 49.3 |
+| `/static` 1 MiB file | off | **3.40 k** | 3 565 | 19.1 ms | 31.7 ms | 562 |
+| `/static` 1 MiB file | on | 2.05 k | 2 148 | 31.7 ms | 47.8 ms | 919 |
+
+Zero-copy is 15–40 % *slower* here, and the reason is the test box, not the
+code: on loopback there is no NIC to DMA from the pinned pages, so the kernel
+copies into the receiving socket anyway, and the page pinning plus the extra
+notification CQE are pure overhead. The prior art says the same thing from
+the other side: zero-copy pays over a real NIC from roughly 10 KiB up. So
+`SEND_ZC` stays implemented and **off by default**; it is the first item to
+measure on the droplet (M0), where the answer may well flip.
+
+### 10.3 Static files against nginx
+
+STATIC_TABLE_PLACEHOLDER
+
+### 10.4 The idle sweeper under slowloris
+
+Same 10 000 stalled connections as §3, `uring-async`, single runs:
+
+| idle timeout | hot req/s | p50 | p99 | p99.9 | RSS |
+|---|---:|---:|---:|---:|---:|
+| off | 165 k | 0.36 ms | 0.89 ms | 2.5 ms | 135 MB |
+| 5 s | 155 k | 0.36 ms | 0.95 ms | 7.5 ms | 191 MB |
+
+With the sweeper on, every stalled socket is closed after 5 s, and the load
+generator (which models a client that reconnects) reconnects all 10 000 at
+once: a connect burst every 5 s, which is what the p99.9 and the memory show.
+Against a real slowloris, which does not reconnect, the sweeper bounds the
+sockets held; against a client that reconnects it trades a burst for a
+bound. Both are better than the pre-M1 behaviour of holding every stalled
+socket forever.
