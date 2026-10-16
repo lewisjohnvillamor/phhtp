@@ -29,6 +29,7 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
+#[allow(clippy::large_enum_variant)] // RunArgs is big; it is parsed once
 enum Cmd {
     /// Run a load test against one URL.
     Run(RunArgs),
@@ -77,6 +78,11 @@ struct RunArgs {
     /// Free-form note stored with `--json` output (e.g. "workers=2").
     #[arg(long, default_value = "")]
     note: String,
+    /// Repeat the whole measurement this many times and report the median of
+    /// each statistic (plus the req/s range). Interleave configurations
+    /// yourself; one run on a shared box can be ±15% off.
+    #[arg(long, default_value_t = 1)]
+    reps: usize,
     /// Maximum simultaneous connection attempts. Bounds the SYN burst so the
     /// server's accept backlog (and the kernel's SYN queue) is not overflowed
     /// by the load generator itself; 0 = unbounded.
@@ -89,6 +95,12 @@ struct Summary {
     label: String,
     #[serde(default)]
     note: String,
+    #[serde(default = "one")]
+    reps: usize,
+    #[serde(default)]
+    rps_min: f64,
+    #[serde(default)]
+    rps_max: f64,
     url: String,
     method: String,
     connections: usize,
@@ -104,6 +116,10 @@ struct Summary {
     p999_us: u64,
     max_us: u64,
     mean_us: f64,
+}
+
+fn one() -> usize {
+    1
 }
 
 struct WorkerOut {
@@ -214,6 +230,28 @@ fn run(args: RunArgs) {
         .build()
         .expect("tokio runtime");
 
+    let mut runs: Vec<Summary> = Vec::new();
+    for rep in 0..args.reps.max(1) {
+        if rep > 0 {
+            std::thread::sleep(Duration::from_millis(500));
+        }
+        runs.push(measure(&rt, &args, addr, &request));
+    }
+    let summary = median_summary(runs);
+
+    if args.json {
+        println!("{}", serde_json::to_string(&summary).unwrap());
+    } else {
+        print_human(&summary);
+    }
+}
+
+fn measure(
+    rt: &tokio::runtime::Runtime,
+    args: &RunArgs,
+    addr: SocketAddr,
+    request: &Arc<Vec<u8>>,
+) -> Summary {
     let total = rt.block_on(async {
         let start = Instant::now();
         let warm_end = start + Duration::from_secs(args.warmup);
@@ -227,7 +265,7 @@ fn run(args: RunArgs) {
         ));
         let mut tasks = Vec::with_capacity(args.connections);
         for _ in 0..args.connections {
-            let req = Arc::clone(&request);
+            let req = Arc::clone(request);
             tasks.push(tokio::spawn(worker(
                 addr,
                 req,
@@ -256,9 +294,12 @@ fn run(args: RunArgs) {
     });
 
     let h = &total.hist;
-    let summary = Summary {
+    Summary {
         label: args.label.clone(),
         note: args.note.clone(),
+        reps: 1,
+        rps_min: 0.0,
+        rps_max: 0.0,
         url: args.url.clone(),
         method: args.method.clone(),
         connections: args.connections,
@@ -274,12 +315,50 @@ fn run(args: RunArgs) {
         p999_us: h.value_at_quantile(0.999),
         max_us: h.max(),
         mean_us: h.mean(),
-    };
+    }
+}
 
-    if args.json {
-        println!("{}", serde_json::to_string(&summary).unwrap());
-    } else {
-        print_human(&summary);
+/// Median of every statistic across repetitions (each taken independently),
+/// with the req/s range recorded.
+fn median_summary(mut runs: Vec<Summary>) -> Summary {
+    fn med_u64(v: &mut [u64]) -> u64 {
+        v.sort_unstable();
+        v[v.len() / 2]
+    }
+    fn med_f64(v: &mut [f64]) -> f64 {
+        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        v[v.len() / 2]
+    }
+    let n = runs.len();
+    let mut first = runs.remove(0);
+    if n == 1 {
+        first.rps_min = first.rps;
+        first.rps_max = first.rps;
+        return first;
+    }
+    runs.insert(0, first);
+    let mut rps: Vec<f64> = runs.iter().map(|r| r.rps).collect();
+    let mut out = runs[0].clone_shallow();
+    out.reps = n;
+    out.rps_min = rps.iter().cloned().fold(f64::INFINITY, f64::min);
+    out.rps_max = rps.iter().cloned().fold(0.0, f64::max);
+    out.rps = med_f64(&mut rps);
+    out.requests = med_u64(&mut runs.iter().map(|r| r.requests).collect::<Vec<_>>());
+    out.errors = runs.iter().map(|r| r.errors).sum();
+    out.non_2xx = runs.iter().map(|r| r.non_2xx).sum();
+    out.bytes_read = runs.iter().map(|r| r.bytes_read).sum();
+    out.p50_us = med_u64(&mut runs.iter().map(|r| r.p50_us).collect::<Vec<_>>());
+    out.p90_us = med_u64(&mut runs.iter().map(|r| r.p90_us).collect::<Vec<_>>());
+    out.p99_us = med_u64(&mut runs.iter().map(|r| r.p99_us).collect::<Vec<_>>());
+    out.p999_us = med_u64(&mut runs.iter().map(|r| r.p999_us).collect::<Vec<_>>());
+    out.max_us = med_u64(&mut runs.iter().map(|r| r.max_us).collect::<Vec<_>>());
+    out.mean_us = med_f64(&mut runs.iter().map(|r| r.mean_us).collect::<Vec<_>>());
+    out
+}
+
+impl Summary {
+    fn clone_shallow(&self) -> Summary {
+        serde_json::from_str(&serde_json::to_string(self).unwrap()).unwrap()
     }
 }
 
@@ -455,6 +534,12 @@ fn print_human(s: &Summary) {
         s.non_2xx,
         s.bytes_read as f64 / (1024.0 * 1024.0)
     );
+    if s.reps > 1 {
+        println!(
+            "  reps        {:<10} medians above; req/s range {:.0} .. {:.0}",
+            s.reps, s.rps_min, s.rps_max
+        );
+    }
     println!(
         "  latency     p50 {}  p90 {}  p99 {}  p99.9 {}  max {}  mean {}",
         ms(s.p50_us),

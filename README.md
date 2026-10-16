@@ -220,47 +220,52 @@ throughput, errors and non-2xx counts. Cross-check with
 
 ### Sample results (4-core container, client and server on the same box)
 
-Full table in [`bench/results/sample-4core-container.md`](bench/results/sample-4core-container.md).
-Indicative only — the load generator was competing with the server for CPU, and
-a 4-second window puts runs within several percent of each other.
+Full table in [`bench/results/sample-4core-container.md`](bench/results/sample-4core-container.md)
+(unpinned, all seven runtimes, one 4-second run each). Indicative only: on this
+shared box two identical runs differ by up to ±15 %, so differences below that
+are noise. For decisions, the interleaved repeated measurement below is the one
+to read.
 
-| runtime | `GET /json` req/s | p50 | p90 | p99 | `GET /sleep?ms=5` ×256 req/s | p50 | p90 | `GET /compute?n=2000` p90 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| threads     | 93k  | 0.63ms | 1.07ms | 2.04ms | 44.0k | 5.60ms | 6.63ms | 20.7ms |
-| pool(64)    | 96k  | 0.60ms | 1.07ms | 2.01ms | **12.0k** | 5.28ms | 5.48ms | 21.3ms |
-| mio         | 129k | 0.37ms | 0.97ms | 2.18ms | 42.1k | 5.99ms | 6.55ms | 17.7ms |
-| tokio       | 140k | 0.41ms | **0.70ms** | **1.12ms** | 38.1k | 6.68ms | 7.52ms | 17.2ms |
-| tokio-st    | 114k | 0.53ms | 0.87ms | 1.33ms | 33.6k | 7.56ms | 8.74ms | **55.6ms** |
-| uring       | **151k** | **0.33ms** | 0.83ms | 1.46ms | **46.0k** | **5.38ms** | **6.11ms** | **15.5ms** |
-| uring-async | 143k | 0.34ms | 0.86ms | 1.69ms | 45.9k | 5.43ms | 6.17ms | 15.7ms |
+| runtime | `GET /json` req/s | p50 | p90 | p99 | `GET /sleep?ms=5` ×256 req/s | p50 | p90 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| threads     | 87k  | 0.67ms | 1.18ms | 2.25ms | 45.5k | 5.46ms | 6.24ms |
+| pool(64)    | 90k  | 0.65ms | 1.12ms | 2.20ms | **12.0k** | 5.29ms | 5.51ms |
+| mio         | 142k | 0.34ms | 0.91ms | 1.74ms | 42.2k | 6.01ms | 6.56ms |
+| tokio       | 137k | 0.42ms | **0.73ms** | **1.25ms** | 37.9k | 6.71ms | 7.55ms |
+| tokio-st    | 129k | 0.46ms | 0.73ms | 1.27ms | 33.6k | 7.59ms | 8.63ms |
+| uring       | 131k | 0.39ms | 0.94ms | 1.75ms | 45.2k | 5.50ms | 6.33ms |
+| uring-async | **155k** | **0.32ms** | 0.80ms | 1.50ms | **45.7k** | **5.43ms** | **6.22ms** |
 
-What the shapes already show, independent of the exact numbers:
+**Tokio versus `ringrt` after multishot recv + provided buffers**, server pinned
+to 2 cores, client on the other 2, `GET /`, three interleaved repetitions,
+medians (`bench/results/multishot-reps.txt`):
 
-* **The Tokio replacement holds up.** `uring-async` runs the *same `async fn`*
-  as `tokio` and lands at the same throughput on `/json` with a better p50
-  (0.34 vs 0.41 ms) and a slightly worse p99 — Tokio's work stealing still
-  buys the tightest tail. On `/sleep` it is not close: 46k vs 38k req/s and p90
-  6.2 vs 7.5 ms, because a kernel `TIMEOUT` op costs nothing extra on the one
-  `io_uring_enter` the scheduler already makes per turn, where Tokio has to
-  run its timer wheel and `epoll_wait` separately.
-* **The scheduler costs ~5%.** `uring-async` versus `uring` (same ring, callback
-  state machine instead of futures) is the price of `async`/`await`: a boxed
-  future per connection, a waker clone per op, one `RefCell` borrow per poll.
-* **Framing cost dominates on trivial endpoints.** The three hand-written loops
-  (`mio`, `uring`, `uring-async`) lead on p50 because they do the least per
-  request. The differences between them are within run-to-run noise here.
-* **Blocking threads are not slow.** On a few dozen keep-alive connections the
-  thread-per-connection model is within 30–40% of the async runtimes and has the
-  simplest code. It loses when connections go into the thousands.
-* **The thread pool caps concurrency, not CPU.** With 64 workers and 256
-  connections on `/sleep?ms=5`, throughput is exactly `64 / 5 ms ≈ 12.8k req/s`:
-  192 connections sit in the accept queue. p50 looks fine; *the queue is invisible
-  in latency because queued connections aren't being measured yet* — watch req/s.
-* **CPU-bound handlers on a single-threaded runtime are a cliff.** `tokio-st`
-  serialises every `/compute` behind one core (p90 56 ms vs 15–21 ms). On a
-  1-vCPU droplet *every* runtime is in this situation; the question becomes how
-  cheaply the runtime multiplexes I/O around the CPU work, which `WORKERS=1
-  scripts/bench.sh` lets you measure.
+| connections | tokio req/s (range) | uring-async req/s (range) | tokio p50 / p99 | uring-async p50 / p99 |
+|---:|---:|---:|---|---|
+| 1 024 | 148k (136–169k) | 130k (129–158k) | 2.80 / 45.3 ms | 2.84 / 46.6 ms |
+| 16 000 | 48k (41–62k) | 92k (89–93k) | 5.44 / 1117 ms | 4.45 / 1167 ms |
+
+And at 64 connections in a same-session A/B before the environment changed:
+`uring-async` 178k vs tokio 177k; the callback `uring` loop 198k.
+
+What the shapes show:
+
+* **At light and moderate load `ringrt` now matches Tokio**: equal throughput
+  and p50 at 64 connections, 10 % behind at 1 024 with overlapping ranges.
+  Multishot recv with a provided-buffer ring was worth ~10 % on its own
+  (163k → 178k at 64 connections in the A/B).
+* **Under a 16 000-connection load `ringrt` is now ~2× Tokio and far more
+  stable** (89–93k across runs versus 41–62k). One `RECV` per connection for
+  its lifetime instead of one per request is what changes at that scale.
+* **Tokio keeps the tightest p99 at moderate load** (work stealing), and the
+  single-core `tokio` tail problem from the scale study is unchanged.
+* **The async layer costs ~10 % over the callback loop** on the same ring
+  (178k vs 198k at 64 connections): boxed task, waker clone, `RefCell` borrow.
+* **Where the server waits** (`/sleep`), io_uring's kernel timers keep the
+  lead they had before: 45–46k vs 38k req/s.
+* **Provided-buffer ring size did not matter** once measured properly (256,
+  1 024 and 2 048 entries within noise at both 1 024 and 16 000 connections);
+  an earlier single run that suggested otherwise was noise. Default is 256.
 
 ### Scale and failure modes
 

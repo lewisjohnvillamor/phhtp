@@ -32,8 +32,8 @@ use crate::Config;
 pub use ringrt::raw::available;
 
 const ENTRIES: u32 = 4096;
-/// Small on purpose: the kernel rotates through the ring, and 256 × 4 KiB
-/// stays cache-resident where 2048 × 4 KiB did not (see `ringrt::reactor`).
+/// 256 × 4 KiB = 1 MiB per worker; larger rings measured no faster
+/// (see `ringrt::reactor`).
 const BUF_ENTRIES: u32 = 256;
 const BUF_SIZE: usize = 4096;
 

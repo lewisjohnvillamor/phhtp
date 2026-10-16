@@ -202,6 +202,39 @@ What the experiments did and what the outcome means:
   ms). `tokio-st` on one core took 1.8 s per request. A real server needs a
   blocking pool or a bounded compute endpoint; the handler already clamps `n`.
 
+## 4b. After multishot recv (same box, after a restart)
+
+The sweeps above were taken before `ringrt` gained multishot accept/recv with
+provided buffers. The container restarted before the re-measurement (which
+also reset `somaxconn` to 4 096; it is back to 65 535 for the numbers below)
+and the box became noticeably noisier: identical runs now differ by ±15 %.
+So the comparison that counts is interleaved and repeated (three runs per
+configuration, medians; `bench/results/multishot-reps.txt`; `phhtp-bench
+--reps 3` does this for you):
+
+| runtime | conns | req/s median (range) | p50 | p99 |
+|---|---:|---:|---:|---:|
+| tokio | 1 024 | 148k (136–169k) | 2.80ms | 45.3ms |
+| uring-async (256 bufs) | 1 024 | 130k (129–158k) | 2.84ms | 46.6ms |
+| uring-async (1024 bufs) | 1 024 | 135k (123–164k) | 2.92ms | 49.5ms |
+| uring-async (2048 bufs) | 1 024 | 135k (122–142k) | 2.84ms | 49.1ms |
+| tokio | 16 000 | **48k (41–62k)** | 5.44ms | 1 117ms |
+| uring-async (256 bufs) | 16 000 | **92k (89–93k)** | 4.45ms | 1 167ms |
+| uring-async (1024 bufs) | 16 000 | 85k (77–94k) | 4.68ms | 1 297ms |
+| uring-async (2048 bufs) | 16 000 | 95k (77–104k) | 4.05ms | 1 095ms |
+
+* At 1 024 connections Tokio and `ringrt` overlap; Tokio's median is 10 %
+  higher. At 16 000, `ringrt` is about twice Tokio's throughput and far more
+  stable run to run: a single multishot `RECV` per connection for its lifetime
+  replaces one submission per request, and that is the per-request work that
+  dominates once every connection has a request in flight.
+* Provided-buffer ring size (256 / 1 024 / 2 048 entries) makes no
+  difference outside noise at either scale. 256 is the default.
+* Tokio's 16 000-connection figure before the restart was 116k; the drop to
+  48k is the environment, not a code change on its side (its read path was
+  unchanged between the two runs). Treat cross-session comparisons in this
+  document as invalid; only interleaved same-session rows compare.
+
 ## 5. The failure taxonomy
 
 In the order you will meet them on a droplet:

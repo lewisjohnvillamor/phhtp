@@ -28,10 +28,11 @@ const CANCEL_TAG: u64 = u64::MAX;
 /// Provided buffers per worker ring and their size (defaults; override with
 /// `RINGRT_BUF_ENTRIES` / `RINGRT_BUF_SIZE`). The ring only needs as many
 /// buffers as completions arrive between two reaps, and running out is
-/// harmless (ENOBUFS → re-arm). Small is fast: the kernel rotates through
-/// the ring, so a 1 MiB ring stays in L2 while an 8 MiB one costs a cold
-/// page per request (measured: 2048 buffers 123k req/s, 256 buffers 163k
-/// at 1024 connections on this repository's benchmark).
+/// harmless (ENOBUFS → re-arm). Measured 256 / 1024 / 2048 entries at 1024
+/// and 16 000 connections, three interleaved repetitions each: the medians
+/// were within run-to-run noise (±15 % on a shared 4-core box), so the
+/// default is the smallest, which keeps the ring cache-resident and the
+/// footprint at 1 MiB.
 const BUF_ENTRIES: u32 = 256;
 const BUF_SIZE: usize = 4096;
 
