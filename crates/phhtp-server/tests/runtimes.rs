@@ -135,11 +135,14 @@ fn uring_async_idle_timeout_cap_and_graceful_shutdown() {
         return;
     }
     let rt = Runtime::UringAsync;
-    let addr = boot_with(rt, App::new("secret", rt.name()), |c| {
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stop2 = Arc::clone(&stop);
+    let addr = boot_with(rt, App::new("secret", rt.name()), move |c| {
         c.idle_timeout = Some(Duration::from_secs(1));
         c.max_conns = Some(2);
         c.shutdown_grace = Duration::from_secs(5);
         c.workers = 1;
+        c.stop = Some(stop2);
     });
     // Idle: a silent connection is closed by the sweeper within ~2 s.
     let mut idle = connect(addr);
@@ -172,7 +175,7 @@ fn uring_async_idle_timeout_cap_and_graceful_shutdown() {
 
     // Graceful shutdown: request it, finish a request on an open connection,
     // then the listener is gone and the open connections are closed.
-    phhtp_server::runtime::uring_async::request_shutdown();
+    stop.store(true, std::sync::atomic::Ordering::SeqCst);
     std::thread::sleep(Duration::from_millis(1500));
     a.write_all(b"GET / HTTP/1.1\r\nHost: h\r\n\r\n").unwrap();
     let (st, _, _) = read_response(&mut a, &mut buf);

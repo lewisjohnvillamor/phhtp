@@ -118,6 +118,9 @@ pub struct Config {
     pub max_conns: Option<usize>,
     /// Drain time on shutdown (honoured by `uring-async`).
     pub shutdown_grace: std::time::Duration,
+    /// Set to `true` to shut this server down (in addition to SIGTERM/SIGINT).
+    /// Lets embedders and tests stop one server without a process-wide signal.
+    pub stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl Config {
@@ -130,6 +133,7 @@ impl Config {
             idle_timeout: Some(std::time::Duration::from_secs(30)),
             max_conns: None,
             shutdown_grace: std::time::Duration::from_secs(10),
+            stop: None,
         }
     }
 }

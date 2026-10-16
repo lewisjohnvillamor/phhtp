@@ -58,11 +58,23 @@ extern "C" fn on_signal(_: libc::c_int) {
     STOP.store(true, Ordering::SeqCst);
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct Opts {
     idle_timeout: Option<Duration>,
     max_conns: Option<usize>,
     shutdown_grace: Duration,
+    /// This server's own stop flag (`Config::stop`), checked alongside `STOP`.
+    stop: Option<Arc<AtomicBool>>,
+}
+
+impl Opts {
+    fn stopping(&self) -> bool {
+        STOP.load(Ordering::Relaxed)
+            || self
+                .stop
+                .as_ref()
+                .is_some_and(|s| s.load(Ordering::Relaxed))
+    }
 }
 
 pub fn run(cfg: Config, app: Arc<App>) -> io::Result<()> {
@@ -90,6 +102,7 @@ pub fn run(cfg: Config, app: Arc<App>) -> io::Result<()> {
         idle_timeout: cfg.idle_timeout,
         max_conns: cfg.max_conns,
         shutdown_grace: cfg.shutdown_grace,
+        stop: cfg.stop,
     };
 
     // A bound listener is plain `Send` data; only the accept *future* is
@@ -99,6 +112,7 @@ pub fn run(cfg: Config, app: Arc<App>) -> io::Result<()> {
         .enumerate()
         .map(|(i, listener)| {
             let app = Arc::clone(&app);
+            let opts = opts.clone();
             std::thread::Builder::new()
                 .name(format!("phhtp-uring-async-{i}"))
                 .spawn(move || worker(listener, app, opts, i == 0))
@@ -178,12 +192,12 @@ fn worker(listener: TcpListener, app: Arc<App>, opts: Opts, log: bool) -> io::Re
     rt.block_on(async move {
         let shared = Rc::new(Shared::default());
         let listener = Rc::new(listener);
-        spawn(sweeper(Rc::clone(&shared), Rc::clone(&listener), opts));
+        spawn(sweeper(Rc::clone(&shared), Rc::clone(&listener), opts.clone()));
 
         loop {
             match listener.accept().await {
                 Ok(stream) => {
-                    if STOP.load(Ordering::Relaxed) {
+                    if opts.stopping() {
                         break;
                     }
                     if let Some(cap) = opts.max_conns {
@@ -202,7 +216,7 @@ fn worker(listener: TcpListener, app: Arc<App>, opts: Opts, log: bool) -> io::Re
                         shared.unregister(&meta);
                     });
                 }
-                Err(_) if STOP.load(Ordering::Relaxed) => break,
+                Err(_) if opts.stopping() => break,
                 Err(e) if e.kind() == io::ErrorKind::ConnectionAborted => {}
                 Err(e) => {
                     eprintln!("accept: {e}");
@@ -235,7 +249,7 @@ fn worker(listener: TcpListener, app: Arc<App>, opts: Opts, log: bool) -> io::Re
 async fn sweeper(shared: Rc<Shared>, listener: Rc<TcpListener>, opts: Opts) {
     loop {
         ringrt::time::sleep(Duration::from_millis(1000)).await;
-        if STOP.load(Ordering::Relaxed) {
+        if opts.stopping() {
             let _ = listener.shutdown();
             return;
         }
@@ -303,10 +317,8 @@ async fn serve_file(outbuf: &mut Vec<u8>, f: &FileReq) -> io::Result<()> {
     if f.head_only {
         return Ok(());
     }
-    if let Err(e) = read_file_into(&f.path, outbuf).await {
-        // The head is already in `outbuf`; the connection cannot recover.
-        return Err(e);
-    }
+    // On a read error the head is already in `outbuf`; the caller closes.
+    read_file_into(&f.path, outbuf).await?;
     Ok(())
 }
 
