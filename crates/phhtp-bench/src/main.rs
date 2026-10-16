@@ -83,6 +83,11 @@ struct RunArgs {
     /// yourself; one run on a shared box can be ±15% off.
     #[arg(long, default_value_t = 1)]
     reps: usize,
+    /// Do not fetch the server's `/stats` (CPU, RSS, context switches, disk)
+    /// at the edges of the measured window. Fetched by default; silently
+    /// skipped when the server does not serve it.
+    #[arg(long)]
+    no_stats: bool,
     /// Maximum simultaneous connection attempts. Bounds the SYN burst so the
     /// server's accept backlog (and the kernel's SYN queue) is not overflowed
     /// by the load generator itself; 0 = unbounded.
@@ -116,6 +121,30 @@ struct Summary {
     p999_us: u64,
     max_us: u64,
     mean_us: f64,
+    /// Server-side resource deltas over the measured window, from `/stats`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    server: Option<ServerUse>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+struct ServerUse {
+    /// CPU seconds consumed by the server process during the window.
+    cpu_user_s: f64,
+    cpu_sys_s: f64,
+    /// (user + sys) / wall, in percent of one core (200 = two cores busy).
+    cpu_pct: f64,
+    /// CPU microseconds per completed request.
+    cpu_us_per_req: f64,
+    /// Context switches per request.
+    ctx_vol_per_req: f64,
+    ctx_invol_per_req: f64,
+    minflt: u64,
+    majflt: u64,
+    rss_mb: f64,
+    rss_peak_mb: f64,
+    threads: u64,
+    disk_read_bytes: u64,
+    disk_write_bytes: u64,
 }
 
 fn one() -> usize {
@@ -252,10 +281,18 @@ fn measure(
     addr: SocketAddr,
     request: &Arc<Vec<u8>>,
 ) -> Summary {
-    let total = rt.block_on(async {
+    let (total, server) = rt.block_on(async {
         let start = Instant::now();
         let warm_end = start + Duration::from_secs(args.warmup);
         let deadline = warm_end + Duration::from_secs(args.duration);
+        let stats_task = if args.no_stats {
+            None
+        } else {
+            let (host, port, _) = parse_url(&args.url).unwrap();
+            Some(tokio::spawn(sample_server(
+                addr, host, port, warm_end, deadline,
+            )))
+        };
         let gate = Arc::new(tokio::sync::Semaphore::new(
             if args.connect_concurrency == 0 {
                 tokio::sync::Semaphore::MAX_PERMITS
@@ -290,7 +327,15 @@ fn measure(
             total.non_2xx += w.non_2xx;
             total.bytes += w.bytes;
         }
-        total
+        let server = match stats_task {
+            Some(t) => t
+                .await
+                .ok()
+                .flatten()
+                .map(|(a, b)| server_use(&a, &b, total.requests)),
+            None => None,
+        };
+        (total, server)
     });
 
     let h = &total.hist;
@@ -315,6 +360,65 @@ fn measure(
         p999_us: h.value_at_quantile(0.999),
         max_us: h.max(),
         mean_us: h.mean(),
+        server,
+    }
+}
+
+/// Fetch `/stats` just as the measured window opens and again as it closes.
+async fn sample_server(
+    addr: SocketAddr,
+    host: String,
+    port: u16,
+    warm_end: Instant,
+    deadline: Instant,
+) -> Option<(serde_json::Value, serde_json::Value)> {
+    tokio::time::sleep_until(tokio::time::Instant::from_std(warm_end)).await;
+    let a = fetch_stats(addr, &host, port).await?;
+    tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)).await;
+    let b = fetch_stats(addr, &host, port).await?;
+    Some((a, b))
+}
+
+async fn fetch_stats(addr: SocketAddr, host: &str, port: u16) -> Option<serde_json::Value> {
+    let mut s = tokio::time::timeout(Duration::from_secs(2), TcpStream::connect(addr))
+        .await
+        .ok()?
+        .ok()?;
+    let req = format!("GET /stats HTTP/1.1\r\nHost: {host}:{port}\r\nConnection: close\r\n\r\n");
+    s.write_all(req.as_bytes()).await.ok()?;
+    let mut buf = Vec::new();
+    let resp = tokio::time::timeout(Duration::from_secs(2), read_response(&mut s, &mut buf))
+        .await
+        .ok()?
+        .ok()?;
+    if resp.status != 200 {
+        return None;
+    }
+    let body_start = buf.windows(4).position(|w| w == b"\r\n\r\n")? + 4;
+    serde_json::from_slice(&buf[body_start..resp.len]).ok()
+}
+
+fn server_use(a: &serde_json::Value, b: &serde_json::Value, requests: u64) -> ServerUse {
+    let f = |v: &serde_json::Value, k: &str| v.get(k).and_then(|x| x.as_f64()).unwrap_or(0.0);
+    let u = |v: &serde_json::Value, k: &str| v.get(k).and_then(|x| x.as_u64()).unwrap_or(0);
+    let wall_s = (f(b, "ts_us") - f(a, "ts_us")).max(1.0) / 1e6;
+    let user = f(b, "utime_s") - f(a, "utime_s");
+    let sys = f(b, "stime_s") - f(a, "stime_s");
+    let reqs = requests.max(1) as f64;
+    ServerUse {
+        cpu_user_s: user,
+        cpu_sys_s: sys,
+        cpu_pct: (user + sys) / wall_s * 100.0,
+        cpu_us_per_req: (user + sys) * 1e6 / reqs,
+        ctx_vol_per_req: (u(b, "vol_ctx").saturating_sub(u(a, "vol_ctx"))) as f64 / reqs,
+        ctx_invol_per_req: (u(b, "invol_ctx").saturating_sub(u(a, "invol_ctx"))) as f64 / reqs,
+        minflt: u(b, "minflt").saturating_sub(u(a, "minflt")),
+        majflt: u(b, "majflt").saturating_sub(u(a, "majflt")),
+        rss_mb: f(b, "rss_kb") / 1024.0,
+        rss_peak_mb: f(b, "hwm_kb") / 1024.0,
+        threads: u(b, "threads"),
+        disk_read_bytes: u(b, "disk_read_bytes").saturating_sub(u(a, "disk_read_bytes")),
+        disk_write_bytes: u(b, "disk_write_bytes").saturating_sub(u(a, "disk_write_bytes")),
     }
 }
 
@@ -353,6 +457,30 @@ fn median_summary(mut runs: Vec<Summary>) -> Summary {
     out.p999_us = med_u64(&mut runs.iter().map(|r| r.p999_us).collect::<Vec<_>>());
     out.max_us = med_u64(&mut runs.iter().map(|r| r.max_us).collect::<Vec<_>>());
     out.mean_us = med_f64(&mut runs.iter().map(|r| r.mean_us).collect::<Vec<_>>());
+    let servers: Vec<&ServerUse> = runs.iter().filter_map(|r| r.server.as_ref()).collect();
+    if !servers.is_empty() {
+        let mf = |g: fn(&ServerUse) -> f64| {
+            med_f64(&mut servers.iter().map(|s| g(s)).collect::<Vec<_>>())
+        };
+        let mu = |g: fn(&ServerUse) -> u64| {
+            med_u64(&mut servers.iter().map(|s| g(s)).collect::<Vec<_>>())
+        };
+        out.server = Some(ServerUse {
+            cpu_user_s: mf(|s| s.cpu_user_s),
+            cpu_sys_s: mf(|s| s.cpu_sys_s),
+            cpu_pct: mf(|s| s.cpu_pct),
+            cpu_us_per_req: mf(|s| s.cpu_us_per_req),
+            ctx_vol_per_req: mf(|s| s.ctx_vol_per_req),
+            ctx_invol_per_req: mf(|s| s.ctx_invol_per_req),
+            minflt: mu(|s| s.minflt),
+            majflt: mu(|s| s.majflt),
+            rss_mb: mf(|s| s.rss_mb),
+            rss_peak_mb: mf(|s| s.rss_peak_mb),
+            threads: mu(|s| s.threads),
+            disk_read_bytes: mu(|s| s.disk_read_bytes),
+            disk_write_bytes: mu(|s| s.disk_write_bytes),
+        });
+    }
     out
 }
 
@@ -540,6 +668,13 @@ fn print_human(s: &Summary) {
             s.reps, s.rps_min, s.rps_max
         );
     }
+    if let Some(u) = &s.server {
+        println!(
+            "  server      cpu {:.0}% of a core ({:.2}s user + {:.2}s sys)   {:.1} µs CPU/req   ctx {:.2}+{:.2}/req   RSS {:.1} MB (peak {:.1})   threads {}   disk r/w {}/{} B   faults {}/{}",
+            u.cpu_pct, u.cpu_user_s, u.cpu_sys_s, u.cpu_us_per_req, u.ctx_vol_per_req, u.ctx_invol_per_req,
+            u.rss_mb, u.rss_peak_mb, u.threads, u.disk_read_bytes, u.disk_write_bytes, u.minflt, u.majflt
+        );
+    }
     println!(
         "  latency     p50 {}  p90 {}  p99 {}  p99.9 {}  max {}  mean {}",
         ms(s.p50_us),
@@ -589,9 +724,17 @@ fn report(file: &str) -> io::Result<()> {
         }
         seen.push(ep.clone());
         for s in rows.iter().filter(|s| endpoint(s) == ep) {
+            let (cpu, us, rss) = match &s.server {
+                Some(u) => (
+                    format!("{:.0}", u.cpu_pct),
+                    format!("{:.1}", u.cpu_us_per_req),
+                    format!("{:.1}", u.rss_mb),
+                ),
+                None => ("-".into(), "-".into(), "-".into()),
+            };
             writeln!(
                 out,
-                "| {} | `{}` | {} | {:.0} | {} | {} | {} | {} | {} |",
+                "| {} | `{}` | {} | {:.0} | {} | {} | {} | {} | {} | {} | {} | {} |",
                 if s.label.is_empty() { "-" } else { &s.label },
                 ep,
                 s.connections,
@@ -600,7 +743,10 @@ fn report(file: &str) -> io::Result<()> {
                 ms(s.p90_us),
                 ms(s.p99_us),
                 ms(s.max_us),
-                s.errors + s.non_2xx
+                s.errors + s.non_2xx,
+                cpu,
+                us,
+                rss
             )?;
         }
     }

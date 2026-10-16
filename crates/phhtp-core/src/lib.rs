@@ -13,12 +13,14 @@
 //! * [`sig`]   – HMAC-SHA256 sign / constant-time verify.
 //! * [`app`]   – the router and endpoint handlers.
 //! * [`conn`]  – the per-connection "drain input buffer, fill output buffer" loop.
+//! * [`stats`] – `/stats`: the process's own CPU, memory, context-switch and disk counters.
 
 pub mod app;
 pub mod conn;
 pub mod date;
 pub mod http;
 pub mod sig;
+pub mod stats;
 
 pub use app::{App, Outcome};
 pub use conn::{process, Flow, Step};

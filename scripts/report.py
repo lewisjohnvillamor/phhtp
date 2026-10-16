@@ -229,6 +229,9 @@ def tip_for(r):
              f'p50 {ms(r["p50_us"])}', f'p90 {ms(r["p90_us"])}', f'p99 {ms(r["p99_us"])}']
     if r.get("rss_mb"):
         parts.append(f'RSS {r["rss_mb"]} MB')
+    srv = r.get("server")
+    if srv:
+        parts.append(f'CPU {srv["cpu_pct"]:.0f}% · {srv["cpu_us_per_req"]:.1f} µs CPU/req · ctx {srv["ctx_vol_per_req"]:.2f}/req · RSS {srv["rss_mb"]:.1f} MB · disk {srv["disk_read_bytes"]+srv["disk_write_bytes"]} B')
     if r.get("reps", 1) > 1:
         parts.append(f'median of {r["reps"]} ({k(r["rps_min"])}–{k(r["rps_max"])})')
     return " · ".join(parts)
@@ -242,7 +245,8 @@ def matrix_section(rows):
     for r in rows:
         by_ep.setdefault(endpoint_of(r), {})[r["label"]] = r  # last wins
     out = ['<section id="matrix"><h2>Endpoint matrix</h2>',
-           '<p class="lead">Throughput and tail latency per endpoint, every runtime on the same handler code. '
+           '<p class="lead">Throughput, tail latency, and the server process\'s own CPU and memory per endpoint, every runtime on the same handler code. '
+           'CPU per request is user + system time of the server divided by requests served, read from its <code>/stats</code> endpoint at the edges of the measured window. '
            'Bars are sorted; color is the I/O model family, the name is the runtime, ◆ marks the runtimes built in this repository.</p>']
     for ep, by_rt in by_ep.items():
         items_rps, items_p99 = [], []
@@ -251,10 +255,19 @@ def matrix_section(rows):
             items_rps.append(dict(base, value=r["rps"]))
             items_p99.append(dict(base, value=r["p99_us"] / 1000))
         conns = next(iter(by_rt.values()))["connections"]
+        items_cpu = [dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, tip=tip_for(r), value=r["server"]["cpu_us_per_req"])
+                     for rt, r in by_rt.items() if r.get("server")]
         out.append('<div class="pair">')
         out.append(hbar_chart(f"{ep} — throughput", f"{conns} keep-alive connections · higher is better", items_rps, k, "req/s"))
         out.append(hbar_chart(f"{ep} — p99 latency", f"{conns} connections · lower is better", items_p99, lambda v: f"{v:.1f}", "ms", sorted_desc=False))
         out.append('</div>')
+        if items_cpu:
+            out.append('<div class="pair">')
+            out.append(hbar_chart(f"{ep} — server CPU per request", "user + system time of the server process ÷ requests · lower is better", items_cpu, lambda v: f"{v:.1f}", "µs", sorted_desc=False))
+            items_rss = [dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, tip=tip_for(r), value=r["server"]["rss_mb"])
+                         for rt, r in by_rt.items() if r.get("server")]
+            out.append(hbar_chart(f"{ep} — server RSS", "resident memory at the end of the window · lower is better", items_rss, lambda v: f"{v:.0f}", "MB", sorted_desc=False))
+            out.append('</div>')
     out.append('</section>')
     return "\n".join(out)
 
@@ -309,13 +322,22 @@ def workers_section(rows):
 def dataset_section(rows, files):
     cols = [("label", "runtime"), ("endpoint", "endpoint"), ("connections", "conns"), ("workers", "workers"),
             ("rps", "req/s"), ("p50_us", "p50"), ("p90_us", "p90"), ("p99_us", "p99"), ("max_us", "max"),
-            ("errors", "errors"), ("rss_mb", "RSS MB"), ("threads", "threads"), ("reps", "reps"), ("note", "note"), ("_file", "file")]
+            ("errors", "errors"), ("cpu_pct", "CPU %"), ("cpu_us_per_req", "µs CPU/req"), ("ctx_per_req", "ctx/req"),
+            ("rss_mb", "RSS MB"), ("threads", "threads"), ("disk_bytes", "disk B"), ("reps", "reps"), ("note", "note"), ("_file", "file")]
     out = ['<section id="dataset"><h2>Dataset</h2>',
            '<p class="lead">Every row behind the charts, as recorded by <code>phhtp-bench --json</code>. Click a header to sort. Source files: '
            + ", ".join(f"<code>{esc(f)}</code>" for f in files) + '.</p>',
            '<div class="tablewrap"><table id="data"><thead><tr>' + "".join(f'<th data-k="{i}">{esc(h)}</th>' for i, (_, h) in enumerate(cols)) + '</tr></thead><tbody>']
     for r in rows:
         r = dict(r, endpoint=endpoint_of(r))
+        srv = r.get("server") or {}
+        if srv:
+            r["cpu_pct"] = f'{srv["cpu_pct"]:.0f}'
+            r["cpu_us_per_req"] = f'{srv["cpu_us_per_req"]:.1f}'
+            r["ctx_per_req"] = f'{srv["ctx_vol_per_req"] + srv["ctx_invol_per_req"]:.2f}'
+            r["rss_mb"] = f'{srv["rss_mb"]:.1f}'
+            r["threads"] = srv["threads"]
+            r["disk_bytes"] = srv["disk_read_bytes"] + srv["disk_write_bytes"]
         cells = []
         for key, _ in cols:
             v = r.get(key, "")
@@ -363,7 +385,7 @@ svg.viz { display:block; overflow: visible; }
 table { border-collapse: collapse; font-size: 12.5px; width: 100%; font-variant-numeric: tabular-nums; }
 th, td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
 th { position: sticky; top: 0; background: var(--surface-2); cursor: pointer; text-align: right; }
-td:first-child, th:first-child, td:nth-child(2), th:nth-child(2), td:nth-child(14), th:nth-child(14), td:nth-child(15), th:nth-child(15) { text-align: left; }
+td:first-child, th:first-child, td:nth-child(2), th:nth-child(2), td:nth-child(18), th:nth-child(18), td:nth-child(19), th:nth-child(19) { text-align: left; }
 code { background: var(--surface-2); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
 """
 
@@ -460,6 +482,10 @@ def main():
             conns = next(iter(by_rt.values()))["connections"]
             with open(os.path.join(a.svg_dir, f"matrix-{name}-rps.svg"), "w") as f:
                 f.write(static_svg(hbar_chart(f"{ep} — throughput", f"{conns} keep-alive connections · higher is better", items, k, "req/s")))
+            items_cpu = [dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, tip=tip_for(r), value=r["server"]["cpu_us_per_req"]) for rt, r in by_rt.items() if r.get("server")]
+            if items_cpu:
+                with open(os.path.join(a.svg_dir, f"matrix-{name}-cpu.svg"), "w") as f:
+                    f.write(static_svg(hbar_chart(f"{ep} — server CPU per request", "user + system time ÷ requests · lower is better", items_cpu, lambda v: f"{v:.1f}", "µs", sorted_desc=False)))
             items99 = [dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, tip=tip_for(r), value=r["p99_us"] / 1000) for rt, r in by_rt.items()]
             with open(os.path.join(a.svg_dir, f"matrix-{name}-p99.svg"), "w") as f:
                 f.write(static_svg(hbar_chart(f"{ep} — p99 latency", f"{conns} connections · lower is better", items99, lambda v: f"{v:.1f}", "ms", sorted_desc=False)))

@@ -12,6 +12,7 @@
 //! | POST   | `/verify`        | checks `X-Signature: <hex>` against the body         |
 //! | GET    | `/compute?n=N`   | N chained SHA-256 rounds (CPU-bound, N ≤ 100000)     |
 //! | GET    | `/sleep?ms=M`    | responds after M ms (simulated upstream I/O, ≤ 10 s) |
+//! | GET    | `/stats`         | the server process's CPU, RSS, context switches, disk I/O (from `/proc/self`) |
 
 use serde::Serialize;
 
@@ -175,6 +176,10 @@ impl App {
                     )
                 }
                 _ => allow("GET"),
+            },
+            "/stats" => match m {
+                Get | Head => Response::json(200, &crate::stats::sample()),
+                _ => allow("GET, HEAD"),
             },
             "/sleep" => match m {
                 Get => {

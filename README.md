@@ -232,6 +232,23 @@ Or drive it by hand:
 throughput, errors and non-2xx counts. Cross-check with
 [`oha`](https://github.com/hatoo/oha) if you like: `oha -z 10s -c 64 http://127.0.0.1:8080/`.
 
+### What is measured, per row
+
+| Column | Source | Why it matters |
+|---|---|---|
+| req/s, p50 / p90 / p99 / p99.9 / max | client-side HDR histogram | the usual throughput and latency |
+| **CPU % and µs CPU per request** | server's `GET /stats` (`/proc/self/stat` user + system time), fetched at the start and end of the measured window | two runtimes can serve the same req/s while one burns twice the CPU; on a 1-vCPU droplet this is the number that decides. User time is the runtime's own cost, system time is the kernel's. |
+| context switches per request | sum of every thread's `voluntary` + `nonvoluntary` switches | shows whether a runtime sleeps and wakes per request or batches |
+| RSS and peak RSS, threads | `VmRSS` / `VmHWM` / `Threads` at the end of the window (sweeps also sample mid-run) | memory per connection; the thread count of `threads` |
+| page faults | `minflt` / `majflt` deltas | allocation churn |
+| **disk read / write bytes** | `/proc/self/io` `read_bytes` / `write_bytes` deltas | the server does no disk I/O and the column proves it; a runtime that logged or paged would show here |
+
+The server samples itself, so the same columns are recorded when the load
+generator runs on another machine. `--no-stats` skips it; it is silently absent
+for servers that do not serve `/stats`. Not measured: system-wide softirq time
+(network receive processing the kernel attributes to whichever context runs it)
+and syscall counts (needs `perf`/`strace`, both of which distort the run).
+
 ### Results: eleven runtimes, charted
 
 The full dataset (every row `phhtp-bench` recorded, 129 measurements) is committed
