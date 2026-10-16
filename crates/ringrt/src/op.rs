@@ -194,6 +194,34 @@ impl Future for SendDetached<'_> {
     }
 }
 
+pub struct SendDetachedZc<'a> {
+    pub(crate) fd: i32,
+    pub(crate) buf: Option<Vec<u8>>,
+    pub(crate) owner: &'a std::rc::Rc<crate::reactor::DetachedState>,
+}
+
+impl Future for SendDetachedZc<'_> {
+    type Output = io::Result<()>;
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        if let Some(e) = self.owner.error.get() {
+            return Poll::Ready(Err(io::Error::from_raw_os_error(e)));
+        }
+        if self.owner.in_flight.get() >= MAX_DETACHED {
+            *self.owner.waker.borrow_mut() = Some(cx.waker().clone());
+            return Poll::Pending;
+        }
+        let buf = self.buf.take().expect("polled after completion");
+        if buf.is_empty() {
+            Reactor::with(|r| r.give_buffer(buf));
+            return Poll::Ready(Ok(()));
+        }
+        let fd = self.fd;
+        let owner = self.owner;
+        Reactor::with(|r| r.submit_detached_send_zc(fd, buf, owner));
+        Poll::Ready(Ok(()))
+    }
+}
+
 /// Resolves once every detached send on the stream has completed.
 pub struct Flush<'a> {
     pub(crate) owner: &'a std::rc::Rc<crate::reactor::DetachedState>,
@@ -210,6 +238,60 @@ impl Future for Flush<'_> {
         }
         *self.owner.waker.borrow_mut() = Some(cx.waker().clone());
         Poll::Pending
+    }
+}
+
+// ---------------------------------------------------------------- single-shot
+
+/// A single-shot op that owns whatever memory the SQE points into (`keep`),
+/// so a dropped future parks it in the reactor until the completion lands.
+/// Used by `fs`.
+pub struct Single<K: 'static> {
+    sqe: Option<Sqe>,
+    keep: Option<Box<K>>,
+    slot: Option<usize>,
+}
+
+impl<K: 'static> Single<K> {
+    /// `build` receives the boxed (address-stable) `keep` and fills the SQE.
+    pub fn new(keep: K, build: impl FnOnce(&mut K) -> Sqe) -> Single<K> {
+        let mut keep = Box::new(keep);
+        let sqe = build(&mut keep);
+        Single {
+            sqe: Some(sqe),
+            keep: Some(keep),
+            slot: None,
+        }
+    }
+}
+
+impl<K: 'static> Future for Single<K> {
+    /// The raw `cqe.res` (negative errno on failure) and the kept memory.
+    type Output = (i32, Box<K>);
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        match self.slot {
+            None => {
+                let sqe = self.sqe.take().expect("polled after completion");
+                self.slot = Some(Reactor::with(|r| r.submit(sqe, cx.waker().clone())));
+                Poll::Pending
+            }
+            Some(slot) => match Reactor::with(|r| r.poll_slot(slot, cx.waker())) {
+                None => Poll::Pending,
+                Some(res) => {
+                    self.slot = None;
+                    Poll::Ready((res, self.keep.take().expect("kept memory present")))
+                }
+            },
+        }
+    }
+}
+
+impl<K: 'static> Drop for Single<K> {
+    fn drop(&mut self) {
+        if let Some(slot) = self.slot.take() {
+            let keep = self.keep.take().map(|b| b as Box<dyn std::any::Any>);
+            Reactor::try_with(|r| r.orphan(slot, keep));
+        }
     }
 }
 

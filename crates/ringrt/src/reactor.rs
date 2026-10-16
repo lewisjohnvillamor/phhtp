@@ -66,6 +66,15 @@ enum Slot {
         buf: Vec<u8>,
         owner: Rc<DetachedState>,
     },
+    /// A zero-copy detached send: the buffer is pinned by the kernel until the
+    /// notification CQE arrives, which comes after the result CQE.
+    DetachedZc {
+        fd: i32,
+        buf: Vec<u8>,
+        owner: Rc<DetachedState>,
+        /// The result CQE has been seen; waiting for the notification.
+        sent: bool,
+    },
 }
 
 /// Per-stream bookkeeping for detached sends.
@@ -130,6 +139,9 @@ pub struct Reactor {
     multishot_recv: bool,
     /// Buffers handed back by completed detached sends, for reuse.
     pool: Vec<Vec<u8>>,
+    /// `SEND_ZC` is accepted by this kernel (cleared on the first EINVAL /
+    /// EOPNOTSUPP, after which zero-copy requests become plain sends).
+    send_zc: bool,
 }
 
 /// Most buffers kept in the pool; beyond this they are freed.
@@ -175,6 +187,7 @@ impl Reactor {
                 multishot_accept: !no_multishot,
                 multishot_recv,
                 pool: Vec::new(),
+                send_zc: std::env::var_os("RINGRT_NO_ZC").is_none(),
             })
         });
         Ok(())
@@ -292,6 +305,56 @@ impl Reactor {
         };
         self.in_flight += 1;
         self.push(sqe);
+    }
+
+    /// Like [`Reactor::submit_detached_send`] but with `SEND_ZC`: the kernel
+    /// reads from the buffer's pages directly instead of copying them into
+    /// socket memory, and keeps the buffer pinned until it posts a
+    /// notification. Worth it for bodies of tens of KiB and up; for small
+    /// buffers the extra CQE costs more than the copy it saves. Falls back to
+    /// a plain send when the kernel rejects the opcode.
+    pub fn submit_detached_send_zc(&mut self, fd: i32, buf: Vec<u8>, owner: &Rc<DetachedState>) {
+        if !self.send_zc {
+            return self.submit_detached_send(fd, buf, owner);
+        }
+        let slot = self.alloc_slot();
+        let sqe = Sqe {
+            opcode: sys::OP_SEND_ZC,
+            fd,
+            addr: buf.as_ptr() as u64,
+            len: buf.len() as u32,
+            op_flags: libc::MSG_NOSIGNAL as u32,
+            user_data: slot as u64,
+            ..Default::default()
+        };
+        owner.in_flight.set(owner.in_flight.get() + 1);
+        self.slots[slot] = Slot::DetachedZc {
+            fd,
+            buf,
+            owner: Rc::clone(owner),
+            sent: false,
+        };
+        self.in_flight += 1;
+        self.push(sqe);
+    }
+
+    fn finish_detached(&mut self, slot: usize, buf: Vec<u8>, owner: Rc<DetachedState>, res: i32) {
+        self.in_flight -= 1;
+        self.free.push(slot);
+        owner.in_flight.set(owner.in_flight.get() - 1);
+        // A short send of a detached buffer cannot be resumed; treat it like
+        // an error and let the next recv report it.
+        if res < 0 {
+            if owner.error.get().is_none() {
+                owner.error.set(Some(-res));
+            }
+        } else if res != i32::MAX && (res as usize) < buf.len() && owner.error.get().is_none() {
+            owner.error.set(Some(libc::EPIPE));
+        }
+        if let Some(w) = owner.waker.borrow_mut().take() {
+            w.wake();
+        }
+        self.give_buffer(buf);
     }
 
     pub fn poll_slot(&mut self, slot: usize, waker: &Waker) -> Option<i32> {
@@ -531,27 +594,60 @@ impl Reactor {
             match &mut self.slots[slot] {
                 Slot::Multi(_) => recycled |= self.on_multi(slot, cqe),
                 Slot::Detached { .. } => {
-                    self.in_flight -= 1;
                     let Slot::Detached { buf, owner } =
                         std::mem::replace(&mut self.slots[slot], Slot::Free)
                     else {
                         unreachable!()
                     };
-                    self.free.push(slot);
-                    owner.in_flight.set(owner.in_flight.get() - 1);
-                    // A short send of a detached buffer cannot be resumed; treat
-                    // it like an error and let the next recv report it.
-                    if cqe.res < 0 {
-                        if owner.error.get().is_none() {
-                            owner.error.set(Some(-cqe.res));
+                    self.finish_detached(slot, buf, owner, cqe.res);
+                }
+                Slot::DetachedZc { sent, .. } => {
+                    let is_notif = cqe.flags & sys::CQE_F_NOTIF != 0;
+                    if !*sent && !is_notif && cqe.flags & sys::CQE_F_MORE != 0 {
+                        // Result CQE; the notification follows. Record a short
+                        // or failed send now, free the buffer on the notification.
+                        *sent = true;
+                        let Slot::DetachedZc { buf, owner, .. } = &self.slots[slot] else {
+                            unreachable!()
+                        };
+                        if cqe.res < 0 {
+                            if owner.error.get().is_none() {
+                                owner.error.set(Some(-cqe.res));
+                            }
+                        } else if (cqe.res as usize) < buf.len() && owner.error.get().is_none() {
+                            owner.error.set(Some(libc::EPIPE));
                         }
-                    } else if (cqe.res as usize) < buf.len() && owner.error.get().is_none() {
-                        owner.error.set(Some(libc::EPIPE));
+                        continue;
                     }
-                    if let Some(w) = owner.waker.borrow_mut().take() {
-                        w.wake();
+                    let Slot::DetachedZc {
+                        fd,
+                        buf,
+                        owner,
+                        sent,
+                    } = std::mem::replace(&mut self.slots[slot], Slot::Free)
+                    else {
+                        unreachable!()
+                    };
+                    if !sent
+                        && cqe.res < 0
+                        && (-cqe.res == libc::EINVAL || -cqe.res == libc::EOPNOTSUPP)
+                    {
+                        // Kernel without SEND_ZC: resend every rejected buffer
+                        // as a plain send, and stop issuing SEND_ZC.
+                        if self.send_zc {
+                            eprintln!("ringrt: kernel rejected SEND_ZC; using plain sends");
+                            self.send_zc = false;
+                        }
+                        self.in_flight -= 1;
+                        self.free.push(slot);
+                        owner.in_flight.set(owner.in_flight.get() - 1);
+                        self.submit_detached_send(fd, buf, &owner);
+                        continue;
                     }
-                    self.give_buffer(buf);
+                    // Notification (buffer released) or a terminal result
+                    // without MORE (error, or zero-length).
+                    let res = if sent { 0 } else { cqe.res };
+                    self.finish_detached(slot, buf, owner, if sent { i32::MAX } else { res });
                 }
                 _ => {
                     self.in_flight -= 1;
@@ -695,7 +791,7 @@ impl Drop for Reactor {
         for slot in 0..self.slots.len() {
             if matches!(
                 self.slots[slot],
-                Slot::Orphan { .. } | Slot::Multi(_) | Slot::Detached { .. }
+                Slot::Orphan { .. } | Slot::Multi(_) | Slot::Detached { .. } | Slot::DetachedZc { .. }
             ) {
                 self.cancel(slot);
             }

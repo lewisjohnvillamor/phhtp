@@ -52,6 +52,10 @@
 //!   completion lands.
 //! * `accept` is one multishot op per listener (5.19+, single-shot before).
 //! * `sleep` is a kernel `TIMEOUT` op; there is no user-space timer wheel.
+//!   [`time::timeout`] wraps any future with a deadline.
+//! * [`spawn`] returns a [`JoinHandle`] that can be awaited or aborted.
+//! * [`fs`]: `openat`, `statx` and `read` as ring ops, no blocking pool.
+//! * [`net::TcpStream::send_detached_zc`]: `SEND_ZC` for large bodies.
 //! * One `io_uring_enter` per scheduler turn submits every queued op and waits
 //!   for completions.
 //!
@@ -73,6 +77,8 @@
 #[allow(missing_docs)]
 pub mod bufring;
 mod executor;
+#[allow(missing_docs)]
+pub mod fs;
 pub mod net;
 #[allow(missing_docs)]
 pub mod op;
@@ -84,7 +90,7 @@ mod runtime;
 pub mod sys;
 pub mod time;
 
-pub use executor::{spawn, yield_now, YieldNow};
+pub use executor::{spawn, yield_now, JoinHandle, YieldNow};
 pub use runtime::Runtime;
 
 /// The ring without the executor: `Sqe`/`Cqe` layouts, opcodes and a

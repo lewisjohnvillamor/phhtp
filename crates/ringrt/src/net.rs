@@ -84,6 +84,18 @@ impl TcpListener {
         }
     }
 
+    /// Stop accepting: `shutdown(2)` on the listening socket makes the armed
+    /// accept complete with an error, so an accept loop that checks a stop
+    /// flag can exit. The socket closes when the listener drops.
+    pub fn shutdown(&self) -> io::Result<()> {
+        // SAFETY: shutdown on a socket we own.
+        if unsafe { libc::shutdown(self.fd.as_raw_fd(), libc::SHUT_RDWR) } < 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
+
     /// The address this listener is bound to.
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
         // SAFETY: borrowing the fd as a std listener just to ask its address.
@@ -193,6 +205,37 @@ impl TcpStream {
             fd: self.fd.as_raw_fd(),
             buf: Some(buf),
             owner: &self.detached,
+        }
+    }
+
+    /// Like [`TcpStream::send_detached`] but zero-copy (`SEND_ZC`, 6.0+): the
+    /// kernel reads the buffer's pages directly and returns the buffer to the
+    /// pool only when its notification arrives. Pays off from a few tens of
+    /// KiB; for small buffers it costs an extra completion. Falls back to a
+    /// plain send on kernels without it.
+    pub fn send_detached_zc(&self, buf: Vec<u8>) -> op::SendDetachedZc<'_> {
+        op::SendDetachedZc {
+            fd: self.fd.as_raw_fd(),
+            buf: Some(buf),
+            owner: &self.detached,
+        }
+    }
+
+    /// `shutdown(2)` on the socket. `Shutdown::Both` makes a pending `recv`
+    /// on this stream resolve with `Ok(0)`, which is how another task (an
+    /// idle-connection sweeper, a shutdown sequence) ends a connection it
+    /// does not own.
+    pub fn shutdown(&self, how: std::net::Shutdown) -> io::Result<()> {
+        let how = match how {
+            std::net::Shutdown::Read => libc::SHUT_RD,
+            std::net::Shutdown::Write => libc::SHUT_WR,
+            std::net::Shutdown::Both => libc::SHUT_RDWR,
+        };
+        // SAFETY: shutdown on a socket we own.
+        if unsafe { libc::shutdown(self.fd.as_raw_fd(), how) } < 0 {
+            Err(io::Error::last_os_error())
+        } else {
+            Ok(())
         }
     }
 

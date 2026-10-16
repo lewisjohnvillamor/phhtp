@@ -16,9 +16,15 @@ pub const OP_NOP: u8 = 0;
 pub const OP_TIMEOUT: u8 = 11;
 pub const OP_ACCEPT: u8 = 13;
 pub const OP_ASYNC_CANCEL: u8 = 14;
+pub const OP_OPENAT: u8 = 18;
 pub const OP_CLOSE: u8 = 19;
+pub const OP_STATX: u8 = 21;
+pub const OP_READ: u8 = 22;
 pub const OP_SEND: u8 = 26;
 pub const OP_RECV: u8 = 27;
+/// Zero-copy send (6.0+): one CQE with the byte count and `CQE_F_MORE`, then a
+/// notification CQE with `CQE_F_NOTIF` once the kernel is done with the buffer.
+pub const OP_SEND_ZC: u8 = 47;
 
 // io_uring_setup flags.
 pub const SETUP_CQSIZE: u32 = 1 << 3;
@@ -51,6 +57,7 @@ pub const IOSQE_BUFFER_SELECT: u8 = 1 << 5;
 pub const CQE_F_BUFFER: u32 = 1 << 0;
 pub const CQE_F_MORE: u32 = 1 << 1;
 pub const CQE_F_SOCK_NONEMPTY: u32 = 1 << 2;
+pub const CQE_F_NOTIF: u32 = 1 << 3;
 pub const CQE_BUFFER_SHIFT: u32 = 16;
 
 // io_uring_register opcodes.
