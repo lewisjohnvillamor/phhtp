@@ -39,6 +39,11 @@ impl Runtime {
         Reactor::with(|r| r.setup_flags())
     }
 
+    /// Whether this kernel gave us a provided-buffer ring (multishot recv).
+    pub fn has_buffer_ring(&self) -> bool {
+        Reactor::with(|r| r.has_buffer_ring())
+    }
+
     /// `true` if this kernel and sandbox allow creating a ring at all.
     pub fn available() -> bool {
         crate::ring::available()

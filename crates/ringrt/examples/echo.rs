@@ -14,9 +14,7 @@ fn main() -> std::io::Result<()> {
             spawn(async move {
                 let mut buf = Vec::with_capacity(16 * 1024);
                 loop {
-                    let (r, b) = stream.recv(buf).await;
-                    buf = b;
-                    if matches!(r, Ok(0) | Err(_)) {
+                    if matches!(stream.recv(&mut buf).await, Ok(0) | Err(_)) {
                         return;
                     }
                     let (r, b) = stream.send_all(buf).await;

@@ -9,6 +9,7 @@ use std::io;
 
 pub const SYS_SETUP: libc::c_long = libc::SYS_io_uring_setup;
 pub const SYS_ENTER: libc::c_long = libc::SYS_io_uring_enter;
+pub const SYS_REGISTER: libc::c_long = libc::SYS_io_uring_register;
 
 // Opcodes (subset).
 pub const OP_NOP: u8 = 0;
@@ -39,9 +40,43 @@ pub const OFF_SQES: i64 = 0x1000_0000;
 
 // sqe.ioprio bit for multishot accept (5.19+).
 pub const ACCEPT_MULTISHOT: u16 = 1 << 0;
+// sqe.ioprio bit for multishot recv (6.0+).
+pub const RECV_MULTISHOT: u16 = 1 << 1;
+
+// sqe.flags (IOSQE_*): FIXED_FILE=1<<0, IO_DRAIN=1<<1, IO_LINK=1<<2,
+// IO_HARDLINK=1<<3, ASYNC=1<<4, BUFFER_SELECT=1<<5, CQE_SKIP_SUCCESS=1<<6.
+pub const IOSQE_BUFFER_SELECT: u8 = 1 << 5;
 
 // cqe.flags.
+pub const CQE_F_BUFFER: u32 = 1 << 0;
 pub const CQE_F_MORE: u32 = 1 << 1;
+pub const CQE_F_SOCK_NONEMPTY: u32 = 1 << 2;
+pub const CQE_BUFFER_SHIFT: u32 = 16;
+
+// io_uring_register opcodes.
+pub const REGISTER_PBUF_RING: u32 = 22;
+pub const UNREGISTER_PBUF_RING: u32 = 23;
+
+/// `struct io_uring_buf`: one entry of a provided-buffer ring.
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug)]
+pub struct Buf {
+    pub addr: u64,
+    pub len: u32,
+    pub bid: u16,
+    pub resv: u16,
+}
+
+/// `struct io_uring_buf_reg`, the argument of `IORING_REGISTER_PBUF_RING`.
+#[repr(C)]
+#[derive(Clone, Copy, Default, Debug)]
+pub struct BufReg {
+    pub ring_addr: u64,
+    pub ring_entries: u32,
+    pub bgid: u16,
+    pub flags: u16,
+    pub resv: [u64; 3],
+}
 
 /// `struct io_uring_sqe` (64 bytes, non-SQE128).
 #[repr(C)]
@@ -133,6 +168,8 @@ const _: () = assert!(std::mem::size_of::<SqringOffsets>() == 40);
 const _: () = assert!(std::mem::size_of::<CqringOffsets>() == 40);
 const _: () = assert!(std::mem::size_of::<Params>() == 120);
 const _: () = assert!(std::mem::size_of::<KernelTimespec>() == 16);
+const _: () = assert!(std::mem::size_of::<Buf>() == 16);
+const _: () = assert!(std::mem::size_of::<BufReg>() == 40);
 
 pub fn setup(entries: u32, params: &mut Params) -> io::Result<i32> {
     // SAFETY: plain syscall with a valid, properly laid out params struct.
@@ -168,5 +205,16 @@ pub fn enter(fd: i32, to_submit: u32, min_complete: u32, flags: u32) -> io::Resu
             Some(libc::EBUSY) | Some(libc::EAGAIN) if to_submit > 0 => return Ok(0),
             _ => return Err(e),
         }
+    }
+}
+
+/// `io_uring_register(fd, opcode, &arg, nr_args)` with a typed argument.
+pub fn register<T>(fd: i32, opcode: u32, arg: &T, nr_args: u32) -> io::Result<()> {
+    // SAFETY: plain syscall; `arg` is a valid reference to a `repr(C)` struct.
+    let r = unsafe { libc::syscall(SYS_REGISTER, fd, opcode, arg as *const T, nr_args) };
+    if r < 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(())
     }
 }

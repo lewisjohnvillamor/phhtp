@@ -44,7 +44,7 @@ pub fn run(cfg: Config, app: Arc<App>) -> io::Result<()> {
             let app = Arc::clone(&app);
             std::thread::Builder::new()
                 .name(format!("phhtp-uring-async-{i}"))
-                .spawn(move || worker(listener, app))
+                .spawn(move || worker(listener, app, i == 0))
         })
         .collect::<io::Result<_>>()?;
 
@@ -55,8 +55,15 @@ pub fn run(cfg: Config, app: Arc<App>) -> io::Result<()> {
     Ok(())
 }
 
-fn worker(listener: TcpListener, app: Arc<App>) -> io::Result<()> {
+fn worker(listener: TcpListener, app: Arc<App>, log: bool) -> io::Result<()> {
     let rt = Runtime::new()?;
+    if log {
+        eprintln!(
+            "uring-async: setup_flags=0x{:x} buffer-ring={}",
+            rt.setup_flags(),
+            rt.has_buffer_ring()
+        );
+    }
     rt.block_on(async move {
         loop {
             match listener.accept().await {
@@ -81,9 +88,7 @@ async fn serve_connection(app: Arc<App>, stream: TcpStream) {
     let mut outbuf: Vec<u8> = Vec::with_capacity(READ_CHUNK);
 
     loop {
-        let (r, b) = stream.recv(inbuf).await;
-        inbuf = b;
-        match r {
+        match stream.recv(&mut inbuf).await {
             Ok(0) | Err(_) => return,
             Ok(_) => {}
         }

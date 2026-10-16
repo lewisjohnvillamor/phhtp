@@ -20,9 +20,7 @@
 //!             spawn(async move {
 //!                 let mut buf = Vec::with_capacity(16 * 1024);
 //!                 loop {
-//!                     let (r, b) = stream.recv(buf).await;
-//!                     buf = b;
-//!                     match r {
+//!                     match stream.recv(&mut buf).await {
 //!                         Ok(0) | Err(_) => return,
 //!                         Ok(_) => {}
 //!                     }
@@ -44,11 +42,15 @@
 //! * One [`Runtime`] per thread. Tasks are `!Send`; there is no work stealing.
 //!   Scale by running one runtime per core, each with its own
 //!   [`net::TcpListener::bind_reuseport`] listener.
-//! * Buffers are passed **by value** to `recv` / `send_all` and handed back
-//!   with the result. With a completion API the kernel owns the buffer until
-//!   it says otherwise; this is the only sound way to express that in safe
-//!   Rust without a lifetime the kernel cannot see. A future dropped
-//!   mid-flight parks its buffer in the reactor until the completion lands.
+//! * `recv` borrows `&mut Vec<u8>` like Tokio's `read`. It is sound with a
+//!   completion API because the kernel never sees your memory: one multishot
+//!   `RECV` per stream delivers into a registered provided-buffer ring, the
+//!   reactor copies out and recycles the buffer at completion time. On kernels
+//!   before 6.0 it degrades to single-shot `RECV` into reactor-owned staging.
+//! * `send_all` takes its `Vec<u8>` **by value** and hands it back: the kernel
+//!   reads from it, and a dropped future parks it in the reactor until the
+//!   completion lands.
+//! * `accept` is one multishot op per listener (5.19+, single-shot before).
 //! * `sleep` is a kernel `TIMEOUT` op; there is no user-space timer wheel.
 //! * One `io_uring_enter` per scheduler turn submits every queued op and waits
 //!   for completions.
@@ -68,6 +70,8 @@
 #![warn(missing_docs)]
 #![allow(clippy::needless_doctest_main)]
 
+#[allow(missing_docs)]
+pub mod bufring;
 mod executor;
 pub mod net;
 #[allow(missing_docs)]
@@ -86,6 +90,7 @@ pub use runtime::Runtime;
 /// The ring without the executor: `Sqe`/`Cqe` layouts, opcodes and a
 /// submission/completion wrapper, for writing a callback-style event loop.
 pub mod raw {
+    pub use crate::bufring::BufRing;
     pub use crate::ring::{available, Ring};
     pub use crate::sys;
     pub use crate::sys::{Cqe, KernelTimespec, Sqe};

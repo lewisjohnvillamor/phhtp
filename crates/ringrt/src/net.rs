@@ -1,5 +1,6 @@
 //! TCP listener and stream with owned-buffer `recv` / `send_all`.
 
+use std::cell::Cell;
 use std::io;
 use std::net::SocketAddr;
 use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
@@ -10,9 +11,11 @@ use crate::op;
 /// [`TcpListener::bind_reuseport`]; the kernel clamps it to `net.core.somaxconn`.
 pub const BACKLOG: i32 = 65535;
 
-/// A listening socket. `accept` is an io_uring `ACCEPT` op.
+/// A listening socket. The first `accept` arms one multishot `ACCEPT` that
+/// then delivers every connection for the listener's lifetime.
 pub struct TcpListener {
     fd: OwnedFd,
+    slot: Cell<Option<usize>>,
 }
 
 impl TcpListener {
@@ -66,13 +69,19 @@ impl TcpListener {
             if libc::listen(fd.as_raw_fd(), BACKLOG) < 0 {
                 return Err(io::Error::last_os_error());
             }
-            Ok(TcpListener { fd })
+            Ok(TcpListener {
+                fd,
+                slot: Cell::new(None),
+            })
         }
     }
 
     /// Adopt a bound std listener (its fd moves into the runtime).
     pub fn from_std(l: std::net::TcpListener) -> TcpListener {
-        TcpListener { fd: l.into() }
+        TcpListener {
+            fd: l.into(),
+            slot: Cell::new(None),
+        }
     }
 
     /// The address this listener is bound to.
@@ -86,11 +95,22 @@ impl TcpListener {
 
     /// Accept one connection. Resolves to a stream with `TCP_NODELAY` unset.
     pub async fn accept(&self) -> io::Result<TcpStream> {
-        let fd = op::accept(self.fd.as_raw_fd()).await?;
+        let fd = op::Accept {
+            fd: self.fd.as_raw_fd(),
+            slot: &self.slot,
+        }
+        .await?;
         // SAFETY: fresh fd from accept that nothing else owns.
         Ok(TcpStream {
             fd: unsafe { OwnedFd::from_raw_fd(fd) },
+            slot: Cell::new(None),
         })
+    }
+}
+
+impl Drop for TcpListener {
+    fn drop(&mut self) {
+        op::release_slot(&self.slot);
     }
 }
 
@@ -105,12 +125,16 @@ impl AsRawFd for TcpListener {
 /// kernel is done, so dropping the stream mid-operation is safe.
 pub struct TcpStream {
     fd: OwnedFd,
+    slot: Cell<Option<usize>>,
 }
 
 impl TcpStream {
     /// Adopt a connected std stream (its fd moves into the runtime).
     pub fn from_std(s: std::net::TcpStream) -> TcpStream {
-        TcpStream { fd: s.into() }
+        TcpStream {
+            fd: s.into(),
+            slot: Cell::new(None),
+        }
     }
 
     /// Set `TCP_NODELAY`.
@@ -133,11 +157,14 @@ impl TcpStream {
         }
     }
 
-    /// Receive into the spare capacity of `buf` (at least [`op::READ_CHUNK`]
-    /// bytes are reserved) and hand the buffer back with the byte count.
-    /// `Ok(0)` is EOF.
-    pub fn recv(&self, buf: Vec<u8>) -> op::Recv {
-        op::recv(self.fd.as_raw_fd(), buf)
+    /// Append whatever has arrived to `buf`. Resolves with the number of bytes
+    /// appended; `Ok(0)` is EOF.
+    pub fn recv<'a>(&'a self, buf: &'a mut Vec<u8>) -> op::Recv<'a> {
+        op::Recv {
+            fd: self.fd.as_raw_fd(),
+            slot: &self.slot,
+            out: buf,
+        }
     }
 
     /// Send one chunk; may be short. Prefer [`TcpStream::send_all`].
@@ -157,6 +184,12 @@ impl TcpStream {
         let r = std.peer_addr();
         let _ = std.into_raw_fd();
         r
+    }
+}
+
+impl Drop for TcpStream {
+    fn drop(&mut self) {
+        op::release_slot(&self.slot);
     }
 }
 

@@ -32,7 +32,7 @@ Two facts frame everything below:
 
 ## 2. Where `ringrt` sits
 
-`ringrt` is 1 100 lines, one dependency (`libc`), and makes the same two
+`ringrt` is ~1 600 lines, one dependency (`libc`), and makes the same two
 architectural choices as the runtimes above. What distinguishes it:
 
 | | `ringrt` | `monoio` / `compio` | `glommio` | `tokio-uring` |
@@ -41,8 +41,8 @@ architectural choices as the runtimes above. What distinguishes it:
 | Ring access | own ABI transcription, own mmap, own head/tail protocol | `io-uring` crate | `io-uring` crate | `io-uring` crate |
 | Scheduler | `Rc` waker, `VecDeque`, no atomics | similar, more features | similar, plus task queues with priorities/shares | tokio current-thread |
 | Blocking on ring | `io_uring_enter(GETEVENTS)` | same | same | epoll on the ring fd |
-| Multishot accept | callback runtime: yes; async runtime: no | yes | yes | no |
-| Multishot recv / provided buffers | no | compio: partial | yes | no |
+| Multishot accept | yes (both runtimes, single-shot fallback) | yes | yes | no |
+| Multishot recv / provided buffers | yes (6.0+, single-shot fallback); `recv(&mut Vec)` borrows like Tokio | compio: partial | yes | no |
 | Fixed files / registered buffers | no | yes | yes | yes |
 | Timers | one kernel `TIMEOUT` op per sleep | timer wheel (monoio) / kernel | timer wheel | tokio's wheel |
 | File I/O | no | yes | yes (DMA) | yes |
@@ -99,8 +99,8 @@ on this repository's own benchmark (see the README) and on the sources below.
 * **Kernel floor.** Linux ≥ 5.6; multishot accept needs 5.19; the fast setup
   flags we try first need 6.0. Ubuntu 24.04's 6.8 kernel covers all of it.
 * **The missing features.** No file I/O, no `JoinHandle`, no `select!`, no
-  cross-thread channels, no registered buffers or multishot recv (the features
-  that make `ringline` faster), no graceful shutdown, no metrics.
+  cross-thread channels, no registered files or zero-copy send (what is
+  left of `ringline`'s feature list), no graceful shutdown, no metrics.
 * **Soundness surface is ours.** The runtime has ~15 `unsafe` blocks (ring
   memory, the `Rc` waker, `set_len` after recv). They are small and commented,
   and the owned-buffer design removes the classic use-after-free, but nobody
@@ -132,9 +132,10 @@ on this repository's own benchmark (see the README) and on the sources below.
   (best p99, blocking pool, ecosystem) or `uring-async` (best p50 and best
   behaviour under I/O waits).** Decide with the droplet numbers, not these.
 * **If `ringrt` goes forward,** the next features in value order are:
-  multishot accept in the async path, `JoinHandle`, a small blocking pool,
-  multishot recv with provided buffers (the biggest remaining syscall win),
-  then an epoll fallback for environments that block io_uring.
+  `JoinHandle`, a small blocking pool, registered files (`IOSQE_FIXED_FILE`),
+  then an epoll fallback for environments that block io_uring. Multishot
+  accept and multishot recv with provided buffers are done; see the README
+  for what they bought.
 
 ## 5. Naming
 

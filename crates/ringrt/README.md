@@ -14,9 +14,7 @@ fn main() -> std::io::Result<()> {
             spawn(async move {
                 let mut buf = Vec::with_capacity(16 * 1024);
                 loop {
-                    let (r, b) = stream.recv(buf).await;
-                    buf = b;
-                    if matches!(r, Ok(0) | Err(_)) { return; }
+                    if matches!(stream.recv(&mut buf).await, Ok(0) | Err(_)) { return; }
                     let (r, b) = stream.send_all(buf).await;
                     buf = b;
                     buf.clear();
@@ -30,14 +28,25 @@ fn main() -> std::io::Result<()> {
 
 * One `Runtime` per thread, tasks are `!Send`, no work stealing. Scale with one
   runtime per core and `TcpListener::bind_reuseport`.
-* Buffers go **by value** into `recv` / `send_all` and come back with the result,
-  because with a completion API the kernel owns the buffer until it says
-  otherwise. A dropped future parks its buffer in the reactor until then.
-* `time::sleep` is a kernel `TIMEOUT` op; no timer wheel.
+* `recv(&mut Vec<u8>)` borrows like Tokio's `read`: one multishot `RECV` per
+  stream delivers into a kernel-registered provided-buffer ring, and the reactor
+  copies out and recycles the buffer at completion time, so the kernel never
+  sees your memory. Single-shot fallback before Linux 6.0.
+* `send_all(Vec<u8>)` lends its buffer to the kernel and hands it back; a dropped
+  future parks it in the reactor until the completion lands.
+* `accept` is one multishot op per listener; `time::sleep` is a kernel `TIMEOUT`
+  op; no timer wheel.
 * `ringrt::raw` exposes the ring alone for callback-style loops.
 
-Requires Linux ≥ 5.6 and `kernel.io_uring_disabled = 0`. Docker's default
-seccomp profile blocks io_uring; `Runtime::available()` tells you up front.
+Requires Linux ≥ 5.6 and `kernel.io_uring_disabled = 0` (multishot accept
+5.19+, multishot recv with buffer rings 6.0+, with transparent single-shot
+fallback below). Docker's default seccomp profile blocks io_uring;
+`Runtime::available()` tells you up front.
+
+Tuning: `RINGRT_BUF_ENTRIES` (default 256) and `RINGRT_BUF_SIZE` (default
+4096) size the per-runtime provided-buffer ring; keep it small enough to stay
+in cache. `RINGRT_NO_MULTISHOT=1` forces single-shot ops, `RINGRT_TRACE=1`
+prints every multishot arm and completion.
 
 This crate was extracted from [phhtp](https://github.com/lewisjohnvillamor/phhtp),
 an experiment in replacing Tokio for a thread-per-core HTTP server. The

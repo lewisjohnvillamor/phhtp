@@ -1,11 +1,8 @@
-//! Raw operation futures: each is a future that submits one SQE on first poll
-//! and resolves when its completion is reaped by the reactor.
-//!
-//! Buffers are passed **by value** and handed back with the result. That is the
-//! only ownership model that is sound with a completion API: if the future is
-//! dropped mid-flight, the buffer moves into the reactor's orphan slot and lives
-//! until the kernel says it is done with it.
+//! Operation futures. `Accept` and `Recv` drive a long-lived multishot slot
+//! owned by the listener / stream; `Send` and `Sleep` are single-shot and own
+//! what they lend to the kernel.
 
+use std::cell::Cell;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
@@ -14,127 +11,66 @@ use std::task::{Context, Poll};
 use crate::reactor::Reactor;
 use crate::sys::{self, KernelTimespec, Sqe};
 
-/// Minimum spare capacity a `recv` reserves in its buffer.
-pub const READ_CHUNK: usize = 16 * 1024;
-
 fn errno(res: i32) -> io::Error {
     io::Error::from_raw_os_error(-res)
 }
 
 // ---------------------------------------------------------------- accept
 
-pub struct Accept {
-    fd: i32,
-    slot: Option<usize>,
+pub struct Accept<'a> {
+    pub(crate) fd: i32,
+    pub(crate) slot: &'a Cell<Option<usize>>,
 }
 
-pub fn accept(listener_fd: i32) -> Accept {
-    Accept {
-        fd: listener_fd,
-        slot: None,
-    }
-}
-
-impl Future for Accept {
+impl Future for Accept<'_> {
     type Output = io::Result<i32>;
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.slot {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let slot = match self.slot.get() {
+            Some(s) => s,
             None => {
-                let sqe = Sqe {
-                    opcode: sys::OP_ACCEPT,
-                    fd: self.fd,
-                    op_flags: libc::SOCK_CLOEXEC as u32,
-                    ..Default::default()
-                };
-                self.slot = Some(Reactor::with(|r| r.submit(sqe, cx.waker().clone())));
-                Poll::Pending
+                let s = Reactor::with(|r| r.new_accept_slot(self.fd));
+                self.slot.set(Some(s));
+                s
             }
-            Some(slot) => match Reactor::with(|r| r.poll_slot(slot, cx.waker())) {
-                None => Poll::Pending,
-                Some(res) => {
-                    self.slot = None;
-                    Poll::Ready(if res < 0 { Err(errno(res)) } else { Ok(res) })
-                }
-            },
-        }
-    }
-}
-
-impl Drop for Accept {
-    fn drop(&mut self) {
-        if let Some(slot) = self.slot.take() {
-            Reactor::try_with(|r| r.orphan(slot, None));
+        };
+        match Reactor::with(|r| r.poll_accept(slot, cx.waker())) {
+            Some(r) => Poll::Ready(r),
+            None => Poll::Pending,
         }
     }
 }
 
 // ---------------------------------------------------------------- recv
 
-pub struct Recv {
-    fd: i32,
-    buf: Option<Vec<u8>>,
-    slot: Option<usize>,
+pub struct Recv<'a> {
+    pub(crate) fd: i32,
+    pub(crate) slot: &'a Cell<Option<usize>>,
+    pub(crate) out: &'a mut Vec<u8>,
 }
 
-/// Receive into the spare capacity of `buf` (at least [`READ_CHUNK`] bytes).
-/// Resolves to `(Ok(n), buf)` with `n` bytes appended, `Ok(0)` on EOF.
-pub fn recv(fd: i32, buf: Vec<u8>) -> Recv {
-    Recv {
-        fd,
-        buf: Some(buf),
-        slot: None,
-    }
-}
-
-impl Future for Recv {
-    type Output = (io::Result<usize>, Vec<u8>);
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.slot {
+impl Future for Recv<'_> {
+    type Output = io::Result<usize>;
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+        let slot = match this.slot.get() {
+            Some(s) => s,
             None => {
-                let fd = self.fd;
-                let buf = self.buf.as_mut().expect("polled after completion");
-                buf.reserve(READ_CHUNK);
-                let len = buf.len();
-                let spare = buf.capacity() - len;
-                // SAFETY: pointer into spare capacity of a Vec this future owns
-                // and will not touch until the completion arrives.
-                let addr = unsafe { buf.as_mut_ptr().add(len) } as u64;
-                let sqe = Sqe {
-                    opcode: sys::OP_RECV,
-                    fd,
-                    addr,
-                    len: spare as u32,
-                    ..Default::default()
-                };
-                self.slot = Some(Reactor::with(|r| r.submit(sqe, cx.waker().clone())));
-                Poll::Pending
+                let s = Reactor::with(|r| r.new_recv_slot(this.fd));
+                this.slot.set(Some(s));
+                s
             }
-            Some(slot) => match Reactor::with(|r| r.poll_slot(slot, cx.waker())) {
-                None => Poll::Pending,
-                Some(res) => {
-                    self.slot = None;
-                    let mut buf = self.buf.take().expect("buffer present");
-                    if res < 0 {
-                        return Poll::Ready((Err(errno(res)), buf));
-                    }
-                    // SAFETY: the kernel wrote exactly `res` bytes after `len`.
-                    unsafe { buf.set_len(buf.len() + res as usize) };
-                    Poll::Ready((Ok(res as usize), buf))
-                }
-            },
+        };
+        match Reactor::with(|r| r.poll_recv(slot, cx.waker(), this.out)) {
+            Some(r) => Poll::Ready(r),
+            None => Poll::Pending,
         }
     }
 }
 
-impl Drop for Recv {
-    fn drop(&mut self) {
-        if let Some(slot) = self.slot.take() {
-            let keep = self
-                .buf
-                .take()
-                .map(|b| Box::new(b) as Box<dyn std::any::Any>);
-            Reactor::try_with(|r| r.orphan(slot, keep));
-        }
+/// Release a multishot slot when its owner (listener / stream) drops.
+pub(crate) fn release_slot(slot: &Cell<Option<usize>>) {
+    if let Some(s) = slot.take() {
+        Reactor::try_with(|r| r.orphan(s, None));
     }
 }
 

@@ -24,6 +24,10 @@ fn all_runtimes() -> Vec<Runtime> {
     } else {
         eprintln!("io_uring unavailable here; skipping the uring runtime");
     }
+    // PHHTP_TEST_RUNTIMES="uring-async,tokio" narrows the set for debugging.
+    if let Ok(filter) = std::env::var("PHHTP_TEST_RUNTIMES") {
+        v.retain(|rt| filter.split(',').any(|f| f.trim() == rt.name()));
+    }
     v
 }
 

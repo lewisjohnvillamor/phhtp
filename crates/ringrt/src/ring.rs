@@ -156,6 +156,11 @@ impl Ring {
         Ok(ring)
     }
 
+    /// The ring's file descriptor (for `io_uring_register`).
+    pub fn fd(&self) -> i32 {
+        self.fd
+    }
+
     /// Queue an SQE. Returns `false` if the submission queue is full
     /// (call [`Ring::submit`] and retry).
     pub fn push(&mut self, sqe: Sqe) -> bool {

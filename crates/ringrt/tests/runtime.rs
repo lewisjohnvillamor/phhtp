@@ -121,9 +121,7 @@ fn tcp_echo_roundtrip() {
         let stream = listener.accept().await.unwrap();
         let mut buf = Vec::with_capacity(16 * 1024);
         loop {
-            let (r, b) = stream.recv(buf).await;
-            buf = b;
-            if r.unwrap() == 0 {
+            if stream.recv(&mut buf).await.unwrap() == 0 {
                 break;
             }
             let (r, b) = stream.send_all(buf).await;
@@ -153,4 +151,52 @@ fn dropping_runtime_with_inflight_accept_is_clean() {
     })
     .unwrap();
     drop(rt); // must cancel the accept and return, not hang
+}
+
+#[test]
+fn many_sequential_accepts_and_large_transfer() {
+    // Exercises multishot accept across connections and multishot recv across
+    // many provided buffers (1 MiB > 4 KiB buffer size).
+    if skip() {
+        return;
+    }
+    let rt = Runtime::new().unwrap();
+    eprintln!("buffer ring: {}", rt.has_buffer_ring());
+    rt.block_on(async {
+        let listener = TcpListener::bind("127.0.0.1:0".parse().unwrap()).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let client = std::thread::spawn(move || {
+            for round in 0..20 {
+                let mut s = std::net::TcpStream::connect(addr).unwrap();
+                let msg = vec![b'a' + (round % 26) as u8; if round == 19 { 1 << 20 } else { 100 }];
+                s.write_all(&msg).unwrap();
+                s.shutdown(std::net::Shutdown::Write).unwrap();
+                let mut got = Vec::new();
+                let mut tmp = [0u8; 65536];
+                loop {
+                    match s.read(&mut tmp) {
+                        Ok(0) => break,
+                        Ok(n) => got.extend_from_slice(&tmp[..n]),
+                        Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                        Err(e) => panic!("{e}"),
+                    }
+                }
+                assert_eq!(got.len(), msg.len());
+                assert_eq!(got, msg);
+            }
+        });
+        for _ in 0..20 {
+            let stream = listener.accept().await.unwrap();
+            let mut buf = Vec::new();
+            loop {
+                if stream.recv(&mut buf).await.unwrap() == 0 {
+                    break;
+                }
+            }
+            let (r, _) = stream.send_all(buf).await;
+            r.unwrap();
+        }
+        client.join().unwrap();
+    })
+    .unwrap();
 }
