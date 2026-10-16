@@ -4,7 +4,7 @@
 #
 #   scripts/static.sh                               # 4 KiB, 64 KiB, 1 MiB files
 #   RUNTIMES="tokio uring-async" SIZES="65536" scripts/static.sh
-#   ZC_AB=1 scripts/static.sh                       # also uring-async with SEND_ZC off
+#   ZC_AB=1 scripts/static.sh                       # also uring-async with SEND_ZC on (off by default)
 #
 # Server pinned to SERVER_CPUS, client to CLIENT_CPUS (taskset), as in scale.sh.
 # nginx: worker_processes = 2, sendfile on, keepalive, access_log off; skipped
@@ -65,10 +65,11 @@ run_phhtp() { # <runtime> <label> <note> [env...]
 }
 
 for rt in $RUNTIMES; do
-  run_phhtp "$rt" "$rt" "zc=default"
+  run_phhtp "$rt" "$rt" "zc=off cache=default"
 done
 if [[ $ZC_AB == 1 ]]; then
-  run_phhtp uring-async "uring-async-nozc" "zc=off" PHHTP_ZC_MIN=0
+  run_phhtp uring-async "uring-async-zc" "zc=16384 cache=default" PHHTP_ZC_MIN=16384
+  run_phhtp uring-async "uring-async-nocache" "zc=off cache=0" PHHTP_FILE_CACHE=0
 fi
 
 if [[ -n $NGINX ]]; then

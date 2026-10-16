@@ -20,7 +20,8 @@ from collections import OrderedDict, defaultdict
 FAMILY = {
     "threads": "blocking", "pool": "blocking",
     "mio": "epoll", "tokio": "epoll", "tokio-st": "epoll",
-    "uring": "io_uring", "uring-async": "io_uring",
+    "uring": "io_uring", "uring-async": "io_uring", "uring-async-zc": "io_uring", "uring-async-nocache": "io_uring",
+    "nginx": "epoll",
     "monoio": "io_uring", "compio": "io_uring", "glommio": "io_uring", "tokio-uring": "io_uring",
 }
 OURS = {"threads", "pool", "mio", "tokio", "tokio-st", "uring", "uring-async"}

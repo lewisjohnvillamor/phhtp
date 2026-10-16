@@ -99,7 +99,9 @@ The `uring-async` runtime carries the first two milestones of
 * SIGTERM / SIGINT stop accepting, drain for `--shutdown-grace S`, then close;
 * `--static-dir DIR` serves `GET /static/<name>` with `openat`, `statx` and
   `read` as io_uring ops into the buffer that already holds the response
-  head, sent with `SEND_ZC` from 16 KiB (`PHHTP_ZC_MIN`). `threads`, `pool`,
+  head, with a per-worker open-file cache (`PHHTP_FILE_CACHE`, 1024 entries).
+  `SEND_ZC` is implemented but off by default (`PHHTP_ZC_MIN=16384` turns it
+  on): on loopback it loses, see `docs/EXPANDED.md` §10. `threads`, `pool`,
   `mio` and `tokio` serve the same files with blocking reads (Tokio's on its
   `spawn_blocking` pool); the external runtimes answer 501.
 
