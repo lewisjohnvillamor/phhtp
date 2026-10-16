@@ -3,3 +3,5 @@ bench/results/*.jsonl
 !bench/results/dataset/
 bench/results/*.log
 *.log
+bench/video/frames/
+bench/video/sheet.png
