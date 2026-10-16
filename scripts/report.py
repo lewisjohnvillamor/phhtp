@@ -560,7 +560,7 @@ def main():
             by_ep.setdefault(endpoint_of(r), {})[r["label"]] = r
         for ep, by_rt in by_ep.items():
             items = [dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, tip=tip_for(r), value=r["rps"]) for rt, r in by_rt.items()]
-            name = ep.split()[1].strip("/").split("?")[0] or "root"
+            name = (ep.split()[1].strip("/").split("?")[0] or "root").replace("/", "-").replace(".", "-")
             first = next(iter(by_rt.values()))
             if mode_slug(first):
                 name += "-" + mode_slug(first)

@@ -34,7 +34,7 @@ th { position: sticky; top: 0; background: var(--surface-2); cursor: pointer; te
 td:first-child, th:first-child, td:nth-child(2), th:nth-child(2), td:nth-child(18), th:nth-child(18), td:nth-child(19), th:nth-child(19) { text-align: left; }
 code { background: var(--surface-2); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
 </style></head><body><main><h1>phhtp runtime benchmarks</h1>
-<p class="meta">283 measurements · 3 source files · medians of 3 repetitions where noted · identical runs on the shared benchmark box differ by up to ±15%, so treat smaller gaps as noise</p>
+<p class="meta">304 measurements · 4 source files · medians of 3 repetitions where noted · identical runs on the shared benchmark box differ by up to ±15%, so treat smaller gaps as noise</p>
 <div class="legend"><span style="--c:var(--io_uring)">io_uring (completion)</span><span style="--c:var(--epoll)">epoll / readiness</span><span style="--c:var(--blocking)">blocking threads</span><span style="--c:transparent">◆ built in this repository (uring / uring-async are the from-scratch runtimes)</span></div>
 <section id="matrix"><h2>Endpoint matrix</h2>
 <p class="lead">Throughput, tail latency, and the server process's own CPU and memory per endpoint, every runtime on the same handler code. CPU per request is user + system time of the server divided by requests served, read from its <code>/stats</code> endpoint at the edges of the measured window. Bars are sorted; color is the I/O model family, the name is the runtime, ◆ marks the runtimes built in this repository.</p>
@@ -2578,6 +2578,666 @@ code { background: var(--surface-2); padding: 1px 4px; border-radius: 3px; font-
 </g>
 </svg>
 </div>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 266" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f4096.bin — throughput">
+<text x="0" y="16" class="t-title">GET /static/f4096.bin — throughput</text>
+<text x="0" y="32" class="t-sub">64 keep-alive connections · higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="240" class="grid"/>
+<text x="118.0" y="256" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="240" class="grid"/>
+<text x="211.0" y="256" class="t-tick" text-anchor="middle">50k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="240" class="grid"/>
+<text x="304.0" y="256" class="t-tick" text-anchor="middle">100k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="240" class="grid"/>
+<text x="397.0" y="256" class="t-tick" text-anchor="middle">150k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="240" class="grid"/>
+<text x="490.0" y="256" class="t-tick" text-anchor="middle">200k</text>
+<line x1="118" y1="44" x2="118" y2="240" class="axis"/>
+<g class="row" data-tip="uring-async-zc · GET /static/f4096.bin · 64 conns · 189k req/s · p50 0.35 ms · p90 0.55 ms · p99 0.96 ms · CPU 177% · 10.2 µs CPU/req · ctx 0.00/req · RSS 39.1 MB · disk 0 B · median of 2 (170k–189k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,49.0 h347.88819200000006 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-347.88819200000006 z" class="bar fam-io_uring"/>
+<text x="475.9" y="62.0" class="t-value">189k</text>
+</g>
+<g class="row" data-tip="uring-async · GET /static/f4096.bin · 64 conns · 187k req/s · p50 0.36 ms · p90 0.56 ms · p99 0.93 ms · CPU 181% · 10.5 µs CPU/req · ctx 0.00/req · RSS 39.1 MB · disk 0 B · median of 2 (169k–187k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,77.0 h343.30292000000003 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-343.30292000000003 z" class="bar fam-io_uring"/>
+<text x="471.3" y="90.0" class="t-value">187k</text>
+</g>
+<g class="row" data-tip="nginx · GET /static/f4096.bin · 64 conns · 170k req/s · p50 0.38 ms · p90 0.53 ms · p99 0.80 ms · median of 2 (161k–170k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label" text-anchor="end">nginx</text>
+<path d="M118,105.0 h312.56865200000004 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-312.56865200000004 z" class="bar fam-epoll"/>
+<text x="440.6" y="118.0" class="t-value">170k</text>
+</g>
+<g class="row" data-tip="mio · GET /static/f4096.bin · 64 conns · 150k req/s · p50 0.42 ms · p90 0.74 ms · p99 1.47 ms · CPU 186% · 14.0 µs CPU/req · ctx 0.00/req · RSS 6.1 MB · disk 0 B · median of 2 (130k–150k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,133.0 h275.32103600000005 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-275.32103600000005 z" class="bar fam-epoll"/>
+<text x="403.3" y="146.0" class="t-value">150k</text>
+</g>
+<g class="row" data-tip="uring-async-nocache · GET /static/f4096.bin · 64 conns · 143k req/s · p50 0.44 ms · p90 0.72 ms · p99 1.16 ms · CPU 195% · 14.7 µs CPU/req · ctx 0.00/req · RSS 39.0 MB · disk 0 B · median of 2 (133k–143k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,161.0 h262.3148 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-262.3148 z" class="bar fam-io_uring"/>
+<text x="390.3" y="174.0" class="t-value">143k</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f4096.bin · 64 conns · 119k req/s · p50 0.47 ms · p90 0.85 ms · p99 1.77 ms · CPU 197% · 16.6 µs CPU/req · ctx 0.00/req · RSS 7.8 MB · disk 0 B · median of 2 (118k–119k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,189.0 h217.61713999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-217.61713999999998 z" class="bar fam-blocking"/>
+<text x="345.6" y="202.0" class="t-value">119k</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f4096.bin · 64 conns · 47k req/s · p50 1.35 ms · p90 2.14 ms · p99 3.14 ms · CPU 189% · 41.2 µs CPU/req · ctx 0.00/req · RSS 12.2 MB · disk 0 B · median of 2 (45k–47k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,217.0 h83.538296 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-83.538296 z" class="bar fam-epoll"/>
+<text x="211.5" y="230.0" class="t-value">47k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 266" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f4096.bin — p99 latency">
+<text x="0" y="16" class="t-title">GET /static/f4096.bin — p99 latency</text>
+<text x="0" y="32" class="t-sub">64 connections · lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="240" class="grid"/>
+<text x="118.0" y="256" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="240" class="grid"/>
+<text x="211.0" y="256" class="t-tick" text-anchor="middle">1.2</text>
+<line x1="304.0" y1="44" x2="304.0" y2="240" class="grid"/>
+<text x="304.0" y="256" class="t-tick" text-anchor="middle">2.5</text>
+<line x1="397.0" y1="44" x2="397.0" y2="240" class="grid"/>
+<text x="397.0" y="256" class="t-tick" text-anchor="middle">3.8</text>
+<line x1="490.0" y1="44" x2="490.0" y2="240" class="grid"/>
+<text x="490.0" y="256" class="t-tick" text-anchor="middle">5.0</text>
+<line x1="118" y1="44" x2="118" y2="240" class="axis"/>
+<g class="row" data-tip="nginx · GET /static/f4096.bin · 64 conns · 170k req/s · p50 0.38 ms · p90 0.53 ms · p99 0.80 ms · median of 2 (161k–170k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label" text-anchor="end">nginx</text>
+<path d="M118,49.0 h55.37120000000001 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-55.37120000000001 z" class="bar fam-epoll"/>
+<text x="183.4" y="62.0" class="t-value">0.8</text>
+</g>
+<g class="row" data-tip="uring-async · GET /static/f4096.bin · 64 conns · 187k req/s · p50 0.36 ms · p90 0.56 ms · p99 0.93 ms · CPU 181% · 10.5 µs CPU/req · ctx 0.00/req · RSS 39.1 MB · disk 0 B · median of 2 (169k–187k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,77.0 h64.82 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-64.82 z" class="bar fam-io_uring"/>
+<text x="192.8" y="90.0" class="t-value">0.9</text>
+</g>
+<g class="row" data-tip="uring-async-zc · GET /static/f4096.bin · 64 conns · 189k req/s · p50 0.35 ms · p90 0.55 ms · p99 0.96 ms · CPU 177% · 10.2 µs CPU/req · ctx 0.00/req · RSS 39.1 MB · disk 0 B · median of 2 (170k–189k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,105.0 h67.5728 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-67.5728 z" class="bar fam-io_uring"/>
+<text x="195.6" y="118.0" class="t-value">1.0</text>
+</g>
+<g class="row" data-tip="uring-async-nocache · GET /static/f4096.bin · 64 conns · 143k req/s · p50 0.44 ms · p90 0.72 ms · p99 1.16 ms · CPU 195% · 14.7 µs CPU/req · ctx 0.00/req · RSS 39.0 MB · disk 0 B · median of 2 (133k–143k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,133.0 h82.2296 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-82.2296 z" class="bar fam-io_uring"/>
+<text x="210.2" y="146.0" class="t-value">1.2</text>
+</g>
+<g class="row" data-tip="mio · GET /static/f4096.bin · 64 conns · 150k req/s · p50 0.42 ms · p90 0.74 ms · p99 1.47 ms · CPU 186% · 14.0 µs CPU/req · ctx 0.00/req · RSS 6.1 MB · disk 0 B · median of 2 (130k–150k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,161.0 h105.4424 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-105.4424 z" class="bar fam-epoll"/>
+<text x="233.4" y="174.0" class="t-value">1.5</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f4096.bin · 64 conns · 119k req/s · p50 0.47 ms · p90 0.85 ms · p99 1.77 ms · CPU 197% · 16.6 µs CPU/req · ctx 0.00/req · RSS 7.8 MB · disk 0 B · median of 2 (118k–119k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,189.0 h128.06 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-128.06 z" class="bar fam-blocking"/>
+<text x="256.1" y="202.0" class="t-value">1.8</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f4096.bin · 64 conns · 47k req/s · p50 1.35 ms · p90 2.14 ms · p99 3.14 ms · CPU 189% · 41.2 µs CPU/req · ctx 0.00/req · RSS 12.2 MB · disk 0 B · median of 2 (45k–47k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,217.0 h229.69039999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-229.69039999999998 z" class="bar fam-epoll"/>
+<text x="357.7" y="230.0" class="t-value">3.1</text>
+</g>
+</svg>
+</div>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 238" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f4096.bin — server CPU per request">
+<text x="0" y="16" class="t-title">GET /static/f4096.bin — server CPU per request</text>
+<text x="0" y="32" class="t-sub">user + system time of the server process ÷ requests · lower is better · µs</text>
+<line x1="118.0" y1="44" x2="118.0" y2="212" class="grid"/>
+<text x="118.0" y="228" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="212" class="grid"/>
+<text x="211.0" y="228" class="t-tick" text-anchor="middle">12.5</text>
+<line x1="304.0" y1="44" x2="304.0" y2="212" class="grid"/>
+<text x="304.0" y="228" class="t-tick" text-anchor="middle">25.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="212" class="grid"/>
+<text x="397.0" y="228" class="t-tick" text-anchor="middle">37.5</text>
+<line x1="490.0" y1="44" x2="490.0" y2="212" class="grid"/>
+<text x="490.0" y="228" class="t-tick" text-anchor="middle">50.0</text>
+<line x1="118" y1="44" x2="118" y2="212" class="axis"/>
+<g class="row" data-tip="uring-async-zc · GET /static/f4096.bin · 64 conns · 189k req/s · p50 0.35 ms · p90 0.55 ms · p99 0.96 ms · CPU 177% · 10.2 µs CPU/req · ctx 0.00/req · RSS 39.1 MB · disk 0 B · median of 2 (170k–189k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,49.0 h72.02278392396872 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-72.02278392396872 z" class="bar fam-io_uring"/>
+<text x="200.0" y="62.0" class="t-value">10.2</text>
+</g>
+<g class="row" data-tip="uring-async · GET /static/f4096.bin · 64 conns · 187k req/s · p50 0.36 ms · p90 0.56 ms · p99 0.93 ms · CPU 181% · 10.5 µs CPU/req · ctx 0.00/req · RSS 39.1 MB · disk 0 B · median of 2 (169k–187k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,77.0 h74.10111012133167 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-74.10111012133167 z" class="bar fam-io_uring"/>
+<text x="202.1" y="90.0" class="t-value">10.5</text>
+</g>
+<g class="row" data-tip="mio · GET /static/f4096.bin · 64 conns · 150k req/s · p50 0.42 ms · p90 0.74 ms · p99 1.47 ms · CPU 186% · 14.0 µs CPU/req · ctx 0.00/req · RSS 6.1 MB · disk 0 B · median of 2 (130k–150k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h100.51697796644741 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-100.51697796644741 z" class="bar fam-epoll"/>
+<text x="228.5" y="118.0" class="t-value">14.0</text>
+</g>
+<g class="row" data-tip="uring-async-nocache · GET /static/f4096.bin · 64 conns · 143k req/s · p50 0.44 ms · p90 0.72 ms · p99 1.16 ms · CPU 195% · 14.7 µs CPU/req · ctx 0.00/req · RSS 39.0 MB · disk 0 B · median of 2 (133k–143k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,133.0 h105.14688996081887 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-105.14688996081887 z" class="bar fam-io_uring"/>
+<text x="233.1" y="146.0" class="t-value">14.7</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f4096.bin · 64 conns · 119k req/s · p50 0.47 ms · p90 0.85 ms · p99 1.77 ms · CPU 197% · 16.6 µs CPU/req · ctx 0.00/req · RSS 7.8 MB · disk 0 B · median of 2 (118k–119k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,161.0 h119.8037155981126 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-119.8037155981126 z" class="bar fam-blocking"/>
+<text x="247.8" y="174.0" class="t-value">16.6</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f4096.bin · 64 conns · 47k req/s · p50 1.35 ms · p90 2.14 ms · p99 3.14 ms · CPU 189% · 41.2 µs CPU/req · ctx 0.00/req · RSS 12.2 MB · disk 0 B · median of 2 (45k–47k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,189.0 h302.5592513764051 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-302.5592513764051 z" class="bar fam-epoll"/>
+<text x="430.6" y="202.0" class="t-value">41.2</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 238" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f4096.bin — server RSS">
+<text x="0" y="16" class="t-title">GET /static/f4096.bin — server RSS</text>
+<text x="0" y="32" class="t-sub">resident memory at the end of the window · lower is better · MB</text>
+<line x1="118.0" y1="44" x2="118.0" y2="212" class="grid"/>
+<text x="118.0" y="228" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="212" class="grid"/>
+<text x="211.0" y="228" class="t-tick" text-anchor="middle">12</text>
+<line x1="304.0" y1="44" x2="304.0" y2="212" class="grid"/>
+<text x="304.0" y="228" class="t-tick" text-anchor="middle">25</text>
+<line x1="397.0" y1="44" x2="397.0" y2="212" class="grid"/>
+<text x="397.0" y="228" class="t-tick" text-anchor="middle">38</text>
+<line x1="490.0" y1="44" x2="490.0" y2="212" class="grid"/>
+<text x="490.0" y="228" class="t-tick" text-anchor="middle">50</text>
+<line x1="118" y1="44" x2="118" y2="212" class="axis"/>
+<g class="row" data-tip="mio · GET /static/f4096.bin · 64 conns · 150k req/s · p50 0.42 ms · p90 0.74 ms · p99 1.47 ms · CPU 186% · 14.0 µs CPU/req · ctx 0.00/req · RSS 6.1 MB · disk 0 B · median of 2 (130k–150k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,49.0 h41.395624999999995 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-41.395624999999995 z" class="bar fam-epoll"/>
+<text x="169.4" y="62.0" class="t-value">6</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f4096.bin · 64 conns · 119k req/s · p50 0.47 ms · p90 0.85 ms · p99 1.77 ms · CPU 197% · 16.6 µs CPU/req · ctx 0.00/req · RSS 7.8 MB · disk 0 B · median of 2 (118k–119k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,77.0 h53.892500000000005 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-53.892500000000005 z" class="bar fam-blocking"/>
+<text x="181.9" y="90.0" class="t-value">8</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f4096.bin · 64 conns · 47k req/s · p50 1.35 ms · p90 2.14 ms · p99 3.14 ms · CPU 189% · 41.2 µs CPU/req · ctx 0.00/req · RSS 12.2 MB · disk 0 B · median of 2 (45k–47k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,105.0 h86.4134375 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-86.4134375 z" class="bar fam-epoll"/>
+<text x="214.4" y="118.0" class="t-value">12</text>
+</g>
+<g class="row" data-tip="uring-async-nocache · GET /static/f4096.bin · 64 conns · 143k req/s · p50 0.44 ms · p90 0.72 ms · p99 1.16 ms · CPU 195% · 14.7 µs CPU/req · ctx 0.00/req · RSS 39.0 MB · disk 0 B · median of 2 (133k–143k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,133.0 h286.3634375 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-286.3634375 z" class="bar fam-io_uring"/>
+<text x="414.4" y="146.0" class="t-value">39</text>
+</g>
+<g class="row" data-tip="uring-async · GET /static/f4096.bin · 64 conns · 187k req/s · p50 0.36 ms · p90 0.56 ms · p99 0.93 ms · CPU 181% · 10.5 µs CPU/req · ctx 0.00/req · RSS 39.1 MB · disk 0 B · median of 2 (169k–187k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,161.0 h286.68312499999996 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-286.68312499999996 z" class="bar fam-io_uring"/>
+<text x="414.7" y="174.0" class="t-value">39</text>
+</g>
+<g class="row" data-tip="uring-async-zc · GET /static/f4096.bin · 64 conns · 189k req/s · p50 0.35 ms · p90 0.55 ms · p99 0.96 ms · CPU 177% · 10.2 µs CPU/req · ctx 0.00/req · RSS 39.1 MB · disk 0 B · median of 2 (170k–189k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,189.0 h287.1771875 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-287.1771875 z" class="bar fam-io_uring"/>
+<text x="415.2" y="202.0" class="t-value">39</text>
+</g>
+</svg>
+</div>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 266" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f65536.bin — throughput">
+<text x="0" y="16" class="t-title">GET /static/f65536.bin — throughput</text>
+<text x="0" y="32" class="t-sub">64 keep-alive connections · higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="240" class="grid"/>
+<text x="118.0" y="256" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="240" class="grid"/>
+<text x="211.0" y="256" class="t-tick" text-anchor="middle">25k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="240" class="grid"/>
+<text x="304.0" y="256" class="t-tick" text-anchor="middle">50k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="240" class="grid"/>
+<text x="397.0" y="256" class="t-tick" text-anchor="middle">75k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="240" class="grid"/>
+<text x="490.0" y="256" class="t-tick" text-anchor="middle">100k</text>
+<line x1="118" y1="44" x2="118" y2="240" class="axis"/>
+<g class="row" data-tip="uring-async · GET /static/f65536.bin · 64 conns · 72k req/s · p50 0.87 ms · p90 1.29 ms · p99 1.87 ms · CPU 190% · 27.1 µs CPU/req · ctx 0.00/req · RSS 47.2 MB · disk 0 B · median of 2 (70k–72k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,49.0 h262.279832 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-262.279832 z" class="bar fam-io_uring"/>
+<text x="390.3" y="62.0" class="t-value">72k</text>
+</g>
+<g class="row" data-tip="nginx · GET /static/f65536.bin · 64 conns · 70k req/s · p50 0.90 ms · p90 1.39 ms · p99 1.82 ms · median of 2 (69k–70k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label" text-anchor="end">nginx</text>
+<path d="M118,77.0 h257.897672 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-257.897672 z" class="bar fam-epoll"/>
+<text x="385.9" y="90.0" class="t-value">70k</text>
+</g>
+<g class="row" data-tip="uring-async-nocache · GET /static/f65536.bin · 64 conns · 61k req/s · p50 1.01 ms · p90 1.42 ms · p99 2.17 ms · CPU 194% · 32.2 µs CPU/req · ctx 0.00/req · RSS 46.7 MB · disk 0 B · median of 2 (60k–61k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,105.0 h223.94151200000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-223.94151200000002 z" class="bar fam-io_uring"/>
+<text x="351.9" y="118.0" class="t-value">61k</text>
+</g>
+<g class="row" data-tip="mio · GET /static/f65536.bin · 64 conns · 61k req/s · p50 1.01 ms · p90 1.48 ms · p99 2.06 ms · CPU 196% · 32.3 µs CPU/req · ctx 0.00/req · RSS 9.9 MB · disk 0 B · median of 2 (60k–61k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,133.0 h222.205016 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-222.205016 z" class="bar fam-epoll"/>
+<text x="350.2" y="146.0" class="t-value">61k</text>
+</g>
+<g class="row" data-tip="uring-async-zc · GET /static/f65536.bin · 64 conns · 53k req/s · p50 1.28 ms · p90 1.76 ms · p99 2.92 ms · CPU 190% · 39.4 µs CPU/req · ctx 0.00/req · RSS 47.9 MB · disk 0 B · median of 2 (48k–53k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,161.0 h194.260376 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-194.260376 z" class="bar fam-io_uring"/>
+<text x="322.3" y="174.0" class="t-value">53k</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f65536.bin · 64 conns · 45k req/s · p50 1.26 ms · p90 2.44 ms · p99 4.59 ms · CPU 191% · 42.9 µs CPU/req · ctx 0.00/req · RSS 11.4 MB · disk 0 B · median of 2 (44k–45k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,189.0 h163.129928 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-163.129928 z" class="bar fam-blocking"/>
+<text x="291.1" y="202.0" class="t-value">45k</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f65536.bin · 64 conns · 20k req/s · p50 3.26 ms · p90 4.66 ms · p99 6.84 ms · CPU 193% · 99.0 µs CPU/req · ctx 0.00/req · RSS 16.5 MB · disk 0 B · median of 2 (20k–20k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,217.0 h70.22144 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-70.22144 z" class="bar fam-epoll"/>
+<text x="198.2" y="230.0" class="t-value">20k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 266" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f65536.bin — p99 latency">
+<text x="0" y="16" class="t-title">GET /static/f65536.bin — p99 latency</text>
+<text x="0" y="32" class="t-sub">64 connections · lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="240" class="grid"/>
+<text x="118.0" y="256" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="240" class="grid"/>
+<text x="211.0" y="256" class="t-tick" text-anchor="middle">2.5</text>
+<line x1="304.0" y1="44" x2="304.0" y2="240" class="grid"/>
+<text x="304.0" y="256" class="t-tick" text-anchor="middle">5.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="240" class="grid"/>
+<text x="397.0" y="256" class="t-tick" text-anchor="middle">7.5</text>
+<line x1="490.0" y1="44" x2="490.0" y2="240" class="grid"/>
+<text x="490.0" y="256" class="t-tick" text-anchor="middle">10.0</text>
+<line x1="118" y1="44" x2="118" y2="240" class="axis"/>
+<g class="row" data-tip="nginx · GET /static/f65536.bin · 64 conns · 70k req/s · p50 0.90 ms · p90 1.39 ms · p99 1.82 ms · median of 2 (69k–70k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label" text-anchor="end">nginx</text>
+<path d="M118,49.0 h63.89 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-63.89 z" class="bar fam-epoll"/>
+<text x="191.9" y="62.0" class="t-value">1.8</text>
+</g>
+<g class="row" data-tip="uring-async · GET /static/f65536.bin · 64 conns · 72k req/s · p50 0.87 ms · p90 1.29 ms · p99 1.87 ms · CPU 190% · 27.1 µs CPU/req · ctx 0.00/req · RSS 47.2 MB · disk 0 B · median of 2 (70k–72k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,77.0 h65.60119999999999 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-65.60119999999999 z" class="bar fam-io_uring"/>
+<text x="193.6" y="90.0" class="t-value">1.9</text>
+</g>
+<g class="row" data-tip="mio · GET /static/f65536.bin · 64 conns · 61k req/s · p50 1.01 ms · p90 1.48 ms · p99 2.06 ms · CPU 196% · 32.3 µs CPU/req · ctx 0.00/req · RSS 9.9 MB · disk 0 B · median of 2 (60k–61k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h72.7436 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-72.7436 z" class="bar fam-epoll"/>
+<text x="200.7" y="118.0" class="t-value">2.1</text>
+</g>
+<g class="row" data-tip="uring-async-nocache · GET /static/f65536.bin · 64 conns · 61k req/s · p50 1.01 ms · p90 1.42 ms · p99 2.17 ms · CPU 194% · 32.2 µs CPU/req · ctx 0.00/req · RSS 46.7 MB · disk 0 B · median of 2 (60k–61k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,133.0 h76.90999999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-76.90999999999998 z" class="bar fam-io_uring"/>
+<text x="204.9" y="146.0" class="t-value">2.2</text>
+</g>
+<g class="row" data-tip="uring-async-zc · GET /static/f65536.bin · 64 conns · 53k req/s · p50 1.28 ms · p90 1.76 ms · p99 2.92 ms · CPU 190% · 39.4 µs CPU/req · ctx 0.00/req · RSS 47.9 MB · disk 0 B · median of 2 (48k–53k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,161.0 h104.43799999999999 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-104.43799999999999 z" class="bar fam-io_uring"/>
+<text x="232.4" y="174.0" class="t-value">2.9</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f65536.bin · 64 conns · 45k req/s · p50 1.26 ms · p90 2.44 ms · p99 4.59 ms · CPU 191% · 42.9 µs CPU/req · ctx 0.00/req · RSS 11.4 MB · disk 0 B · median of 2 (44k–45k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,189.0 h166.6364 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-166.6364 z" class="bar fam-blocking"/>
+<text x="294.6" y="202.0" class="t-value">4.6</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f65536.bin · 64 conns · 20k req/s · p50 3.26 ms · p90 4.66 ms · p99 6.84 ms · CPU 193% · 99.0 µs CPU/req · ctx 0.00/req · RSS 16.5 MB · disk 0 B · median of 2 (20k–20k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,217.0 h250.55960000000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-250.55960000000002 z" class="bar fam-epoll"/>
+<text x="378.6" y="230.0" class="t-value">6.8</text>
+</g>
+</svg>
+</div>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 238" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f65536.bin — server CPU per request">
+<text x="0" y="16" class="t-title">GET /static/f65536.bin — server CPU per request</text>
+<text x="0" y="32" class="t-sub">user + system time of the server process ÷ requests · lower is better · µs</text>
+<line x1="118.0" y1="44" x2="118.0" y2="212" class="grid"/>
+<text x="118.0" y="228" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="212" class="grid"/>
+<text x="211.0" y="228" class="t-tick" text-anchor="middle">25.0</text>
+<line x1="304.0" y1="44" x2="304.0" y2="212" class="grid"/>
+<text x="304.0" y="228" class="t-tick" text-anchor="middle">50.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="212" class="grid"/>
+<text x="397.0" y="228" class="t-tick" text-anchor="middle">75.0</text>
+<line x1="490.0" y1="44" x2="490.0" y2="212" class="grid"/>
+<text x="490.0" y="228" class="t-tick" text-anchor="middle">100.0</text>
+<line x1="118" y1="44" x2="118" y2="212" class="axis"/>
+<g class="row" data-tip="uring-async · GET /static/f65536.bin · 64 conns · 72k req/s · p50 0.87 ms · p90 1.29 ms · p99 1.87 ms · CPU 190% · 27.1 µs CPU/req · ctx 0.00/req · RSS 47.2 MB · disk 0 B · median of 2 (70k–72k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,49.0 h96.65651746678252 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-96.65651746678252 z" class="bar fam-io_uring"/>
+<text x="224.7" y="62.0" class="t-value">27.1</text>
+</g>
+<g class="row" data-tip="uring-async-nocache · GET /static/f65536.bin · 64 conns · 61k req/s · p50 1.01 ms · p90 1.42 ms · p99 2.17 ms · CPU 194% · 32.2 µs CPU/req · ctx 0.00/req · RSS 46.7 MB · disk 0 B · median of 2 (60k–61k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,77.0 h115.94603867228496 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-115.94603867228496 z" class="bar fam-io_uring"/>
+<text x="243.9" y="90.0" class="t-value">32.2</text>
+</g>
+<g class="row" data-tip="mio · GET /static/f65536.bin · 64 conns · 61k req/s · p50 1.01 ms · p90 1.48 ms · p99 2.06 ms · CPU 196% · 32.3 µs CPU/req · ctx 0.00/req · RSS 9.9 MB · disk 0 B · median of 2 (60k–61k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h116.1503754452554 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-116.1503754452554 z" class="bar fam-epoll"/>
+<text x="244.2" y="118.0" class="t-value">32.3</text>
+</g>
+<g class="row" data-tip="uring-async-zc · GET /static/f65536.bin · 64 conns · 53k req/s · p50 1.28 ms · p90 1.76 ms · p99 2.92 ms · CPU 190% · 39.4 µs CPU/req · ctx 0.00/req · RSS 47.9 MB · disk 0 B · median of 2 (48k–53k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,133.0 h142.72622782141698 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-142.72622782141698 z" class="bar fam-io_uring"/>
+<text x="270.7" y="146.0" class="t-value">39.4</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f65536.bin · 64 conns · 45k req/s · p50 1.26 ms · p90 2.44 ms · p99 4.59 ms · CPU 191% · 42.9 µs CPU/req · ctx 0.00/req · RSS 11.4 MB · disk 0 B · median of 2 (44k–45k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,161.0 h155.6881041607491 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-155.6881041607491 z" class="bar fam-blocking"/>
+<text x="283.7" y="174.0" class="t-value">42.9</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f65536.bin · 64 conns · 20k req/s · p50 3.26 ms · p90 4.66 ms · p99 6.84 ms · CPU 193% · 99.0 µs CPU/req · ctx 0.00/req · RSS 16.5 MB · disk 0 B · median of 2 (20k–20k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,189.0 h364.41878633162105 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-364.41878633162105 z" class="bar fam-epoll"/>
+<text x="492.4" y="202.0" class="t-value">99.0</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 238" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f65536.bin — server RSS">
+<text x="0" y="16" class="t-title">GET /static/f65536.bin — server RSS</text>
+<text x="0" y="32" class="t-sub">resident memory at the end of the window · lower is better · MB</text>
+<line x1="118.0" y1="44" x2="118.0" y2="212" class="grid"/>
+<text x="118.0" y="228" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="212" class="grid"/>
+<text x="211.0" y="228" class="t-tick" text-anchor="middle">12</text>
+<line x1="304.0" y1="44" x2="304.0" y2="212" class="grid"/>
+<text x="304.0" y="228" class="t-tick" text-anchor="middle">25</text>
+<line x1="397.0" y1="44" x2="397.0" y2="212" class="grid"/>
+<text x="397.0" y="228" class="t-tick" text-anchor="middle">38</text>
+<line x1="490.0" y1="44" x2="490.0" y2="212" class="grid"/>
+<text x="490.0" y="228" class="t-tick" text-anchor="middle">50</text>
+<line x1="118" y1="44" x2="118" y2="212" class="axis"/>
+<g class="row" data-tip="mio · GET /static/f65536.bin · 64 conns · 61k req/s · p50 1.01 ms · p90 1.48 ms · p99 2.06 ms · CPU 196% · 32.3 µs CPU/req · ctx 0.00/req · RSS 9.9 MB · disk 0 B · median of 2 (60k–61k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,49.0 h69.35374999999999 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-69.35374999999999 z" class="bar fam-epoll"/>
+<text x="197.4" y="62.0" class="t-value">10</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f65536.bin · 64 conns · 45k req/s · p50 1.26 ms · p90 2.44 ms · p99 4.59 ms · CPU 191% · 42.9 µs CPU/req · ctx 0.00/req · RSS 11.4 MB · disk 0 B · median of 2 (44k–45k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,77.0 h80.920625 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-80.920625 z" class="bar fam-blocking"/>
+<text x="208.9" y="90.0" class="t-value">11</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f65536.bin · 64 conns · 20k req/s · p50 3.26 ms · p90 4.66 ms · p99 6.84 ms · CPU 193% · 99.0 µs CPU/req · ctx 0.00/req · RSS 16.5 MB · disk 0 B · median of 2 (20k–20k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,105.0 h118.701875 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-118.701875 z" class="bar fam-epoll"/>
+<text x="246.7" y="118.0" class="t-value">16</text>
+</g>
+<g class="row" data-tip="uring-async-nocache · GET /static/f65536.bin · 64 conns · 61k req/s · p50 1.01 ms · p90 1.42 ms · p99 2.17 ms · CPU 194% · 32.2 µs CPU/req · ctx 0.00/req · RSS 46.7 MB · disk 0 B · median of 2 (60k–61k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,133.0 h343.296875 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-343.296875 z" class="bar fam-io_uring"/>
+<text x="471.3" y="146.0" class="t-value">47</text>
+</g>
+<g class="row" data-tip="uring-async · GET /static/f65536.bin · 64 conns · 72k req/s · p50 0.87 ms · p90 1.29 ms · p99 1.87 ms · CPU 190% · 27.1 µs CPU/req · ctx 0.00/req · RSS 47.2 MB · disk 0 B · median of 2 (70k–72k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,161.0 h346.9296875 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-346.9296875 z" class="bar fam-io_uring"/>
+<text x="474.9" y="174.0" class="t-value">47</text>
+</g>
+<g class="row" data-tip="uring-async-zc · GET /static/f65536.bin · 64 conns · 53k req/s · p50 1.28 ms · p90 1.76 ms · p99 2.92 ms · CPU 190% · 39.4 µs CPU/req · ctx 0.00/req · RSS 47.9 MB · disk 0 B · median of 2 (48k–53k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,189.0 h352.2190625 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-352.2190625 z" class="bar fam-io_uring"/>
+<text x="480.2" y="202.0" class="t-value">48</text>
+</g>
+</svg>
+</div>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 266" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f1048576.bin — throughput">
+<text x="0" y="16" class="t-title">GET /static/f1048576.bin — throughput</text>
+<text x="0" y="32" class="t-sub">64 keep-alive connections · higher is better · req/s</text>
+<line x1="118.0" y1="44" x2="118.0" y2="240" class="grid"/>
+<text x="118.0" y="256" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="240" class="grid"/>
+<text x="211.0" y="256" class="t-tick" text-anchor="middle">1.2k</text>
+<line x1="304.0" y1="44" x2="304.0" y2="240" class="grid"/>
+<text x="304.0" y="256" class="t-tick" text-anchor="middle">2.5k</text>
+<line x1="397.0" y1="44" x2="397.0" y2="240" class="grid"/>
+<text x="397.0" y="256" class="t-tick" text-anchor="middle">3.8k</text>
+<line x1="490.0" y1="44" x2="490.0" y2="240" class="grid"/>
+<text x="490.0" y="256" class="t-tick" text-anchor="middle">5.0k</text>
+<line x1="118" y1="44" x2="118" y2="240" class="axis"/>
+<g class="row" data-tip="uring-async-nocache · GET /static/f1048576.bin · 64 conns · 3.5k req/s · p50 19 ms · p90 22 ms · p99 28 ms · CPU 182% · 526.8 µs CPU/req · ctx 0.00/req · RSS 160.5 MB · disk 0 B · median of 2 (3.3k–3.5k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,49.0 h256.23632000000003 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-256.23632000000003 z" class="bar fam-io_uring"/>
+<text x="384.2" y="62.0" class="t-value">3.5k</text>
+</g>
+<g class="row" data-tip="uring-async · GET /static/f1048576.bin · 64 conns · 3.4k req/s · p50 19 ms · p90 23 ms · p99 29 ms · CPU 189% · 564.8 µs CPU/req · ctx 0.00/req · RSS 146.6 MB · disk 0 B · median of 2 (3.3k–3.4k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,77.0 h252.09967999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-252.09967999999998 z" class="bar fam-io_uring"/>
+<text x="380.1" y="90.0" class="t-value">3.4k</text>
+</g>
+<g class="row" data-tip="mio · GET /static/f1048576.bin · 64 conns · 3.2k req/s · p50 22 ms · p90 29 ms · p99 35 ms · CPU 195% · 662.7 µs CPU/req · ctx 0.00/req · RSS 73.9 MB · disk 0 B · median of 2 (2.9k–3.2k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h234.40736 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-234.40736 z" class="bar fam-epoll"/>
+<text x="362.4" y="118.0" class="t-value">3.2k</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f1048576.bin · 64 conns · 2.8k req/s · p50 20 ms · p90 50 ms · p99 74 ms · CPU 197% · 739.2 µs CPU/req · ctx 0.00/req · RSS 136.7 MB · disk 0 B · median of 2 (2.6k–2.8k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,133.0 h202.22192000000004 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-202.22192000000004 z" class="bar fam-blocking"/>
+<text x="330.2" y="146.0" class="t-value">2.8k</text>
+</g>
+<g class="row" data-tip="uring-async-zc · GET /static/f1048576.bin · 64 conns · 2.2k req/s · p50 29 ms · p90 34 ms · p99 39 ms · CPU 170% · 781.0 µs CPU/req · ctx 0.00/req · RSS 163.1 MB · disk 0 B · median of 2 (2.2k–2.2k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,161.0 h160.4984 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-160.4984 z" class="bar fam-io_uring"/>
+<text x="288.5" y="174.0" class="t-value">2.2k</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f1048576.bin · 64 conns · 1.9k req/s · p50 35 ms · p90 48 ms · p99 61 ms · CPU 196% · 1056.7 µs CPU/req · ctx 0.00/req · RSS 107.4 MB · disk 0 B · median of 2 (1.8k–1.9k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,189.0 h138.3272 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-138.3272 z" class="bar fam-epoll"/>
+<text x="266.3" y="202.0" class="t-value">1.9k</text>
+</g>
+<g class="row" data-tip="nginx · GET /static/f1048576.bin · 64 conns · 1.7k req/s · p50 40 ms · p90 54 ms · p99 62 ms · median of 2 (1.7k–1.7k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">nginx</text>
+<path d="M118,217.0 h123.25376 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-123.25376 z" class="bar fam-epoll"/>
+<text x="251.3" y="230.0" class="t-value">1.7k</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 266" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f1048576.bin — p99 latency">
+<text x="0" y="16" class="t-title">GET /static/f1048576.bin — p99 latency</text>
+<text x="0" y="32" class="t-sub">64 connections · lower is better · ms</text>
+<line x1="118.0" y1="44" x2="118.0" y2="240" class="grid"/>
+<text x="118.0" y="256" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="240" class="grid"/>
+<text x="211.0" y="256" class="t-tick" text-anchor="middle">25.0</text>
+<line x1="304.0" y1="44" x2="304.0" y2="240" class="grid"/>
+<text x="304.0" y="256" class="t-tick" text-anchor="middle">50.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="240" class="grid"/>
+<text x="397.0" y="256" class="t-tick" text-anchor="middle">75.0</text>
+<line x1="490.0" y1="44" x2="490.0" y2="240" class="grid"/>
+<text x="490.0" y="256" class="t-tick" text-anchor="middle">100.0</text>
+<line x1="118" y1="44" x2="118" y2="240" class="axis"/>
+<g class="row" data-tip="uring-async-nocache · GET /static/f1048576.bin · 64 conns · 3.5k req/s · p50 19 ms · p90 22 ms · p99 28 ms · CPU 182% · 526.8 µs CPU/req · ctx 0.00/req · RSS 160.5 MB · disk 0 B · median of 2 (3.3k–3.5k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,49.0 h99.62060000000001 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-99.62060000000001 z" class="bar fam-io_uring"/>
+<text x="227.6" y="62.0" class="t-value">27.9</text>
+</g>
+<g class="row" data-tip="uring-async · GET /static/f1048576.bin · 64 conns · 3.4k req/s · p50 19 ms · p90 23 ms · p99 29 ms · CPU 189% · 564.8 µs CPU/req · ctx 0.00/req · RSS 146.6 MB · disk 0 B · median of 2 (3.3k–3.4k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,77.0 h105.5726 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-105.5726 z" class="bar fam-io_uring"/>
+<text x="233.6" y="90.0" class="t-value">29.5</text>
+</g>
+<g class="row" data-tip="mio · GET /static/f1048576.bin · 64 conns · 3.2k req/s · p50 22 ms · p90 29 ms · p99 35 ms · CPU 195% · 662.7 µs CPU/req · ctx 0.00/req · RSS 73.9 MB · disk 0 B · median of 2 (2.9k–3.2k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h125.27372 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-125.27372 z" class="bar fam-epoll"/>
+<text x="253.3" y="118.0" class="t-value">34.8</text>
+</g>
+<g class="row" data-tip="uring-async-zc · GET /static/f1048576.bin · 64 conns · 2.2k req/s · p50 29 ms · p90 34 ms · p99 39 ms · CPU 170% · 781.0 µs CPU/req · ctx 0.00/req · RSS 163.1 MB · disk 0 B · median of 2 (2.2k–2.2k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,133.0 h142.05836 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-142.05836 z" class="bar fam-io_uring"/>
+<text x="270.1" y="146.0" class="t-value">39.3</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f1048576.bin · 64 conns · 1.9k req/s · p50 35 ms · p90 48 ms · p99 61 ms · CPU 196% · 1056.7 µs CPU/req · ctx 0.00/req · RSS 107.4 MB · disk 0 B · median of 2 (1.8k–1.9k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,161.0 h224.43404 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-224.43404 z" class="bar fam-epoll"/>
+<text x="352.4" y="174.0" class="t-value">61.4</text>
+</g>
+<g class="row" data-tip="nginx · GET /static/f1048576.bin · 64 conns · 1.7k req/s · p50 40 ms · p90 54 ms · p99 62 ms · median of 2 (1.7k–1.7k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">nginx</text>
+<path d="M118,189.0 h226.81483999999998 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-226.81483999999998 z" class="bar fam-epoll"/>
+<text x="354.8" y="202.0" class="t-value">62.0</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f1048576.bin · 64 conns · 2.8k req/s · p50 20 ms · p90 50 ms · p99 74 ms · CPU 197% · 739.2 µs CPU/req · ctx 0.00/req · RSS 136.7 MB · disk 0 B · median of 2 (2.6k–2.8k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,217.0 h272.16908 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-272.16908 z" class="bar fam-blocking"/>
+<text x="400.2" y="230.0" class="t-value">74.2</text>
+</g>
+</svg>
+</div>
+<div class="pair">
+<svg class="viz" viewBox="0 0 560 238" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f1048576.bin — server CPU per request">
+<text x="0" y="16" class="t-title">GET /static/f1048576.bin — server CPU per request</text>
+<text x="0" y="32" class="t-sub">user + system time of the server process ÷ requests · lower is better · µs</text>
+<line x1="118.0" y1="44" x2="118.0" y2="212" class="grid"/>
+<text x="118.0" y="228" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="212" class="grid"/>
+<text x="211.0" y="228" class="t-tick" text-anchor="middle">500.0</text>
+<line x1="304.0" y1="44" x2="304.0" y2="212" class="grid"/>
+<text x="304.0" y="228" class="t-tick" text-anchor="middle">1000.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="212" class="grid"/>
+<text x="397.0" y="228" class="t-tick" text-anchor="middle">1500.0</text>
+<line x1="490.0" y1="44" x2="490.0" y2="212" class="grid"/>
+<text x="490.0" y="228" class="t-tick" text-anchor="middle">2000.0</text>
+<line x1="118" y1="44" x2="118" y2="212" class="axis"/>
+<g class="row" data-tip="uring-async-nocache · GET /static/f1048576.bin · 64 conns · 3.5k req/s · p50 19 ms · p90 22 ms · p99 28 ms · CPU 182% · 526.8 µs CPU/req · ctx 0.00/req · RSS 160.5 MB · disk 0 B · median of 2 (3.3k–3.5k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,49.0 h93.98385628451777 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-93.98385628451777 z" class="bar fam-io_uring"/>
+<text x="222.0" y="62.0" class="t-value">526.8</text>
+</g>
+<g class="row" data-tip="uring-async · GET /static/f1048576.bin · 64 conns · 3.4k req/s · p50 19 ms · p90 23 ms · p99 29 ms · CPU 189% · 564.8 µs CPU/req · ctx 0.00/req · RSS 146.6 MB · disk 0 B · median of 2 (3.3k–3.4k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,77.0 h101.06019766397128 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-101.06019766397128 z" class="bar fam-io_uring"/>
+<text x="229.1" y="90.0" class="t-value">564.8</text>
+</g>
+<g class="row" data-tip="mio · GET /static/f1048576.bin · 64 conns · 3.2k req/s · p50 22 ms · p90 29 ms · p99 35 ms · CPU 195% · 662.7 µs CPU/req · ctx 0.00/req · RSS 73.9 MB · disk 0 B · median of 2 (2.9k–3.2k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h119.26296372207423 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-119.26296372207423 z" class="bar fam-epoll"/>
+<text x="247.3" y="118.0" class="t-value">662.7</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f1048576.bin · 64 conns · 2.8k req/s · p50 20 ms · p90 50 ms · p99 74 ms · CPU 197% · 739.2 µs CPU/req · ctx 0.00/req · RSS 136.7 MB · disk 0 B · median of 2 (2.6k–2.8k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,133.0 h133.481981291213 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-133.481981291213 z" class="bar fam-blocking"/>
+<text x="261.5" y="146.0" class="t-value">739.2</text>
+</g>
+<g class="row" data-tip="uring-async-zc · GET /static/f1048576.bin · 64 conns · 2.2k req/s · p50 29 ms · p90 34 ms · p99 39 ms · CPU 170% · 781.0 µs CPU/req · ctx 0.00/req · RSS 163.1 MB · disk 0 B · median of 2 (2.2k–2.2k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,161.0 h141.2590959206174 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-141.2590959206174 z" class="bar fam-io_uring"/>
+<text x="269.3" y="174.0" class="t-value">781.0</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f1048576.bin · 64 conns · 1.9k req/s · p50 35 ms · p90 48 ms · p99 61 ms · CPU 196% · 1056.7 µs CPU/req · ctx 0.00/req · RSS 107.4 MB · disk 0 B · median of 2 (1.8k–1.9k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,189.0 h192.55262018189694 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-192.55262018189694 z" class="bar fam-epoll"/>
+<text x="320.6" y="202.0" class="t-value">1056.7</text>
+</g>
+</svg>
+<svg class="viz" viewBox="0 0 560 238" width="100%" style="max-width:560px" role="img" aria-label="GET /static/f1048576.bin — server RSS">
+<text x="0" y="16" class="t-title">GET /static/f1048576.bin — server RSS</text>
+<text x="0" y="32" class="t-sub">resident memory at the end of the window · lower is better · MB</text>
+<line x1="118.0" y1="44" x2="118.0" y2="212" class="grid"/>
+<text x="118.0" y="228" class="t-tick" text-anchor="middle">0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="212" class="grid"/>
+<text x="211.0" y="228" class="t-tick" text-anchor="middle">50</text>
+<line x1="304.0" y1="44" x2="304.0" y2="212" class="grid"/>
+<text x="304.0" y="228" class="t-tick" text-anchor="middle">100</text>
+<line x1="397.0" y1="44" x2="397.0" y2="212" class="grid"/>
+<text x="397.0" y="228" class="t-tick" text-anchor="middle">150</text>
+<line x1="490.0" y1="44" x2="490.0" y2="212" class="grid"/>
+<text x="490.0" y="228" class="t-tick" text-anchor="middle">200</text>
+<line x1="118" y1="44" x2="118" y2="212" class="axis"/>
+<g class="row" data-tip="mio · GET /static/f1048576.bin · 64 conns · 3.2k req/s · p50 22 ms · p90 29 ms · p99 35 ms · CPU 195% · 662.7 µs CPU/req · ctx 0.00/req · RSS 73.9 MB · disk 0 B · median of 2 (2.9k–3.2k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,49.0 h133.50921875 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-133.50921875 z" class="bar fam-epoll"/>
+<text x="261.5" y="62.0" class="t-value">74</text>
+</g>
+<g class="row" data-tip="tokio · GET /static/f1048576.bin · 64 conns · 1.9k req/s · p50 35 ms · p90 48 ms · p99 61 ms · CPU 196% · 1056.7 µs CPU/req · ctx 0.00/req · RSS 107.4 MB · disk 0 B · median of 2 (1.8k–1.9k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,77.0 h195.739296875 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-195.739296875 z" class="bar fam-epoll"/>
+<text x="323.7" y="90.0" class="t-value">107</text>
+</g>
+<g class="row" data-tip="threads · GET /static/f1048576.bin · 64 conns · 2.8k req/s · p50 20 ms · p90 50 ms · p99 74 ms · CPU 197% · 739.2 µs CPU/req · ctx 0.00/req · RSS 136.7 MB · disk 0 B · median of 2 (2.6k–2.8k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,105.0 h250.25328125 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-250.25328125 z" class="bar fam-blocking"/>
+<text x="378.3" y="118.0" class="t-value">137</text>
+</g>
+<g class="row" data-tip="uring-async · GET /static/f1048576.bin · 64 conns · 3.4k req/s · p50 19 ms · p90 23 ms · p99 29 ms · CPU 189% · 564.8 µs CPU/req · ctx 0.00/req · RSS 146.6 MB · disk 0 B · median of 2 (3.3k–3.4k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,133.0 h268.729765625 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-268.729765625 z" class="bar fam-io_uring"/>
+<text x="396.7" y="146.0" class="t-value">147</text>
+</g>
+<g class="row" data-tip="uring-async-nocache · GET /static/f1048576.bin · 64 conns · 3.5k req/s · p50 19 ms · p90 22 ms · p99 28 ms · CPU 182% · 526.8 µs CPU/req · ctx 0.00/req · RSS 160.5 MB · disk 0 B · median of 2 (3.3k–3.5k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label" text-anchor="end">uring-async-nocache</text>
+<path d="M118,161.0 h294.60265625 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-294.60265625 z" class="bar fam-io_uring"/>
+<text x="422.6" y="174.0" class="t-value">161</text>
+</g>
+<g class="row" data-tip="uring-async-zc · GET /static/f1048576.bin · 64 conns · 2.2k req/s · p50 29 ms · p90 34 ms · p99 39 ms · CPU 170% · 781.0 µs CPU/req · ctx 0.00/req · RSS 163.1 MB · disk 0 B · median of 2 (2.2k–2.2k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">uring-async-zc</text>
+<path d="M118,189.0 h299.39796874999996 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-299.39796874999996 z" class="bar fam-io_uring"/>
+<text x="427.4" y="202.0" class="t-value">163</text>
+</g>
+</svg>
+</div>
 </section>
 <section id="conns"><h2>Connection sweep</h2>
 <p class="lead">Throughput as keep-alive connections grow (one request in flight per connection), server pinned to 2 cores. Shared y scale; one panel per runtime because eleven converging lines on one plot cannot be read.</p>
@@ -4118,7 +4778,7 @@ code { background: var(--surface-2); padding: 1px 4px; border-radius: 3px; font-
 </svg>
 </section>
 <section id="dataset"><h2>Dataset</h2>
-<p class="lead">Every row behind the charts, as recorded by <code>phhtp-bench --json</code>. Click a header to sort. Source files: <code>matrix.jsonl</code>, <code>scale.jsonl</code>, <code>expand.jsonl</code>.</p>
+<p class="lead">Every row behind the charts, as recorded by <code>phhtp-bench --json</code>. Click a header to sort. Source files: <code>matrix.jsonl</code>, <code>scale.jsonl</code>, <code>expand.jsonl</code>, <code>static.jsonl</code>.</p>
 <div class="tablewrap"><table id="data"><thead><tr><th data-k="0">runtime</th><th data-k="1">endpoint</th><th data-k="2">conns</th><th data-k="3">workers</th><th data-k="4">req/s</th><th data-k="5">p50</th><th data-k="6">p90</th><th data-k="7">p99</th><th data-k="8">max</th><th data-k="9">errors</th><th data-k="10">CPU %</th><th data-k="11">µs CPU/req</th><th data-k="12">ctx/req</th><th data-k="13">RSS MB</th><th data-k="14">threads</th><th data-k="15">disk B</th><th data-k="16">reps</th><th data-k="17">note</th><th data-k="18">file</th></tr></thead><tbody>
 <tr><td data-v="threads">threads</td><td data-v="GET /">GET /</td><td data-v="64">64</td><td data-v=""></td><td data-v="89770.75">89771</td><td data-v="656">0.66 ms</td><td data-v="1109">1.11 ms</td><td data-v="2395">2.40 ms</td><td data-v="16111">16 ms</td><td data-v="0">0</td><td data-v="179">179</td><td data-v="20.5">20.5</td><td data-v="0.00">0.00</td><td data-v="6.9">6.9</td><td data-v="44">44</td><td data-v="0">0</td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
 <tr><td data-v="threads">threads</td><td data-v="GET /json">GET /json</td><td data-v="64">64</td><td data-v=""></td><td data-v="97837.0">97837</td><td data-v="592">0.59 ms</td><td data-v="1037">1.04 ms</td><td data-v="2000">2.00 ms</td><td data-v="13495">13 ms</td><td data-v="0">0</td><td data-v="181">181</td><td data-v="18.4">18.4</td><td data-v="0.00">0.00</td><td data-v="7.1">7.1</td><td data-v="26">26</td><td data-v="0">0</td><td data-v="3">3</td><td data-v=""></td><td data-v="matrix.jsonl">matrix.jsonl</td></tr>
@@ -4403,6 +5063,27 @@ code { background: var(--surface-2); padding: 1px 4px; border-radius: 3px; font-
 <tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json [open-loop 75000 req/s]">GET /json [open-loop 75000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="75049.0">75049</td><td data-v="225">0.23 ms</td><td data-v="972">0.97 ms</td><td data-v="6183">6.18 ms</td><td data-v="15719">16 ms</td><td data-v="0">0</td><td data-v="164">164</td><td data-v="21.9">21.9</td><td data-v="0.00">0.00</td><td data-v="11.0">11.0</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=75000 somaxconn=4096">sweep=rate rate=75000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
 <tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json [open-loop 100000 req/s]">GET /json [open-loop 100000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="100020.8">100021</td><td data-v="1646">1.65 ms</td><td data-v="23855">24 ms</td><td data-v="43391">43 ms</td><td data-v="61727">62 ms</td><td data-v="0">0</td><td data-v="183">183</td><td data-v="18.3">18.3</td><td data-v="0.00">0.00</td><td data-v="11.3">11.3</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=100000 somaxconn=4096">sweep=rate rate=100000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
 <tr><td data-v="tokio-uring">tokio-uring</td><td data-v="GET /json [open-loop 125000 req/s]">GET /json [open-loop 125000 req/s]</td><td data-v="256">256</td><td data-v=""></td><td data-v="124203.6">124204</td><td data-v="35423">35 ms</td><td data-v="117311">117 ms</td><td data-v="191231">191 ms</td><td data-v="226559">227 ms</td><td data-v="0">0</td><td data-v="184">184</td><td data-v="14.8">14.8</td><td data-v="0.00">0.00</td><td data-v="11.6">11.6</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="1">1</td><td data-v="sweep=rate rate=125000 somaxconn=4096">sweep=rate rate=125000 somaxconn=4096</td><td data-v="expand.jsonl">expand.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /static/f4096.bin">GET /static/f4096.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="119149.0">119149</td><td data-v="471">0.47 ms</td><td data-v="853">0.85 ms</td><td data-v="1775">1.77 ms</td><td data-v="53375">53 ms</td><td data-v="0">0</td><td data-v="197">197</td><td data-v="16.6">16.6</td><td data-v="0.00">0.00</td><td data-v="7.8">7.8</td><td data-v="51">51</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=4096 zc=off cache=default">static=4096 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /static/f65536.bin">GET /static/f65536.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="44927.4">44927</td><td data-v="1265">1.26 ms</td><td data-v="2443">2.44 ms</td><td data-v="4587">4.59 ms</td><td data-v="127359">127 ms</td><td data-v="0">0</td><td data-v="191">191</td><td data-v="42.9">42.9</td><td data-v="0.00">0.00</td><td data-v="11.4">11.4</td><td data-v="56">56</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=65536 zc=off cache=default">static=65536 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="threads">threads</td><td data-v="GET /static/f1048576.bin">GET /static/f1048576.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="2771.8">2772</td><td data-v="20479">20 ms</td><td data-v="50367">50 ms</td><td data-v="74239">74 ms</td><td data-v="196223">196 ms</td><td data-v="0">0</td><td data-v="197">197</td><td data-v="739.2">739.2</td><td data-v="0.00">0.00</td><td data-v="136.7">136.7</td><td data-v="66">66</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=1048576 zc=off cache=default">static=1048576 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /static/f4096.bin">GET /static/f4096.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="150172.6">150173</td><td data-v="423">0.42 ms</td><td data-v="744">0.74 ms</td><td data-v="1471">1.47 ms</td><td data-v="17103">17 ms</td><td data-v="0">0</td><td data-v="186">186</td><td data-v="14.0">14.0</td><td data-v="0.00">0.00</td><td data-v="6.1">6.1</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=4096 zc=off cache=default">static=4096 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /static/f65536.bin">GET /static/f65536.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="60807.8">60808</td><td data-v="1008">1.01 ms</td><td data-v="1476">1.48 ms</td><td data-v="2063">2.06 ms</td><td data-v="11391">11 ms</td><td data-v="0">0</td><td data-v="196">196</td><td data-v="32.3">32.3</td><td data-v="0.00">0.00</td><td data-v="9.9">9.9</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=65536 zc=off cache=default">static=65536 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="mio">mio</td><td data-v="GET /static/f1048576.bin">GET /static/f1048576.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="3204.4">3204</td><td data-v="21839">22 ms</td><td data-v="29135">29 ms</td><td data-v="34751">35 ms</td><td data-v="44735">45 ms</td><td data-v="0">0</td><td data-v="195">195</td><td data-v="662.7">662.7</td><td data-v="0.00">0.00</td><td data-v="73.9">73.9</td><td data-v="3">3</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=1048576 zc=off cache=default">static=1048576 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /static/f4096.bin">GET /static/f4096.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="47063.6">47064</td><td data-v="1352">1.35 ms</td><td data-v="2143">2.14 ms</td><td data-v="3141">3.14 ms</td><td data-v="11111">11 ms</td><td data-v="0">0</td><td data-v="189">189</td><td data-v="41.2">41.2</td><td data-v="0.00">0.00</td><td data-v="12.2">12.2</td><td data-v="125">125</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=4096 zc=off cache=default">static=4096 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /static/f65536.bin">GET /static/f65536.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="19952.0">19952</td><td data-v="3261">3.26 ms</td><td data-v="4655">4.66 ms</td><td data-v="6843">6.84 ms</td><td data-v="18063">18 ms</td><td data-v="0">0</td><td data-v="193">193</td><td data-v="99.0">99.0</td><td data-v="0.00">0.00</td><td data-v="16.5">16.5</td><td data-v="137">137</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=65536 zc=off cache=default">static=65536 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="tokio">tokio</td><td data-v="GET /static/f1048576.bin">GET /static/f1048576.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="1913.0">1913</td><td data-v="34751">35 ms</td><td data-v="47551">48 ms</td><td data-v="61407">61 ms</td><td data-v="79807">80 ms</td><td data-v="0">0</td><td data-v="196">196</td><td data-v="1056.7">1056.7</td><td data-v="0.00">0.00</td><td data-v="107.4">107.4</td><td data-v="137">137</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=1048576 zc=off cache=default">static=1048576 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /static/f4096.bin">GET /static/f4096.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="186722.0">186722</td><td data-v="356">0.36 ms</td><td data-v="563">0.56 ms</td><td data-v="925">0.93 ms</td><td data-v="9191">9.19 ms</td><td data-v="0">0</td><td data-v="181">181</td><td data-v="10.5">10.5</td><td data-v="0.00">0.00</td><td data-v="39.1">39.1</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=4096 zc=off cache=default">static=4096 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /static/f65536.bin">GET /static/f65536.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="71580.6">71581</td><td data-v="869">0.87 ms</td><td data-v="1288">1.29 ms</td><td data-v="1871">1.87 ms</td><td data-v="17343">17 ms</td><td data-v="0">0</td><td data-v="190">190</td><td data-v="27.1">27.1</td><td data-v="0.00">0.00</td><td data-v="47.2">47.2</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=65536 zc=off cache=default">static=65536 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="uring-async">uring-async</td><td data-v="GET /static/f1048576.bin">GET /static/f1048576.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="3442.2">3442</td><td data-v="19039">19 ms</td><td data-v="22943">23 ms</td><td data-v="29455">29 ms</td><td data-v="54591">55 ms</td><td data-v="0">0</td><td data-v="189">189</td><td data-v="564.8">564.8</td><td data-v="0.00">0.00</td><td data-v="146.6">146.6</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=1048576 zc=off cache=default">static=1048576 zc=off cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="uring-async-zc">uring-async-zc</td><td data-v="GET /static/f4096.bin">GET /static/f4096.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="189187.2">189187</td><td data-v="352">0.35 ms</td><td data-v="552">0.55 ms</td><td data-v="962">0.96 ms</td><td data-v="18703">19 ms</td><td data-v="0">0</td><td data-v="177">177</td><td data-v="10.2">10.2</td><td data-v="0.00">0.00</td><td data-v="39.1">39.1</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=4096 zc=16384 cache=default">static=4096 zc=16384 cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="uring-async-zc">uring-async-zc</td><td data-v="GET /static/f65536.bin">GET /static/f65536.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="53295.8">53296</td><td data-v="1281">1.28 ms</td><td data-v="1765">1.76 ms</td><td data-v="2915">2.92 ms</td><td data-v="24559">25 ms</td><td data-v="0">0</td><td data-v="190">190</td><td data-v="39.4">39.4</td><td data-v="0.00">0.00</td><td data-v="47.9">47.9</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=65536 zc=16384 cache=default">static=65536 zc=16384 cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="uring-async-zc">uring-async-zc</td><td data-v="GET /static/f1048576.bin">GET /static/f1048576.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="2211.0">2211</td><td data-v="28703">29 ms</td><td data-v="33791">34 ms</td><td data-v="39263">39 ms</td><td data-v="52575">53 ms</td><td data-v="0">0</td><td data-v="170">170</td><td data-v="781.0">781.0</td><td data-v="0.00">0.00</td><td data-v="163.1">163.1</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=1048576 zc=16384 cache=default">static=1048576 zc=16384 cache=default</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="uring-async-nocache">uring-async-nocache</td><td data-v="GET /static/f4096.bin">GET /static/f4096.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="143180.0">143180</td><td data-v="444">0.44 ms</td><td data-v="724">0.72 ms</td><td data-v="1159">1.16 ms</td><td data-v="9703">9.70 ms</td><td data-v="0">0</td><td data-v="195">195</td><td data-v="14.7">14.7</td><td data-v="0.00">0.00</td><td data-v="39.0">39.0</td><td data-v="10">10</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=4096 zc=off cache=0">static=4096 zc=off cache=0</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="uring-async-nocache">uring-async-nocache</td><td data-v="GET /static/f65536.bin">GET /static/f65536.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="61274.6">61275</td><td data-v="1015">1.01 ms</td><td data-v="1423">1.42 ms</td><td data-v="2175">2.17 ms</td><td data-v="30015">30 ms</td><td data-v="0">0</td><td data-v="194">194</td><td data-v="32.2">32.2</td><td data-v="0.00">0.00</td><td data-v="46.7">46.7</td><td data-v="9">9</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=65536 zc=off cache=0">static=65536 zc=off cache=0</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="uring-async-nocache">uring-async-nocache</td><td data-v="GET /static/f1048576.bin">GET /static/f1048576.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="3497.8">3498</td><td data-v="19135">19 ms</td><td data-v="21967">22 ms</td><td data-v="27855">28 ms</td><td data-v="40479">40 ms</td><td data-v="0">0</td><td data-v="182">182</td><td data-v="526.8">526.8</td><td data-v="0.00">0.00</td><td data-v="160.5">160.5</td><td data-v="5">5</td><td data-v="0">0</td><td data-v="2">2</td><td data-v="static=1048576 zc=off cache=0">static=1048576 zc=off cache=0</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="nginx">nginx</td><td data-v="GET /static/f4096.bin">GET /static/f4096.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="170198.2">170198</td><td data-v="377">0.38 ms</td><td data-v="532">0.53 ms</td><td data-v="798">0.80 ms</td><td data-v="7139">7.14 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="2">2</td><td data-v="static=4096 nginx=1.24.0 (Ubuntu)">static=4096 nginx=1.24.0 (Ubuntu)</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="nginx">nginx</td><td data-v="GET /static/f65536.bin">GET /static/f65536.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="70402.6">70403</td><td data-v="899">0.90 ms</td><td data-v="1393">1.39 ms</td><td data-v="1825">1.82 ms</td><td data-v="46623">47 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="2">2</td><td data-v="static=65536 nginx=1.24.0 (Ubuntu)">static=65536 nginx=1.24.0 (Ubuntu)</td><td data-v="static.jsonl">static.jsonl</td></tr>
+<tr><td data-v="nginx">nginx</td><td data-v="GET /static/f1048576.bin">GET /static/f1048576.bin</td><td data-v="64">64</td><td data-v=""></td><td data-v="1710.4">1710</td><td data-v="39903">40 ms</td><td data-v="53791">54 ms</td><td data-v="62047">62 ms</td><td data-v="75071">75 ms</td><td data-v="0">0</td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v=""></td><td data-v="2">2</td><td data-v="static=1048576 nginx=1.24.0 (Ubuntu)">static=1048576 nginx=1.24.0 (Ubuntu)</td><td data-v="static.jsonl">static.jsonl</td></tr>
 </tbody></table></div></section>
 </main><div id="tip"></div><script>
 const tip = document.getElementById('tip');

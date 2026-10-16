@@ -416,6 +416,12 @@ and system calls per request from `strace -c`. Headlines:
 * **10 000 stalled connections**: `pool` is the one runtime that fails (all
   workers parked); ringrt holds the lowest memory (133–160 MB vs 254 MB for
   Tokio) but a longer tail (§3 and §8 of the doc).
+* **Static files through the ring** (`docs/EXPANDED.md` §10): with a
+  per-worker open-file cache, `uring-async` serves 187 k req/s of 4 KiB files
+  and 4.7 GB/s of 64 KiB files, level with nginx (`sendfile`) and at the
+  lowest server CPU per request in the table; Tokio's `tokio::fs` path is
+  4× dearer. `SEND_ZC` is implemented but loses on loopback, so it is off by
+  default until measured on a real NIC.
 * An animated explainer of the three request paths, with these numbers, is in
   [`bench/video/`](bench/video/) (page and MP4) and at
   <https://claude.ai/artifact/RmVvvakW3vJDN3H5xCMiZx>.

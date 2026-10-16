@@ -385,7 +385,50 @@ measure on the droplet (M0), where the answer may well flip.
 
 ### 10.3 Static files against nginx
 
-STATIC_TABLE_PLACEHOLDER
+Same files (random bytes), same load generator, server pinned to two cores,
+64 keep-alive connections, medians of two runs. nginx 1.24 with
+`worker_processes 2`, `sendfile on`, `tcp_nopush`, `open_file_cache`,
+`access_log off`, `reuseport`. nginx has no `/stats`, so its CPU column is
+empty; its client-CPU column says where the load generator was the limit.
+
+![static](../bench/charts/matrix-static-f65536-bin-rps.svg)
+
+| server | 4 KiB req/s | 64 KiB req/s (MB/s) | 1 MiB req/s (MB/s) | p99 at 64 KiB | server µs CPU/req at 64 KiB | client CPU % (4 KiB / 1 MiB) |
+|---|---:|---:|---:|---:|---:|---:|
+| **uring-async** ◆ (file cache, no ZC) | **186.7 k** | **71.6 k** (4 691) | **3.44 k** (3 609) | 1.87 ms | **27.1** | 185 / 119 |
+| nginx 1.24 (`sendfile`) | 170.2 k | 70.4 k (4 614) | 1.71 k (1 793) | 1.82 ms | – | 179 / 196 |
+| mio (blocking read on the loop) | 150.2 k | 60.8 k (3 985) | 3.20 k (3 360) | 2.06 ms | 32.3 | 172 / 108 |
+| uring-async, no file cache | 143.2 k | 61.3 k (4 016) | 3.50 k (3 668) | 2.17 ms | 32.2 | 162 / 118 |
+| threads (blocking read) | 119.1 k | 44.9 k (2 944) | 2.77 k (2 906) | 4.59 ms | 42.9 | 165 / 101 |
+| uring-async + SEND_ZC | 189.2 k | 53.3 k (3 493) | 2.21 k (2 318) | 2.92 ms | 39.4 | 185 / 100 |
+| tokio (`tokio::fs`, spawn_blocking) | 47.1 k | 20.0 k (1 308) | 1.91 k (2 006) | 6.84 ms | 99.0 | 67 / 67 |
+
+Three things this says, and one it cannot.
+
+1. **Files through the ring work, and the open-file cache is worth 30 % at
+   small sizes** (143 k → 187 k req/s at 4 KiB; 14.7 → 10.5 µs CPU per
+   request): `openat` + `statx` + `close` per request were a third of the
+   cost. With the cache, `uring-async` has the lowest server CPU per request
+   of every server in the table at every size.
+2. **Tokio's file path is the one real loser.** `tokio::fs::read` hands every
+   read to the blocking pool and back: 47 k req/s and 99 µs CPU per request
+   at 64 KiB, four times the ring. This is the io_uring advantage the prior
+   art describes (file I/O, not sockets), and it is the clearest result of
+   the round. A production Tokio server would mitigate it with an in-memory
+   cache or `sendfile` through a blocking task, so the gap is the cost of the
+   *default* path, not of Tokio as such.
+3. **Zero-copy is still a loss on loopback** with the cache on (71.6 k vs
+   53.3 k at 64 KiB), consistent with §10.2.
+
+What it cannot say: whether `uring-async` beats nginx. At 4 KiB and 64 KiB
+the two are within 10 %, and the load generator is at 179–194 % of its two
+cores on both, so the ordering is the client's. At 1 MiB nginx's 1.7 k
+req/s comes with the client at 196 %, against 119 % for `uring-async`: the
+client spends twice the CPU reading nginx's output (likely `tcp_nopush` +
+`sendfile` segmenting differently), which is a load-generator artifact, not
+a server result. The droplet run with a separate client (M0) is the only
+thing that settles this row, and it is the comparison that matters for the
+edge target.
 
 ### 10.4 The idle sweeper under slowloris
 
