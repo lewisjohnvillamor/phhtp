@@ -224,7 +224,7 @@ scene({ id:'syscalls', label:'Syscalls per request, eleven runtimes', color:C.fg
   caps:[[0,'strace -c on the server during a 64-connection /json run. Counts, not timings: strace slows every call it traces, so the req/s under it are not the matrix numbers.'],[5,'Two families. Every readiness runtime sits at two per request. The io_uring runtimes that use multishot sit at one sixth of one. Two io_uring runtimes do not, and they pay for it.']],
   draw(t){
     txt('System calls per request (strace -c, GET /json, 64 connections)',40,110,F.d(26),C.fg);
-    const rows=[...SYS].sort((a,b)=>a[1]-b[1]); const x0=220, w=900, y0=150, rh=42; const vmax=2.5;
+    const rows=[...SYS].sort((a,b)=>a[1]-b[1]); const x0=220, w=900, y0=148, rh=39; const vmax=2.5;
     for(let i=0;i<=5;i++){ const x=x0+w*(i*.5/vmax); line(x,y0-10,x,y0+rows.length*rh,C.line,1); txt(fmt(i*.5,1),x,y0+rows.length*rh+14,F.m(11),C.dim,'center') }
     rows.forEach((r,i)=>{ const y=y0+i*rh; const a=ease((t-.2-i*.25)/.5); const v=r[1]*ease((t-.2-i*.25)/.9); const col=C[r[2]]; txt((OURS.has(r[0])?'◆ ':'')+r[0],x0-14,y+14,F.m(14,OURS.has(r[0])?500:400),OURS.has(r[0])?C.fg:C.muted,'right',a); rect(x0,y+2,w*(v/vmax),24,col,null,4,a); txt(fmt(v),x0+w*(v/vmax)+10,y+14,F.m(14,500),C.fg,'left',a) });
     if(t>5){ const a=ease((t-5)/.5); txt('tokio-uring 2.20 · glommio 2.24: io_uring runtimes that still make the readiness syscalls',640,H-130,F.b(15),C.warn,'center',a) }

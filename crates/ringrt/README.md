@@ -43,9 +43,10 @@ Requires Linux ≥ 5.6 and `kernel.io_uring_disabled = 0` (multishot accept
 fallback below). Docker's default seccomp profile blocks io_uring;
 `Runtime::available()` tells you up front.
 
-Tuning: `RINGRT_BUF_ENTRIES` (default 256) and `RINGRT_BUF_SIZE` (default
-4096) size the per-runtime provided-buffer ring; keep it small enough to stay
-in cache. `RINGRT_NO_MULTISHOT=1` forces single-shot ops, `RINGRT_TRACE=1`
+Tuning: `RINGRT_BUF_ENTRIES` (default 4096) and `RINGRT_BUF_SIZE` (default
+4096) size the per-runtime provided-buffer ring (16 MiB per worker by
+default). A ring that is too small for a connect burst costs tail latency on
+every connection, not just the burst's: see `docs/EXPANDED.md` §8. `RINGRT_NO_MULTISHOT=1` forces single-shot ops, `RINGRT_TRACE=1`
 prints every multishot arm and completion.
 
 This crate was extracted from [phhtp](https://github.com/lewisjohnvillamor/phhtp),

@@ -204,7 +204,40 @@ repetitions.
 
 ## 8. Does the buffer ring explain the idle-connection tail?
 
-IDLE_AB_PLACEHOLDER
+The ringrt runtimes in §3 had the best memory and the worst p99. The one
+thing that differs between them and the other io_uring runtimes under 10 000
+stalled sockets is the provided-buffer ring, 256 × 4 KiB per worker by
+default at the time. Same scenario, single runs, two knobs:
+
+| runtime | buffer ring | req/s | p50 | p99 | p99.9 | RSS |
+|---|---|---:|---:|---:|---:|---:|
+| uring-async ◆ | 256 (default in §3) | 155 k | 0.38 ms | 1.95 ms | 7.1 ms | 160 MB |
+| uring-async ◆ | **4096** | **170 k** | 0.34 ms | **0.92 ms** | 3.2 ms | 122 MB |
+| uring-async ◆ | single-shot recv, no buffer ring | 146 k | 0.40 ms | 1.19 ms | 4.7 ms | 168 MB |
+| uring ◆ | 256 (default in §3) | 137 k | 0.41 ms | 4.52 ms | 14.1 ms | 133 MB |
+| uring ◆ | **4096** | **168 k** | 0.36 ms | **0.82 ms** | 1.9 ms | 87 MB |
+| uring ◆ | single-shot recv, no buffer ring | 156 k | 0.39 ms | 0.93 ms | 2.6 ms | 87 MB |
+
+It was the ring. With 4096 entries both runtimes beat Tokio's 0.73 ms p99
+closely (0.82 / 0.92 ms) at lower memory than before, and throughput rises
+by a tenth to a quarter. The mechanism: 10 000 connections each delivered
+half a request on connect; a 256-entry ring is exhausted by that burst, every
+multishot recv that finds no buffer completes with `ENOBUFS` and has to be
+re-armed, and the re-arm work lands in the same loop that serves the hot
+connections. Plain single-shot recv (no buffer ring at all) is also better
+than the small ring, which says the cost was the re-arm storm, not the
+buffer selection itself.
+
+The earlier buffer-ring study (`bench/results/multishot-reps.txt`) varied the
+ring at 1 024 and 16 000 *active* connections and found nothing, because
+active connections recycle buffers as fast as they take them. Stalled
+connections do not. The default is now 4096 entries (16 MiB per worker).
+A confirmation run of the same scenario on the new default, with no
+environment override (`bench/results/idle-default-4096.jsonl`):
+`uring-async` 175 k req/s, p50 0.34 ms, p99 0.83 ms, RSS 121 MB;
+`uring` 153 k req/s, p99 1.07 ms, RSS 87 MB. This is the first measurable
+engineering change to come out of the expanded shapes, and it is a one-line
+change in a file we own.
 
 ## 9. What we did differently from the existing tools
 

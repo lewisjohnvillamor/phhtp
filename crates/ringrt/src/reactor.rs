@@ -27,14 +27,15 @@ use crate::sys::{self, Cqe, Sqe};
 const CANCEL_TAG: u64 = u64::MAX;
 
 /// Provided buffers per worker ring and their size (defaults; override with
-/// `RINGRT_BUF_ENTRIES` / `RINGRT_BUF_SIZE`). The ring only needs as many
-/// buffers as completions arrive between two reaps, and running out is
-/// harmless (ENOBUFS → re-arm). Measured 256 / 1024 / 2048 entries at 1024
-/// and 16 000 connections, three interleaved repetitions each: the medians
-/// were within run-to-run noise (±15 % on a shared 4-core box), so the
-/// default is the smallest, which keeps the ring cache-resident and the
-/// footprint at 1 MiB.
-const BUF_ENTRIES: u32 = 256;
+/// `RINGRT_BUF_ENTRIES` / `RINGRT_BUF_SIZE`). The ring needs as many buffers
+/// as completions can arrive between two reaps; running out is survivable
+/// (ENOBUFS → re-arm) but not free. With 64 to 16 000 *active* connections
+/// 256 / 1024 / 2048 entries measured the same to within noise. With 10 000
+/// connections that each sent half a request and then stalled, 256 entries
+/// gave p99 1.9–4.5 ms on the hot connections against 0.8–0.9 ms with 4096
+/// (docs/EXPANDED.md §8): the connect burst exhausts a small ring and every
+/// affected recv has to be re-armed. 4096 × 4 KiB is 16 MiB per worker.
+const BUF_ENTRIES: u32 = 4096;
 const BUF_SIZE: usize = 4096;
 
 fn env_num<T: std::str::FromStr>(name: &str, default: T) -> T {
