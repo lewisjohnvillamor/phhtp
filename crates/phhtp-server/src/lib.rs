@@ -26,6 +26,8 @@ pub enum Runtime {
     TokioSt,
     /// io_uring completion loop on raw syscalls, `--workers` rings sharing the port.
     Uring,
+    /// Our own async/await executor + reactor on raw io_uring (no tokio, no futures crate).
+    UringAsync,
 }
 
 impl Runtime {
@@ -37,6 +39,7 @@ impl Runtime {
             Runtime::Tokio => "tokio",
             Runtime::TokioSt => "tokio-st",
             Runtime::Uring => "uring",
+            Runtime::UringAsync => "uring-async",
         }
     }
 }
@@ -89,7 +92,7 @@ pub fn default_workers(rt: Runtime) -> usize {
     match rt {
         Runtime::Threads => 0,
         Runtime::Pool => (16 * cores()).max(64),
-        Runtime::Mio | Runtime::Tokio | Runtime::Uring => cores(),
+        Runtime::Mio | Runtime::Tokio | Runtime::Uring | Runtime::UringAsync => cores(),
         Runtime::TokioSt => 1,
     }
 }
@@ -103,5 +106,6 @@ pub fn serve(rt: Runtime, cfg: Config, app: Arc<App>) -> std::io::Result<()> {
         Runtime::Tokio => runtime::tokio_rt::run(cfg, app, true),
         Runtime::TokioSt => runtime::tokio_rt::run(cfg, app, false),
         Runtime::Uring => runtime::uring::run(cfg, app),
+        Runtime::UringAsync => runtime::uring_async::run(cfg, app),
     }
 }

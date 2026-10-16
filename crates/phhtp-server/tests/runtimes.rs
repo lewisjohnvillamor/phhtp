@@ -20,6 +20,7 @@ fn all_runtimes() -> Vec<Runtime> {
     ];
     if phhtp_server::runtime::uring::available() {
         v.push(Runtime::Uring);
+        v.push(Runtime::UringAsync);
     } else {
         eprintln!("io_uring unavailable here; skipping the uring runtime");
     }

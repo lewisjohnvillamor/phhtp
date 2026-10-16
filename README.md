@@ -4,7 +4,7 @@ An HTTP/1.1 server written from scratch in Rust, built to answer one question:
 **on a $12/month DigitalOcean droplet, which I/O model gives the best p50 and p90
 latency — and is Tokio worth it?**
 
-The same protocol engine runs under six different runtimes, so the only variable
+The same protocol engine runs under seven different runtimes, so the only variable
 in the benchmark is how the sockets are driven.
 
 | `--runtime` | Model | Threads |
@@ -15,6 +15,7 @@ in the benchmark is how the sockets are driven.
 | `tokio`    | Tokio multi-thread work-stealing scheduler | `--workers` (default cores) |
 | `tokio-st` | Tokio current-thread scheduler | 1 |
 | `uring`    | **io_uring on raw syscalls**: hand-laid-out SQE/CQE structs, mmap'd rings, multishot accept, `RECV`/`SEND`/`TIMEOUT` ops, one ring per worker, `SO_REUSEPORT`. No io_uring crate. | `--workers` (default cores) |
+| `uring-async` | **Our own `async`/`await` runtime** on the same raw ring: a `std::task` executor with an `Rc`-backed waker, a reactor mapping completions to wakers, and `accept`/`recv`/`send`/`sleep` futures. The Tokio replacement candidate. | `--workers` (default cores) |
 
 Built on: [`httparse`](https://crates.io/crates/httparse) (request parsing),
 [`serde_json`](https://crates.io/crates/serde_json) (JSON endpoints),
@@ -37,11 +38,15 @@ crates/
     src/app.rs      router + handlers
     src/sig.rs      HMAC-SHA256 sign / constant-time verify, SHA-256 chain
     src/date.rs     cached Date: header
-  phhtp-server/   the `phhtp` binary and the six runtimes (src/runtime/*)
+  phhtp-server/   the `phhtp` binary and the seven runtimes (src/runtime/*)
     src/runtime/mio_loop.rs   edge-triggered epoll loop
     src/runtime/uring/sys.rs  io_uring ABI: struct layouts, constants, the syscalls
     src/runtime/uring/ring.rs mmap'd submission/completion ring
-    src/runtime/uring/mod.rs  the completion-driven server loop
+    src/runtime/uring/mod.rs  the completion-driven (callback-style) server loop
+    src/runtime/uring_async/executor.rs  task scheduler + waker, std::task only
+    src/runtime/uring_async/reactor.rs   completion → waker dispatch, orphan slots
+    src/runtime/uring_async/io.rs        accept / recv / send_all / sleep_ms futures
+    src/runtime/uring_async/mod.rs       async fn serve_connection, same shape as tokio
     tests/runtimes.rs   boots every runtime and checks identical behaviour on a real socket
   phhtp-bench/    the `phhtp-bench` load generator (keep-alive, HDR histogram, p50/p90/p99)
 scripts/bench.sh  runs the runtime × endpoint matrix and prints a Markdown table
@@ -84,7 +89,7 @@ curl -s -X POST --data 'hello' localhost:8080/sign
 ```
 
 ```
-phhtp --runtime <threads|pool|mio|tokio|tokio-st|uring> [--bind ADDR] [--workers N]
+phhtp --runtime <threads|pool|mio|tokio|tokio-st|uring|uring-async> [--bind ADDR] [--workers N]
       [--secret S | PHHTP_SECRET=S] [--max-body BYTES] [--max-head BYTES]
 ```
 
@@ -118,6 +123,42 @@ Requirements: Linux ≥ 5.6 (5.19+ for multishot accept) and
 `kernel.io_uring_disabled = 0`. Some container runtimes block `io_uring_setup`
 via seccomp; the server then exits with a clear message and the integration
 test skips this runtime.
+
+## The `uring-async` runtime: replacing Tokio
+
+`uring` above is callback-shaped: handlers cannot `await`. To be a real Tokio
+replacement the runtime also needs a task scheduler, so `uring-async` adds one,
+written from scratch on `std::task` / `std::future` / `std::pin`. There is no
+tokio, mio, futures, or async-task crate anywhere in it.
+
+* **Executor** (`executor.rs`): tasks are `Rc<Task>` holding a boxed future and a
+  `queued` flag; the run queue is a `VecDeque`. The waker is a hand-written
+  `RawWakerVTable` whose data pointer *is* the `Rc`, so `wake()` is one `Cell`
+  write and one `push_back`: no atomics, no locks. This is sound because wakers
+  never cross threads: the only thing that stores one is the thread-local reactor.
+* **Reactor** (`reactor.rs`): owns the ring. Each in-flight op gets a slot whose
+  index is the SQE's `user_data`; the slot holds the waker until the CQE lands,
+  then the result until the future is polled. If a future is dropped mid-flight,
+  the slot becomes an *orphan* that keeps the buffer alive until the kernel is
+  done and an `ASYNC_CANCEL` is issued. One `io_uring_enter` per scheduler
+  turn submits everything queued and waits for completions.
+* **I/O futures** (`io.rs`): `accept(fd)`, `recv(fd, Vec<u8>)`,
+  `send_all(fd, Vec<u8>)`, `sleep_ms(ms)`. Buffers are passed **by value** and
+  handed back with the result. That is the only ownership model that is sound
+  with a completion API (the same choice tokio-uring and glommio make), and it
+  is the one visible API difference from Tokio's `read(&mut buf)`.
+* **Server** (`mod.rs`): `async fn serve_connection` is line-for-line the same
+  shape as the Tokio version. The `tokio` and `uring-async` rows therefore
+  compare *Tokio's scheduler + epoll* against *our scheduler + io_uring* with
+  identical handler code.
+
+What it does not have yet, and what a production replacement would need:
+work stealing across workers (each worker is an island; `SO_REUSEPORT` balances
+connections, not load), a blocking pool for CPU-heavy handlers, a `JoinHandle`,
+cancellation of in-flight ops on connection close (today a dropped `recv`
+future orphans its buffer until the peer sends or closes), timers that
+coalesce (each `sleep` is a kernel `TIMEOUT` op), and the ecosystem: nothing
+that depends on `tokio::io::AsyncRead` can run on it.
 
 ## Benchmarking
 
