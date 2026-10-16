@@ -13,15 +13,14 @@
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::io::{self, Read, Write};
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use mio::net::{TcpListener, TcpStream};
 use mio::{Events, Interest, Poll, Registry, Token};
 use phhtp_core::{conn, process, App, Flow};
-use socket2::{Domain, Protocol, Socket, Type};
 
+use super::net::bind_reuseport;
 use super::READ_CHUNK;
 use crate::Config;
 
@@ -93,14 +92,14 @@ impl Slab {
 
 pub fn run(cfg: Config, app: Arc<App>) -> io::Result<()> {
     let workers = cfg.workers.max(1);
-    let first = bind_reuseport(cfg.bind)?;
+    let first = bind_reuseport(cfg.bind, true)?;
     let addr = first.local_addr()?;
     if let Some(tx) = cfg.ready {
         let _ = tx.send(addr);
     }
     let mut listeners = vec![first];
     for _ in 1..workers {
-        listeners.push(bind_reuseport(addr)?);
+        listeners.push(bind_reuseport(addr, true)?);
     }
 
     let handles: Vec<_> = listeners
@@ -119,21 +118,6 @@ pub fn run(cfg: Config, app: Arc<App>) -> io::Result<()> {
             .map_err(|_| io::Error::other("mio worker panicked"))??;
     }
     Ok(())
-}
-
-fn bind_reuseport(addr: SocketAddr) -> io::Result<std::net::TcpListener> {
-    let domain = if addr.is_ipv4() {
-        Domain::IPV4
-    } else {
-        Domain::IPV6
-    };
-    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
-    socket.set_reuse_address(true)?;
-    socket.set_reuse_port(true)?;
-    socket.set_nonblocking(true)?;
-    socket.bind(&addr.into())?;
-    socket.listen(4096)?;
-    Ok(socket.into())
 }
 
 fn worker(listener: std::net::TcpListener, app: Arc<App>) -> io::Result<()> {

@@ -24,6 +24,8 @@ pub enum Runtime {
     Tokio,
     /// Tokio current-thread scheduler (single thread, no work stealing).
     TokioSt,
+    /// io_uring completion loop on raw syscalls, `--workers` rings sharing the port.
+    Uring,
 }
 
 impl Runtime {
@@ -34,6 +36,7 @@ impl Runtime {
             Runtime::Mio => "mio",
             Runtime::Tokio => "tokio",
             Runtime::TokioSt => "tokio-st",
+            Runtime::Uring => "uring",
         }
     }
 }
@@ -51,7 +54,7 @@ pub struct Cli {
 
     /// Worker count. Meaning depends on the runtime: pool size, number of mio
     /// event loops, or tokio worker threads. Defaults: pool = max(64, 16×cores),
-    /// mio/tokio = cores.
+    /// mio/tokio/uring = cores.
     #[arg(long, short)]
     pub workers: Option<usize>,
 
@@ -86,7 +89,7 @@ pub fn default_workers(rt: Runtime) -> usize {
     match rt {
         Runtime::Threads => 0,
         Runtime::Pool => (16 * cores()).max(64),
-        Runtime::Mio | Runtime::Tokio => cores(),
+        Runtime::Mio | Runtime::Tokio | Runtime::Uring => cores(),
         Runtime::TokioSt => 1,
     }
 }
@@ -99,5 +102,6 @@ pub fn serve(rt: Runtime, cfg: Config, app: Arc<App>) -> std::io::Result<()> {
         Runtime::Mio => runtime::mio_loop::run(cfg, app),
         Runtime::Tokio => runtime::tokio_rt::run(cfg, app, true),
         Runtime::TokioSt => runtime::tokio_rt::run(cfg, app, false),
+        Runtime::Uring => runtime::uring::run(cfg, app),
     }
 }

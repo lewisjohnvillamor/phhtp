@@ -10,13 +10,21 @@ use std::time::{Duration, Instant};
 use phhtp_core::App;
 use phhtp_server::{serve, Config, Runtime};
 
-const ALL: [Runtime; 5] = [
-    Runtime::Threads,
-    Runtime::Pool,
-    Runtime::Mio,
-    Runtime::Tokio,
-    Runtime::TokioSt,
-];
+fn all_runtimes() -> Vec<Runtime> {
+    let mut v = vec![
+        Runtime::Threads,
+        Runtime::Pool,
+        Runtime::Mio,
+        Runtime::Tokio,
+        Runtime::TokioSt,
+    ];
+    if phhtp_server::runtime::uring::available() {
+        v.push(Runtime::Uring);
+    } else {
+        eprintln!("io_uring unavailable here; skipping the uring runtime");
+    }
+    v
+}
 
 fn boot(rt: Runtime) -> SocketAddr {
     let (tx, rx) = mpsc::channel();
@@ -47,7 +55,7 @@ fn read_response(s: &mut TcpStream, buf: &mut Vec<u8>) -> (u16, String, Vec<u8>)
                 .parse()
                 .unwrap();
             while buf.len() < pos + 4 + cl {
-                let n = s.read(&mut tmp).expect("read");
+                let n = read_retry(s, &mut tmp);
                 assert!(n > 0, "eof before body complete");
                 buf.extend_from_slice(&tmp[..n]);
             }
@@ -55,9 +63,22 @@ fn read_response(s: &mut TcpStream, buf: &mut Vec<u8>) -> (u16, String, Vec<u8>)
             buf.drain(..pos + 4 + cl);
             return (status, head, body);
         }
-        let n = s.read(&mut tmp).expect("read");
+        let n = read_retry(s, &mut tmp);
         assert!(n > 0, "eof before headers complete");
         buf.extend_from_slice(&tmp[..n]);
+    }
+}
+
+/// `read` that retries on EINTR. io_uring delivers task-work notifications to
+/// the owning process with a signal-like mechanism, and in this test the client
+/// threads share a process with the server, so plain reads can be interrupted.
+fn read_retry(s: &mut TcpStream, buf: &mut [u8]) -> usize {
+    loop {
+        match s.read(buf) {
+            Ok(n) => return n,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) => panic!("read: {e}"),
+        }
     }
 }
 
@@ -69,7 +90,7 @@ fn connect(addr: SocketAddr) -> TcpStream {
 
 #[test]
 fn keep_alive_pipelining_and_routes() {
-    for rt in ALL {
+    for rt in all_runtimes() {
         let addr = boot(rt);
         let mut s = connect(addr);
         let mut buf = Vec::new();
@@ -120,7 +141,7 @@ fn keep_alive_pipelining_and_routes() {
         assert_eq!(st, 200);
         assert!(head.contains("Connection: close"));
         let mut rest = Vec::new();
-        s.read_to_end(&mut rest).unwrap();
+        s.read_to_end(&mut rest).unwrap(); // read_to_end retries EINTR itself
         assert!(rest.is_empty(), "{rt:?}: server left bytes after close");
     }
 }
@@ -134,7 +155,7 @@ fn read_response_head_only(s: &mut TcpStream, buf: &mut Vec<u8>) -> (u16, String
             buf.drain(..pos + 4);
             return (status, head, Vec::new());
         }
-        let n = s.read(&mut tmp).expect("read");
+        let n = read_retry(s, &mut tmp);
         assert!(n > 0);
         buf.extend_from_slice(&tmp[..n]);
     }
@@ -142,7 +163,7 @@ fn read_response_head_only(s: &mut TcpStream, buf: &mut Vec<u8>) -> (u16, String
 
 #[test]
 fn sign_and_verify_roundtrip() {
-    for rt in ALL {
+    for rt in all_runtimes() {
         let addr = boot(rt);
         let mut s = connect(addr);
         let mut buf = Vec::new();
@@ -164,7 +185,7 @@ fn sign_and_verify_roundtrip() {
 
 #[test]
 fn protocol_errors_close_the_connection() {
-    for rt in ALL {
+    for rt in all_runtimes() {
         let addr = boot(rt);
         // Missing Host on HTTP/1.1.
         let mut s = connect(addr);
@@ -203,7 +224,7 @@ fn sleep_does_not_block_other_connections() {
     // 8 concurrent /sleep?ms=200 must finish in ~200ms, not 8×200ms, on every
     // runtime — including the mio timer heap and the tokio sleep. The blocking
     // runtimes pass because they have one thread per connection here.
-    for rt in ALL {
+    for rt in all_runtimes() {
         let addr = boot(rt);
         let start = Instant::now();
         let handles: Vec<_> = (0..8)
@@ -236,7 +257,7 @@ fn sleep_does_not_block_other_connections() {
 
 #[test]
 fn sleep_then_pipelined_request_is_answered_after_the_delay() {
-    for rt in ALL {
+    for rt in all_runtimes() {
         let addr = boot(rt);
         let mut s = connect(addr);
         let mut buf = Vec::new();

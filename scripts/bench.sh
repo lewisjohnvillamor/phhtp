@@ -12,7 +12,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-RUNTIMES=${RUNTIMES:-"threads pool mio tokio tokio-st"}
+RUNTIMES=${RUNTIMES:-"threads pool mio tokio tokio-st uring"}
 CONNS=${CONNS:-64}
 SLEEP_CONNS=${SLEEP_CONNS:-256}
 DURATION=${DURATION:-10}

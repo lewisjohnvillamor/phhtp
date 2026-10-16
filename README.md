@@ -4,7 +4,7 @@ An HTTP/1.1 server written from scratch in Rust, built to answer one question:
 **on a $12/month DigitalOcean droplet, which I/O model gives the best p50 and p90
 latency — and is Tokio worth it?**
 
-The same protocol engine runs under five different runtimes, so the only variable
+The same protocol engine runs under six different runtimes, so the only variable
 in the benchmark is how the sockets are driven.
 
 | `--runtime` | Model | Threads |
@@ -14,15 +14,18 @@ in the benchmark is how the sockets are driven.
 | `mio`      | Hand-rolled edge-triggered `epoll` loop via `mio`, one loop per worker, `SO_REUSEPORT`, no sharing | `--workers` (default cores) |
 | `tokio`    | Tokio multi-thread work-stealing scheduler | `--workers` (default cores) |
 | `tokio-st` | Tokio current-thread scheduler | 1 |
+| `uring`    | **io_uring on raw syscalls**: hand-laid-out SQE/CQE structs, mmap'd rings, multishot accept, `RECV`/`SEND`/`TIMEOUT` ops, one ring per worker, `SO_REUSEPORT`. No io_uring crate. | `--workers` (default cores) |
 
 Built on: [`httparse`](https://crates.io/crates/httparse) (request parsing),
 [`serde_json`](https://crates.io/crates/serde_json) (JSON endpoints),
 [`hmac`](https://crates.io/crates/hmac) + [`sha2`](https://crates.io/crates/sha2)
 (signing endpoints), [`mio`](https://crates.io/crates/mio),
 [`tokio`](https://crates.io/crates/tokio), [`socket2`](https://crates.io/crates/socket2),
+[`libc`](https://crates.io/crates/libc) (syscall numbers and `mmap` for the io_uring runtime),
 [`hdrhistogram`](https://crates.io/crates/hdrhistogram) (the load generator's percentiles).
 Everything HTTP — framing, keep-alive, pipelining, response encoding, routing — is
-hand-written in `crates/phhtp-core`.
+hand-written in `crates/phhtp-core`, and the io_uring runtime talks to the kernel
+directly: `io_uring_setup`, `io_uring_enter`, and the shared-memory rings.
 
 ## Layout
 
@@ -34,7 +37,11 @@ crates/
     src/app.rs      router + handlers
     src/sig.rs      HMAC-SHA256 sign / constant-time verify, SHA-256 chain
     src/date.rs     cached Date: header
-  phhtp-server/   the `phhtp` binary and the five runtimes (src/runtime/*)
+  phhtp-server/   the `phhtp` binary and the six runtimes (src/runtime/*)
+    src/runtime/mio_loop.rs   edge-triggered epoll loop
+    src/runtime/uring/sys.rs  io_uring ABI: struct layouts, constants, the syscalls
+    src/runtime/uring/ring.rs mmap'd submission/completion ring
+    src/runtime/uring/mod.rs  the completion-driven server loop
     tests/runtimes.rs   boots every runtime and checks identical behaviour on a real socket
   phhtp-bench/    the `phhtp-bench` load generator (keep-alive, HDR histogram, p50/p90/p99)
 scripts/bench.sh  runs the runtime × endpoint matrix and prints a Markdown table
@@ -77,15 +84,46 @@ curl -s -X POST --data 'hello' localhost:8080/sign
 ```
 
 ```
-phhtp --runtime <threads|pool|mio|tokio|tokio-st> [--bind ADDR] [--workers N]
+phhtp --runtime <threads|pool|mio|tokio|tokio-st|uring> [--bind ADDR] [--workers N]
       [--secret S | PHHTP_SECRET=S] [--max-body BYTES] [--max-head BYTES]
 ```
+
+## The io_uring runtime
+
+`--runtime uring` is written against the kernel ABI with nothing in between:
+
+* `sys.rs` transcribes `struct io_uring_sqe`, `io_uring_cqe`, `io_uring_params`
+  and the offsets structs from `<linux/io_uring.h>`, with compile-time size
+  assertions, and wraps the `io_uring_setup` / `io_uring_enter` syscalls.
+* `ring.rs` mmaps the submission ring, completion ring and SQE array
+  (one mapping when the kernel reports `IORING_FEAT_SINGLE_MMAP`), and
+  implements the head/tail protocol with acquire/release atomics on the shared
+  memory. Setup tries `SINGLE_ISSUER | COOP_TASKRUN | DEFER_TASKRUN` first and
+  falls back on older kernels.
+* `mod.rs` is the server: one ring per worker thread, each with its own
+  `SO_REUSEPORT` listener. Accept is multishot (one SQE, a stream of
+  completions; falls back to single-shot before 5.19). Every connection has
+  exactly one operation in flight: `RECV` into the spare capacity of its input
+  buffer, then `process()`, then `SEND` (re-issued on short writes), and for
+  `/sleep` a `TIMEOUT` op whose `__kernel_timespec` lives in the boxed
+  connection so its address stays valid. One op per connection means the
+  kernel never writes a buffer we are reading and there are no stale
+  completions to guard against.
+
+It is the same shape as the `mio` loop — one thread, one listener, one queue —
+so the difference between the two rows is readiness-plus-syscalls versus
+completions-plus-shared-memory, nothing else.
+
+Requirements: Linux ≥ 5.6 (5.19+ for multishot accept) and
+`kernel.io_uring_disabled = 0`. Some container runtimes block `io_uring_setup`
+via seccomp; the server then exits with a clear message and the integration
+test skips this runtime.
 
 ## Benchmarking
 
 ```sh
 scripts/bench.sh                          # every runtime × every scenario, 10 s each
-RUNTIMES="tokio mio" DURATION=5 scripts/bench.sh
+RUNTIMES="tokio mio uring" DURATION=5 scripts/bench.sh
 WORKERS=1 scripts/bench.sh                # pin all runtimes to one worker
 TARGET=http://<droplet-ip>:8080 scripts/bench.sh   # drive a remote server
 ```

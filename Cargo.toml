@@ -20,6 +20,7 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "io-util", 
 mio = { version = "1", features = ["os-poll", "net"] }
 socket2 = { version = "0.5", features = ["all"] }
 hdrhistogram = "7"
+libc = "0.2"
 
 [profile.release]
 opt-level = 3

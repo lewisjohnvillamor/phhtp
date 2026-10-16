@@ -50,7 +50,12 @@ pub fn serve_connection(app: &App, stream: &mut TcpStream) -> io::Result<()> {
 pub fn read_append(stream: &mut TcpStream, buf: &mut Vec<u8>) -> io::Result<usize> {
     let start = buf.len();
     buf.resize(start + READ_CHUNK, 0);
-    let r = stream.read(&mut buf[start..]);
+    let r = loop {
+        match stream.read(&mut buf[start..]) {
+            Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+            r => break r,
+        }
+    };
     let n = *r.as_ref().unwrap_or(&0);
     buf.truncate(start + n);
     r
