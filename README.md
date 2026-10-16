@@ -149,21 +149,30 @@ throughput, errors and non-2xx counts. Cross-check with
 ### Sample results (4-core container, client and server on the same box)
 
 Full table in [`bench/results/sample-4core-container.md`](bench/results/sample-4core-container.md).
-Indicative only — the load generator was competing with the server for CPU.
+Indicative only — the load generator was competing with the server for CPU, and
+a 4-second window puts runs within a few percent of each other.
 
-| runtime | `GET /json` req/s | p50 | p90 | p99 | `GET /sleep?ms=5` ×256 req/s | p90 | `GET /compute?n=2000` p90 |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| threads  | 106k | 0.55ms | 0.95ms | 1.86ms | 46.5k | 5.96ms | 18.2ms |
-| pool(64) | 110k | 0.54ms | 0.92ms | 1.61ms | **12.0k** | 5.51ms | 19.1ms |
-| mio      | **160k** | **0.31ms** | 0.78ms | 1.47ms | 42.6k | 6.45ms | **15.3ms** |
-| tokio    | 151k | 0.38ms | **0.63ms** | **1.03ms** | 37.8k | 7.58ms | 17.5ms |
-| tokio-st | 123k | 0.49ms | 0.78ms | 1.23ms | 34.5k | 8.31ms | **50.4ms** |
+| runtime | `GET /json` req/s | p50 | p90 | p99 | `GET /sleep?ms=5` ×256 req/s | p50 | p90 | `GET /compute?n=2000` p90 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| threads  | 105k | 0.56ms | 0.96ms | 1.87ms | 44.9k | 5.45ms | 6.33ms | 19.8ms |
+| pool(64) | 101k | 0.57ms | 1.00ms | 1.93ms | **12.0k** | 5.27ms | 5.50ms | 20.4ms |
+| mio      | **168k** | **0.29ms** | 0.75ms | 1.50ms | 42.5k | 5.96ms | 6.49ms | **13.5ms** |
+| tokio    | 139k | 0.40ms | **0.71ms** | **1.29ms** | 37.9k | 6.67ms | 7.55ms | 17.5ms |
+| tokio-st | 122k | 0.49ms | 0.78ms | 1.21ms | 33.3k | 7.68ms | 8.76ms | **46.9ms** |
+| uring    | 140k | 0.35ms | 0.90ms | 1.66ms | **46.8k** | **5.32ms** | **5.90ms** | 16.4ms |
 
 What the shapes already show, independent of the exact numbers:
 
-* **Framing cost dominates on trivial endpoints.** `mio` wins on raw throughput and
-  p50 because it does the least per request: no task allocation, no scheduler, no
-  wakers. Tokio's work-stealing buys the *tightest tail* (best p90/p99).
+* **Framing cost dominates on trivial endpoints.** `mio` and `uring` do the least
+  per request — no task allocation, no scheduler, no wakers — and lead on p50.
+  Tokio's work-stealing buys the *tightest tail* (best p90/p99 on `/json`).
+* **io_uring's win is in the waiting, not the parsing.** On loopback with a
+  CPU-starved box, `uring` and `mio` are within noise on `/` and `/json`: the
+  syscalls io_uring removes are cheap here. On `/sleep` the picture changes —
+  `uring` is the fastest runtime with the lowest p50 *and* p90, because a kernel
+  `TIMEOUT` op plus one `io_uring_enter` per batch beats a user-space timer heap
+  feeding `epoll_wait`, and beats Tokio's timer wheel by a wider margin. Expect
+  the gap to grow with real network latency and more idle connections.
 * **Blocking threads are not slow.** On a few dozen keep-alive connections the
   thread-per-connection model is within 30–40% of the async runtimes and has the
   simplest code. It loses when connections go into the thousands.
@@ -172,7 +181,7 @@ What the shapes already show, independent of the exact numbers:
   192 connections sit in the accept queue. p50 looks fine; *the queue is invisible
   in latency because queued connections aren't being measured yet* — watch req/s.
 * **CPU-bound handlers on a single-threaded runtime are a cliff.** `tokio-st`
-  serialises every `/compute` behind one core (p90 50 ms vs 15–19 ms). On a
+  serialises every `/compute` behind one core (p90 47 ms vs 13–20 ms). On a
   1-vCPU droplet *every* runtime is in this situation; the question becomes how
   cheaply the runtime multiplexes I/O around the CPU work, which `WORKERS=1
   scripts/bench.sh` lets you measure.
