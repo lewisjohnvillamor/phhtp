@@ -87,6 +87,25 @@ consumes every complete request at the front of `inbuf`, appends the responses t
 hold the output back (for `/sleep`). Each runtime is only the loop around that call.
 That is what makes the comparison fair.
 
+## Edge hardening and files through the ring
+
+The `uring-async` runtime carries the first two milestones of
+[`docs/NEXT.md`](docs/NEXT.md):
+
+* `--idle-timeout S` closes connections silent for S seconds, from one
+  sweeper task per worker (no timer op per request);
+* `--max-conns N` sheds connections beyond N per worker instead of running
+  out of file descriptors;
+* SIGTERM / SIGINT stop accepting, drain for `--shutdown-grace S`, then close;
+* `--static-dir DIR` serves `GET /static/<name>` with `openat`, `statx` and
+  `read` as io_uring ops into the buffer that already holds the response
+  head, sent with `SEND_ZC` from 16 KiB (`PHHTP_ZC_MIN`). `threads`, `pool`,
+  `mio` and `tokio` serve the same files with blocking reads (Tokio's on its
+  `spawn_blocking` pool); the external runtimes answer 501.
+
+`scripts/static.sh` measures static files on those runtimes and on nginx
+(`sendfile on`) with the same files and load generator.
+
 ## Endpoints
 
 | Method | Path | What it measures |

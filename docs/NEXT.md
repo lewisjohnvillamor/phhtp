@@ -93,8 +93,8 @@ control.
 | Milestone | Done when |
 |---|---|
 | M0 Droplet baseline | the eleven-runtime matrix and the rate sweep reproduced from a second droplet as client; ordering of `uring`, `uring-async`, `mio`, `tokio` settled or shown to be within noise on real hardware |
-| M1 Hardened runtime | timeouts, connection cap, graceful shutdown, `JoinHandle`; the slowloris and fd-exhaustion runs pass with bounded memory and no manual recovery |
-| M2 Files through the ring | static file serving with registered files and `SEND_ZC`; `/blob` replaced by real files; compared against nginx `sendfile` on the droplet |
+| M1 Hardened runtime | **done** (idle sweeper, connection cap with shedding, graceful shutdown, `JoinHandle`/abort, `time::timeout`, `TcpStream::shutdown`; see EXPANDED.md §10) |
+| M2 Files through the ring | **done on loopback** (`openat`/`statx`/`read` as ring ops, `SEND_ZC`, nginx `sendfile` in the harness; EXPANDED.md §10); registered files and `splice` still open; the droplet comparison is M0's |
 | M3 Proxy | streaming HTTP/1.1 relay to an axum app with keep-alive upstream pool; measured against nginx `proxy_pass` |
 | M4 TLS | rustls termination; HTTPS rows for M2 and M3 |
 | M5 One week on the droplet | the edge in front of a real app, with `/stats` sampled hourly; then decide whether to publish |
