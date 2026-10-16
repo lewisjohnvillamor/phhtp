@@ -143,7 +143,10 @@ pub async fn read(path: &Path) -> io::Result<Vec<u8>> {
     let f = File::open(path).await?;
     let m = f.metadata().await?;
     if !m.is_file {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a regular file"));
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "not a regular file",
+        ));
     }
     f.read_to_end(m.size as usize).await
 }

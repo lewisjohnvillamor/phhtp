@@ -15,8 +15,8 @@
 //!    `process` stops after a delaying request so the hold-back is applied
 //!    per request, not to a whole pipelined batch. Otherwise go to step 1.
 
-use crate::app::{App, Outcome};
-use crate::http::{parse, Method, Parse};
+use crate::app::{App, FileReq, Outcome};
+use crate::http::{parse, Method, Parse, Response};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Flow {
@@ -38,10 +38,70 @@ pub fn max_inbuf(app: &App) -> usize {
     app.limits.max_head + app.limits.max_body
 }
 
+/// [`process`] for runtimes that can read files: stops at a `/static` request
+/// and hands it back in `file`. The runtime reads the file (through whatever
+/// I/O it has), calls [`file_response`] to append the response, and then
+/// continues exactly as after a delay: if `inbuf` is not empty, call again.
+pub struct StepFs {
+    pub step: Step,
+    pub file: Option<FileReq>,
+}
+
 pub fn process(app: &App, inbuf: &mut Vec<u8>, outbuf: &mut Vec<u8>) -> Step {
+    process_inner(app, inbuf, outbuf, false).step
+}
+
+pub fn process_fs(app: &App, inbuf: &mut Vec<u8>, outbuf: &mut Vec<u8>) -> StepFs {
+    process_inner(app, inbuf, outbuf, true)
+}
+
+/// Append the response to a [`FileReq`] once the runtime has read the file:
+/// `Ok(body)` becomes 200 (headers only for `HEAD`), `NotFound` 404, anything
+/// else 500. For large bodies a runtime may pass `Ok(Vec::new())` with
+/// `body_len = Some(n)` to get the head alone and send the body itself.
+pub fn file_response(
+    outbuf: &mut Vec<u8>,
+    req: &FileReq,
+    body: std::io::Result<Vec<u8>>,
+    body_len: Option<usize>,
+) {
+    match body {
+        Ok(body) => {
+            let len = body_len.unwrap_or(body.len());
+            Response::new(200, req.content_type, crate::http::Body::Static(b"")).write_head(
+                outbuf,
+                len,
+                req.keep_alive,
+            );
+            if !req.head_only && body_len.is_none() {
+                outbuf.extend_from_slice(&body);
+            }
+        }
+        Err(e) => {
+            let status = match e.kind() {
+                std::io::ErrorKind::NotFound => 404,
+                std::io::ErrorKind::PermissionDenied => 403,
+                _ => 500,
+            };
+            let msg = match status {
+                404 => "not found",
+                403 => "forbidden",
+                _ => "file read failed",
+            };
+            Response::json(
+                status,
+                &serde_json::json!({ "error": msg, "status": status }),
+            )
+            .write_to(outbuf, req.keep_alive, req.head_only);
+        }
+    }
+}
+
+fn process_inner(app: &App, inbuf: &mut Vec<u8>, outbuf: &mut Vec<u8>, files: bool) -> StepFs {
     let mut consumed = 0usize;
     let mut flow = Flow::Continue;
     let mut delay_ms = None;
+    let mut file = None;
 
     loop {
         let rest = &inbuf[consumed..];
@@ -63,12 +123,18 @@ pub fn process(app: &App, inbuf: &mut Vec<u8>, outbuf: &mut Vec<u8>) -> Step {
                         response.write_to(outbuf, keep, head_only);
                         delay_ms = Some(ms);
                     }
+                    Outcome::File(f) if files => file = Some(f),
+                    Outcome::File(_) => Response::json(
+                        501,
+                        &serde_json::json!({ "error": "file serving is not implemented in this runtime", "status": 501 }),
+                    )
+                    .write_to(outbuf, keep, head_only),
                 }
                 if !keep {
                     flow = Flow::Close;
                     break;
                 }
-                if delay_ms.is_some() {
+                if delay_ms.is_some() || file.is_some() {
                     break;
                 }
             }
@@ -84,7 +150,10 @@ pub fn process(app: &App, inbuf: &mut Vec<u8>, outbuf: &mut Vec<u8>) -> Step {
     if consumed > 0 {
         inbuf.drain(..consumed);
     }
-    Step { flow, delay_ms }
+    StepFs {
+        step: Step { flow, delay_ms },
+        file,
+    }
 }
 
 #[cfg(test)]
@@ -157,6 +226,61 @@ mod tests {
         assert_eq!(step.delay_ms, None);
         assert_eq!(count_responses(&out), 1);
         assert!(inbuf.is_empty());
+    }
+
+    #[test]
+    fn static_route_is_501_without_fs_and_a_file_req_with_it() {
+        let dir = std::env::temp_dir().join(format!("phhtp-static-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("a.txt"), b"hello file").unwrap();
+        let a = App::new("s", "t").with_static_dir(&dir);
+        let mut inbuf =
+            b"GET /static/a.txt HTTP/1.1\r\nHost: h\r\n\r\nGET / HTTP/1.1\r\nHost: h\r\n\r\n"
+                .to_vec();
+        let mut out = Vec::new();
+        let step = process(&a, &mut inbuf.clone(), &mut out);
+        assert_eq!(step.flow, Flow::Continue);
+        assert!(std::str::from_utf8(&out)
+            .unwrap()
+            .starts_with("HTTP/1.1 501 "));
+        assert_eq!(count_responses(&out), 2);
+
+        out.clear();
+        let sf = process_fs(&a, &mut inbuf, &mut out);
+        let f = sf.file.expect("file request");
+        assert_eq!(f.path, dir.join("a.txt"));
+        assert!(out.is_empty(), "stops before the file response");
+        assert!(!inbuf.is_empty(), "second request waits");
+        file_response(&mut out, &f, std::fs::read(&f.path), None);
+        let text = std::str::from_utf8(&out).unwrap();
+        assert!(
+            text.starts_with("HTTP/1.1 200 ") && text.ends_with("hello file"),
+            "{text}"
+        );
+        assert!(text.contains("Content-Length: 10"));
+        let sf = process_fs(&a, &mut inbuf, &mut out);
+        assert!(sf.file.is_none() && inbuf.is_empty());
+
+        // traversal and dot files never resolve
+        for bad in ["/static/../x", "/static/.env", "/static/a/b", "/static/"] {
+            let mut inb = format!("GET {bad} HTTP/1.1\r\nHost: h\r\n\r\n").into_bytes();
+            let mut o = Vec::new();
+            assert!(process_fs(&a, &mut inb, &mut o).file.is_none(), "{bad}");
+            assert!(
+                std::str::from_utf8(&o)
+                    .unwrap()
+                    .starts_with("HTTP/1.1 404 "),
+                "{bad}"
+            );
+        }
+        let mut inb = b"GET /static/missing.txt HTTP/1.1\r\nHost: h\r\n\r\n".to_vec();
+        let mut o = Vec::new();
+        let f = process_fs(&a, &mut inb, &mut o).file.unwrap();
+        file_response(&mut o, &f, std::fs::read(&f.path), None);
+        assert!(std::str::from_utf8(&o)
+            .unwrap()
+            .starts_with("HTTP/1.1 404 "));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -5,7 +5,7 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
-use phhtp_core::{conn, process, App, Flow};
+use phhtp_core::{conn, process_fs, App, Flow};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
@@ -68,7 +68,14 @@ async fn serve_connection(app: &App, mut stream: TcpStream) -> io::Result<()> {
             ));
         }
         loop {
-            let step = process(app, &mut inbuf, &mut outbuf);
+            let sf = process_fs(app, &mut inbuf, &mut outbuf);
+            let step = sf.step;
+            if let Some(f) = &sf.file {
+                // Tokio has no async file I/O of its own: this is a blocking
+                // read on its spawn_blocking pool.
+                let body = tokio::fs::read(&f.path).await;
+                conn::file_response(&mut outbuf, f, body, None);
+            }
             if let Some(ms) = step.delay_ms {
                 tokio::time::sleep(Duration::from_millis(ms)).await;
             }
@@ -79,7 +86,7 @@ async fn serve_connection(app: &App, mut stream: TcpStream) -> io::Result<()> {
             if step.flow == Flow::Close {
                 return Ok(());
             }
-            if step.delay_ms.is_none() || inbuf.is_empty() {
+            if (step.delay_ms.is_none() && sf.file.is_none()) || inbuf.is_empty() {
                 break;
             }
         }

@@ -22,6 +22,6 @@ pub mod http;
 pub mod sig;
 pub mod stats;
 
-pub use app::{App, Outcome};
-pub use conn::{process, Flow, Step};
+pub use app::{App, FileReq, Outcome};
+pub use conn::{file_response, process, process_fs, Flow, Step, StepFs};
 pub use http::{parse, HttpError, Limits, Method, Parse, Request, Response};

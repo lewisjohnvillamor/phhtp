@@ -14,6 +14,7 @@
 //! | GET    | `/sleep?ms=M`    | responds after M ms (simulated upstream I/O, ≤ 10 s) |
 //! | GET    | `/stats`         | the server process's CPU, RSS, context switches, disk I/O (from `/proc/self`) |
 //! | GET    | `/blob?n=N`      | N bytes of payload (default 16384, ≤ 1 MiB): the send-side test |
+//! | GET    | `/static/<name>` | a file from `--static-dir` (runtimes that do file I/O; 501 elsewhere) |
 
 use serde::Serialize;
 
@@ -26,12 +27,26 @@ pub enum Outcome {
     Respond(Response),
     /// Wait `ms` milliseconds *without blocking other connections*, then write.
     Delay { ms: u64, response: Response },
+    /// Serve a file: the runtime reads it (however it does I/O) and calls
+    /// [`crate::conn::file_response`]. Only reachable when the app has a
+    /// static directory and the runtime opted in via `process_fs`.
+    File(FileReq),
+}
+
+/// A file the runtime has to read on the handler's behalf.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileReq {
+    pub path: std::path::PathBuf,
+    pub content_type: &'static str,
+    pub head_only: bool,
+    pub keep_alive: bool,
 }
 
 pub struct App {
     pub limits: Limits,
     secret: Vec<u8>,
     runtime: String,
+    static_dir: Option<std::path::PathBuf>,
 }
 
 #[derive(Serialize)]
@@ -86,12 +101,58 @@ impl App {
             limits: Limits::default(),
             secret: secret.into(),
             runtime: runtime.into(),
+            static_dir: None,
         }
     }
 
     pub fn with_limits(mut self, limits: Limits) -> Self {
         self.limits = limits;
         self
+    }
+
+    /// Serve `GET /static/<name>` from this directory.
+    pub fn with_static_dir(mut self, dir: impl Into<std::path::PathBuf>) -> Self {
+        self.static_dir = Some(dir.into());
+        self
+    }
+
+    pub fn static_dir(&self) -> Option<&std::path::Path> {
+        self.static_dir.as_deref()
+    }
+
+    /// Resolve `/static/<name>` to a file request. One path segment, no dot
+    /// files, no traversal: the name is validated, not canonicalised.
+    fn static_file(&self, req: &Request<'_>) -> Option<FileReq> {
+        let dir = self.static_dir.as_ref()?;
+        let name = req.path.strip_prefix("/static/")?;
+        let ok = !name.is_empty()
+            && name.len() <= 255
+            && !name.starts_with('.')
+            && name
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-' || b == b'_');
+        if !ok {
+            return None;
+        }
+        let content_type = match name.rsplit_once('.').map(|(_, e)| e) {
+            Some("html") | Some("htm") => "text/html; charset=utf-8",
+            Some("css") => "text/css; charset=utf-8",
+            Some("js") | Some("mjs") => "text/javascript; charset=utf-8",
+            Some("json") => "application/json",
+            Some("svg") => "image/svg+xml",
+            Some("png") => "image/png",
+            Some("jpg") | Some("jpeg") => "image/jpeg",
+            Some("webp") => "image/webp",
+            Some("woff2") => "font/woff2",
+            Some("txt") | Some("md") => "text/plain; charset=utf-8",
+            _ => "application/octet-stream",
+        };
+        Some(FileReq {
+            path: dir.join(name),
+            content_type,
+            head_only: req.method == Method::Head,
+            keep_alive: req.keep_alive,
+        })
     }
 
     pub fn runtime(&self) -> &str {
@@ -208,6 +269,13 @@ impl App {
                 }
                 _ => allow("GET"),
             },
+            p if p.starts_with("/static/") => match m {
+                Get | Head => match self.static_file(req) {
+                    Some(f) => return Outcome::File(f),
+                    None => error(404, "not found"),
+                },
+                _ => allow("GET, HEAD"),
+            },
             _ => error(404, "not found"),
         };
         Outcome::Respond(resp)
@@ -249,6 +317,7 @@ mod tests {
         match app.handle(&request) {
             Outcome::Respond(r) => r,
             Outcome::Delay { response, .. } => response,
+            Outcome::File(f) => panic!("unexpected file request {f:?}"),
         }
     }
 

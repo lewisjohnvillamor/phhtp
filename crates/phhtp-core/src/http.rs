@@ -300,6 +300,15 @@ impl Response {
     /// (for `HEAD`) while still advertising its `Content-Length`.
     pub fn write_to(&self, out: &mut Vec<u8>, keep_alive: bool, head_only: bool) {
         let body = self.body.as_slice();
+        self.write_head(out, body.len(), keep_alive);
+        if !head_only {
+            out.extend_from_slice(body);
+        }
+    }
+
+    /// Append only the status line and headers, advertising `content_length`
+    /// for a body the caller sends separately (a file, a large buffer).
+    pub fn write_head(&self, out: &mut Vec<u8>, content_length: usize, keep_alive: bool) {
         out.extend_from_slice(b"HTTP/1.1 ");
         push_u16(out, self.status);
         out.push(b' ');
@@ -309,7 +318,7 @@ impl Response {
         out.extend_from_slice(b"\r\nContent-Type: ");
         out.extend_from_slice(self.content_type.as_bytes());
         out.extend_from_slice(b"\r\nContent-Length: ");
-        push_usize(out, body.len());
+        push_usize(out, content_length);
         for (name, value) in &self.extra {
             out.extend_from_slice(b"\r\n");
             out.extend_from_slice(name.as_bytes());
@@ -320,9 +329,6 @@ impl Response {
             out.extend_from_slice(b"\r\nConnection: close");
         }
         out.extend_from_slice(b"\r\n\r\n");
-        if !head_only {
-            out.extend_from_slice(body);
-        }
     }
 }
 

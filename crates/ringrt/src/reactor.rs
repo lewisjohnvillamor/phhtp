@@ -791,7 +791,10 @@ impl Drop for Reactor {
         for slot in 0..self.slots.len() {
             if matches!(
                 self.slots[slot],
-                Slot::Orphan { .. } | Slot::Multi(_) | Slot::Detached { .. } | Slot::DetachedZc { .. }
+                Slot::Orphan { .. }
+                    | Slot::Multi(_)
+                    | Slot::Detached { .. }
+                    | Slot::DetachedZc { .. }
             ) {
                 self.cancel(slot);
             }

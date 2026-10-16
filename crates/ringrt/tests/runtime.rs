@@ -276,7 +276,8 @@ fn timeout_fires_and_passes_through() {
     }
     let rt = Runtime::new().unwrap();
     rt.block_on(async {
-        let r = ringrt::time::timeout(Duration::from_millis(30), sleep(Duration::from_millis(300))).await;
+        let r = ringrt::time::timeout(Duration::from_millis(30), sleep(Duration::from_millis(300)))
+            .await;
         assert!(r.is_err());
         let r = ringrt::time::timeout(Duration::from_millis(300), async { 7 }).await;
         assert_eq!(r, Ok(7));
@@ -309,7 +310,9 @@ fn fs_read_through_the_ring() {
     assert!(meta.is_file && meta.size == data.len() as u64);
     assert_eq!(got, data);
     assert_eq!(missing.unwrap_err().kind(), std::io::ErrorKind::NotFound);
-    let _ = std::fs::remove_dir_all(std::env::temp_dir().join(format!("ringrt-fs-{}", std::process::id())));
+    let _ = std::fs::remove_dir_all(
+        std::env::temp_dir().join(format!("ringrt-fs-{}", std::process::id())),
+    );
 }
 
 #[test]

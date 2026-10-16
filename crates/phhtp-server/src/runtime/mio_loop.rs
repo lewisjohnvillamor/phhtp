@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use mio::net::{TcpListener, TcpStream};
 use mio::{Events, Interest, Poll, Registry, Token};
-use phhtp_core::{conn, process, App, Flow};
+use phhtp_core::{conn, App, Flow};
 
 use super::net::bind_reuseport;
 use super::READ_CHUNK;
@@ -278,7 +278,13 @@ fn advance(c: &mut Conn, idx: usize, app: &App, timers: &mut BinaryHeap<Timer>) 
         if c.inbuf.is_empty() {
             return !c.peer_closed;
         }
-        let step = process(app, &mut c.inbuf, &mut c.outbuf);
+        let sf = phhtp_core::process_fs(app, &mut c.inbuf, &mut c.outbuf);
+        let step = sf.step;
+        if let Some(f) = &sf.file {
+            // A blocking read on the event loop thread: the page cache makes
+            // it cheap, a cold disk would stall every connection on this loop.
+            phhtp_core::conn::file_response(&mut c.outbuf, f, std::fs::read(&f.path), None);
+        }
         if step.flow == Flow::Close {
             c.closing = true;
         }

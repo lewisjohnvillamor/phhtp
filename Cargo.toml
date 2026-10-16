@@ -16,7 +16,7 @@ hmac = "0.12"
 sha2 = "0.10"
 hex = "0.4"
 clap = { version = "4", features = ["derive", "env"] }
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "io-util", "time", "macros", "sync"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "io-util", "time", "macros", "sync", "fs"] }
 mio = { version = "1", features = ["os-poll", "net"] }
 socket2 = { version = "0.5", features = ["all"] }
 hdrhistogram = "7"

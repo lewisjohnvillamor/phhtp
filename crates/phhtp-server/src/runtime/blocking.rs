@@ -4,7 +4,7 @@ use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::time::Duration;
 
-use phhtp_core::{conn, process, App, Flow};
+use phhtp_core::{conn, process_fs, App, Flow};
 
 use super::READ_CHUNK;
 
@@ -28,7 +28,11 @@ pub fn serve_connection(app: &App, stream: &mut TcpStream) -> io::Result<()> {
             ));
         }
         loop {
-            let step = process(app, &mut inbuf, &mut outbuf);
+            let sf = process_fs(app, &mut inbuf, &mut outbuf);
+            let step = sf.step;
+            if let Some(f) = &sf.file {
+                conn::file_response(&mut outbuf, f, std::fs::read(&f.path), None);
+            }
             if let Some(ms) = step.delay_ms {
                 // A blocking runtime has no other way to wait: the thread sleeps.
                 std::thread::sleep(Duration::from_millis(ms));
@@ -40,7 +44,7 @@ pub fn serve_connection(app: &App, stream: &mut TcpStream) -> io::Result<()> {
             if step.flow == Flow::Close {
                 return Ok(());
             }
-            if step.delay_ms.is_none() || inbuf.is_empty() {
+            if (step.delay_ms.is_none() && sf.file.is_none()) || inbuf.is_empty() {
                 break;
             }
         }

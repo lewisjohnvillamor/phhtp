@@ -40,18 +40,150 @@ fn all_runtimes() -> Vec<Runtime> {
 }
 
 fn boot(rt: Runtime) -> SocketAddr {
+    boot_with(rt, App::new("secret", rt.name()), |_| {})
+}
+
+fn boot_with(rt: Runtime, app: App, tune: impl FnOnce(&mut Config)) -> SocketAddr {
     let (tx, rx) = mpsc::channel();
-    let app = Arc::new(App::new("secret", rt.name()));
-    let cfg = Config {
-        bind: "127.0.0.1:0".parse().unwrap(),
-        workers: 2,
-        ready: Some(tx),
-    };
+    let app = Arc::new(app);
+    let mut cfg = Config::new("127.0.0.1:0".parse().unwrap(), 2);
+    cfg.ready = Some(tx);
+    tune(&mut cfg);
     std::thread::spawn(move || {
         serve(rt, cfg, app).expect("server exited");
     });
     rx.recv_timeout(Duration::from_secs(5))
         .expect("server did not report ready")
+}
+
+fn static_dir() -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("phhtp-test-static-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("small.txt"), b"small file body").unwrap();
+    let big: Vec<u8> = (0..200_000u32).map(|i| (i % 253) as u8).collect();
+    std::fs::write(dir.join("big.bin"), &big).unwrap();
+    dir
+}
+
+#[test]
+fn static_files_are_served_where_implemented_and_501_elsewhere() {
+    let dir = static_dir();
+    let big = std::fs::read(dir.join("big.bin")).unwrap();
+    for rt in all_runtimes() {
+        let addr = boot_with(
+            rt,
+            App::new("secret", rt.name()).with_static_dir(&dir),
+            |_| {},
+        );
+        let mut s = connect(addr);
+        let mut buf = Vec::new();
+        let implemented = matches!(
+            rt,
+            Runtime::Threads
+                | Runtime::Pool
+                | Runtime::Mio
+                | Runtime::Tokio
+                | Runtime::TokioSt
+                | Runtime::UringAsync
+        );
+        s.write_all(b"GET /static/small.txt HTTP/1.1\r\nHost: h\r\n\r\nGET /static/big.bin HTTP/1.1\r\nHost: h\r\n\r\nGET /json HTTP/1.1\r\nHost: h\r\n\r\n").unwrap();
+        let (st, head, body) = read_response(&mut s, &mut buf);
+        if implemented {
+            assert_eq!(st, 200, "{}: {head}", rt.name());
+            assert_eq!(body, b"small file body", "{}", rt.name());
+            assert!(
+                head.contains("Content-Type: text/plain"),
+                "{}: {head}",
+                rt.name()
+            );
+            let (st, _, body) = read_response(&mut s, &mut buf);
+            assert_eq!(st, 200, "{}", rt.name());
+            assert!(
+                body == big,
+                "{}: big body differs ({} bytes)",
+                rt.name(),
+                body.len()
+            );
+        } else {
+            assert_eq!(st, 501, "{}: {head}", rt.name());
+            let (st, _, _) = read_response(&mut s, &mut buf);
+            assert_eq!(st, 501, "{}", rt.name());
+        }
+        // The pipelined request after the files is still answered in order.
+        let (st, _, body) = read_response(&mut s, &mut buf);
+        assert_eq!(st, 200, "{}", rt.name());
+        assert!(body.starts_with(b"{\"message\""), "{}", rt.name());
+        // Missing file, traversal, HEAD.
+        s.write_all(b"GET /static/nope.txt HTTP/1.1\r\nHost: h\r\n\r\nGET /static/../Cargo.toml HTTP/1.1\r\nHost: h\r\n\r\nHEAD /static/small.txt HTTP/1.1\r\nHost: h\r\n\r\n").unwrap();
+        let (st, _, _) = read_response(&mut s, &mut buf);
+        assert_eq!(st, if implemented { 404 } else { 501 }, "{}", rt.name());
+        let (st, _, _) = read_response(&mut s, &mut buf);
+        assert_eq!(st, 404, "{}", rt.name());
+        let (st, head, body) = read_response_head_only(&mut s, &mut buf);
+        assert_eq!(st, if implemented { 200 } else { 501 }, "{}", rt.name());
+        assert!(body.is_empty(), "{}", rt.name());
+        if implemented {
+            assert!(head.contains("Content-Length: 15"), "{}: {head}", rt.name());
+        }
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn uring_async_idle_timeout_cap_and_graceful_shutdown() {
+    if !phhtp_server::runtime::uring::available() {
+        return;
+    }
+    let rt = Runtime::UringAsync;
+    let addr = boot_with(rt, App::new("secret", rt.name()), |c| {
+        c.idle_timeout = Some(Duration::from_secs(1));
+        c.max_conns = Some(2);
+        c.shutdown_grace = Duration::from_secs(5);
+        c.workers = 1;
+    });
+    // Idle: a silent connection is closed by the sweeper within ~2 s.
+    let mut idle = connect(addr);
+    idle.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+    let t0 = Instant::now();
+    let mut tmp = [0u8; 16];
+    assert!(
+        peer_closed(&mut idle, &mut tmp),
+        "idle connection should be closed"
+    );
+    assert!(t0.elapsed() < Duration::from_secs(4), "{:?}", t0.elapsed());
+
+    // Cap: with two connections open, a third is shed, the first two still work.
+    let mut a = connect(addr);
+    let mut b = connect(addr);
+    std::thread::sleep(Duration::from_millis(100));
+    let mut c = connect(addr);
+    c.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+    let _ = c.write_all(b"GET / HTTP/1.1\r\nHost: h\r\n\r\n");
+    assert!(
+        peer_closed(&mut c, &mut tmp),
+        "third connection should be shed"
+    );
+    let mut buf = Vec::new();
+    for s in [&mut a, &mut b] {
+        s.write_all(b"GET / HTTP/1.1\r\nHost: h\r\n\r\n").unwrap();
+        let (st, _, _) = read_response(s, &mut buf);
+        assert_eq!(st, 200);
+    }
+
+    // Graceful shutdown: request it, finish a request on an open connection,
+    // then the listener is gone and the open connections are closed.
+    phhtp_server::runtime::uring_async::request_shutdown();
+    std::thread::sleep(Duration::from_millis(1500));
+    a.write_all(b"GET / HTTP/1.1\r\nHost: h\r\n\r\n").unwrap();
+    let (st, _, _) = read_response(&mut a, &mut buf);
+    assert_eq!(st, 200, "in-flight connections keep working during drain");
+    drop(a);
+    drop(b);
+    std::thread::sleep(Duration::from_millis(500));
+    assert!(
+        TcpStream::connect_timeout(&addr, Duration::from_millis(500)).is_err(),
+        "listener should be closed after shutdown"
+    );
 }
 
 /// Read exactly one response (headers + Content-Length body). Returns (status, headers, body).
@@ -85,6 +217,20 @@ fn read_response(s: &mut TcpStream, buf: &mut Vec<u8>) -> (u16, String, Vec<u8>)
 /// `read` that retries on EINTR. io_uring delivers task-work notifications to
 /// the owning process with a signal-like mechanism, and in this test the client
 /// threads share a process with the server, so plain reads can be interrupted.
+/// `true` if the next read sees EOF or a reset (the server closed, possibly
+/// with unread input, which makes the kernel send RST instead of FIN).
+fn peer_closed(s: &mut TcpStream, buf: &mut [u8]) -> bool {
+    loop {
+        match s.read(buf) {
+            Ok(0) => return true,
+            Ok(_) => return false,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) if e.kind() == std::io::ErrorKind::ConnectionReset => return true,
+            Err(e) => panic!("read: {e}"),
+        }
+    }
+}
+
 fn read_retry(s: &mut TcpStream, buf: &mut [u8]) -> usize {
     loop {
         match s.read(buf) {

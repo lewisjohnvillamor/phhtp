@@ -84,6 +84,26 @@ pub struct Cli {
     /// Maximum request head (request line + headers) size in bytes.
     #[arg(long, default_value_t = 16 * 1024)]
     pub max_head: usize,
+
+    /// Serve `GET /static/<name>` from this directory (threads, pool, mio,
+    /// tokio, tokio-st and uring-async; the others answer 501).
+    #[arg(long)]
+    pub static_dir: Option<std::path::PathBuf>,
+
+    /// Close a connection that has sent nothing for this many seconds
+    /// (uring-async only; 0 disables).
+    #[arg(long, default_value_t = 30)]
+    pub idle_timeout: u64,
+
+    /// Shed new connections beyond this many open ones per worker
+    /// (uring-async only; 0 = unlimited).
+    #[arg(long, default_value_t = 0)]
+    pub max_conns: usize,
+
+    /// On SIGTERM/SIGINT: stop accepting, let in-flight connections finish
+    /// for up to this many seconds, then close them (uring-async only).
+    #[arg(long, default_value_t = 10)]
+    pub shutdown_grace: u64,
 }
 
 /// Everything a runtime needs to start.
@@ -92,6 +112,26 @@ pub struct Config {
     pub workers: usize,
     /// Receives the address actually bound (useful when binding port 0).
     pub ready: Option<std::sync::mpsc::Sender<SocketAddr>>,
+    /// Idle-connection timeout (honoured by `uring-async`).
+    pub idle_timeout: Option<std::time::Duration>,
+    /// Open-connection cap per worker (honoured by `uring-async`).
+    pub max_conns: Option<usize>,
+    /// Drain time on shutdown (honoured by `uring-async`).
+    pub shutdown_grace: std::time::Duration,
+}
+
+impl Config {
+    /// A config with the defaults the CLI uses.
+    pub fn new(bind: SocketAddr, workers: usize) -> Config {
+        Config {
+            bind,
+            workers,
+            ready: None,
+            idle_timeout: Some(std::time::Duration::from_secs(30)),
+            max_conns: None,
+            shutdown_grace: std::time::Duration::from_secs(10),
+        }
+    }
 }
 
 pub fn cores() -> usize {
