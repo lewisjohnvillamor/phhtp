@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" class="viz" viewBox="0 0 560 350" width="100%" style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#fcfcfb" style="max-width:560px" role="img" aria-label="GET /json [open-loop 50000 req/s] — server CPU per request"><style>
+.x{ color-scheme: light; --surface:#fcfcfb; --surface-2:#f3f2ef; --text:#0b0b0b; --text-2:#52514e; --muted:#8a8984; --grid:#e6e5e1;
+  --io_uring:#2a78d6; --epoll:#eb6834; --blocking:#1baf7a; --ord-0:#86b6ef; --ord-1:#2a78d6; --ord-2:#104281; }
+@media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) { color-scheme: dark; --surface:#1a1a19; --surface-2:#242422; --text:#f0efec; --text-2:#c3c2b7; --muted:#8e8d86; --grid:#333331;
+  --io_uring:#3987e5; --epoll:#d95926; --blocking:#199e70; --ord-0:#6da7ec; --ord-1:#3987e5; --ord-2:#184f95; } }
+:root[data-theme="dark"] { color-scheme: dark; --surface:#1a1a19; --surface-2:#242422; --text:#f0efec; --text-2:#c3c2b7; --muted:#8e8d86; --grid:#333331;
+  --io_uring:#3987e5; --epoll:#d95926; --blocking:#199e70; --ord-0:#6da7ec; --ord-1:#3987e5; --ord-2:#184f95; }
+
+.t-title { font-size: 15px; font-weight: 600; fill: #0b0b0b; } .t-sub { font-size: 12px; fill: #52514e; }
+.t-label { font-size: 12px; fill: #0b0b0b; } .t-ours { font-weight: 600; }
+.t-value { font-size: 11.5px; fill: #52514e; font-variant-numeric: tabular-nums; }
+.t-tick { font-size: 11px; fill: #8a8984; font-variant-numeric: tabular-nums; }
+.grid { stroke: #e6e5e1; stroke-width: 1; } .axis { stroke: #e6e5e1; stroke-width: 1; }
+.bar.fam-io_uring { fill: #2a78d6; } .bar.fam-epoll { fill: #eb6834; } .bar.fam-blocking { fill: #1baf7a; }
+.line { fill:none; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+.line.fam-io_uring { stroke: #2a78d6; } .line.fam-epoll { stroke: #eb6834; } .line.fam-blocking { stroke: #1baf7a; }
+.dot { stroke: #fcfcfb; stroke-width: 2; } .dot.fam-io_uring { fill: #2a78d6; } .dot.fam-epoll { fill: #eb6834; } .dot.fam-blocking { fill: #1baf7a; }
+.hit { fill: transparent; } .row:hover .bar, .pt:hover .dot { filter: brightness(0.85); }</style>
+<text x="0" y="16" class="t-title">GET /json [open-loop 50000 req/s] — server CPU per request</text>
+<text x="0" y="32" class="t-sub">user + system time ÷ requests · lower is better · µs</text>
+<line x1="118.0" y1="44" x2="118.0" y2="324" class="grid"/>
+<text x="118.0" y="340" class="t-tick" text-anchor="middle">0.0</text>
+<line x1="211.0" y1="44" x2="211.0" y2="324" class="grid"/>
+<text x="211.0" y="340" class="t-tick" text-anchor="middle">12.5</text>
+<line x1="304.0" y1="44" x2="304.0" y2="324" class="grid"/>
+<text x="304.0" y="340" class="t-tick" text-anchor="middle">25.0</text>
+<line x1="397.0" y1="44" x2="397.0" y2="324" class="grid"/>
+<text x="397.0" y="340" class="t-tick" text-anchor="middle">37.5</text>
+<line x1="490.0" y1="44" x2="490.0" y2="324" class="grid"/>
+<text x="490.0" y="340" class="t-tick" text-anchor="middle">50.0</text>
+<line x1="118" y1="44" x2="118" y2="324" class="axis"/>
+<g class="row" data-tip="tokio-st · GET /json [open-loop 50000 req/s] · 64 conns · 50k req/s · p50 0.29 ms · p90 1.45 ms · p99 4.43 ms · CPU 51% · 10.3 µs CPU/req · ctx 0.12/req · RSS 7.0 MB · disk 0 B · median of 3 (50k–50k)">
+<rect x="0" y="44" width="560" height="28" class="hit"/>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,49.0 h72.63468221387754 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-72.63468221387754 z" class="bar fam-epoll"/>
+<text x="200.6" y="62.0" class="t-value">10.3</text>
+</g>
+<g class="row" data-tip="tokio · GET /json [open-loop 50000 req/s] · 64 conns · 50k req/s · p50 0.27 ms · p90 1.30 ms · p99 3.66 ms · CPU 66% · 13.3 µs CPU/req · ctx 0.00/req · RSS 9.6 MB · disk 0 B · median of 3 (50k–50k)">
+<rect x="0" y="72" width="560" height="28" class="hit"/>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
+<path d="M118,77.0 h94.93221355728848 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-94.93221355728848 z" class="bar fam-epoll"/>
+<text x="222.9" y="90.0" class="t-value">13.3</text>
+</g>
+<g class="row" data-tip="mio · GET /json [open-loop 50000 req/s] · 64 conns · 50k req/s · p50 0.11 ms · p90 1.69 ms · p99 3.95 ms · CPU 104% · 20.7 µs CPU/req · ctx 0.00/req · RSS 6.8 MB · disk 0 B · median of 3 (50k–50k)">
+<rect x="0" y="100" width="560" height="28" class="hit"/>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,105.0 h150.34758700672842 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-150.34758700672842 z" class="bar fam-epoll"/>
+<text x="278.3" y="118.0" class="t-value">20.7</text>
+</g>
+<g class="row" data-tip="uring-async · GET /json [open-loop 50000 req/s] · 64 conns · 50k req/s · p50 0.13 ms · p90 1.88 ms · p99 4.27 ms · CPU 105% · 21.1 µs CPU/req · ctx 0.00/req · RSS 14.3 MB · disk 0 B · median of 3 (50k–50k)">
+<rect x="0" y="128" width="560" height="28" class="hit"/>
+<text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,133.0 h152.95574796536636 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-152.95574796536636 z" class="bar fam-io_uring"/>
+<text x="281.0" y="146.0" class="t-value">21.1</text>
+</g>
+<g class="row" data-tip="uring · GET /json [open-loop 50000 req/s] · 64 conns · 50k req/s · p50 0.13 ms · p90 1.81 ms · p99 4.11 ms · CPU 110% · 22.0 µs CPU/req · ctx 0.00/req · RSS 12.5 MB · disk 0 B · median of 3 (50k–50k)">
+<rect x="0" y="156" width="560" height="28" class="hit"/>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,161.0 h160.0060782980768 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-160.0060782980768 z" class="bar fam-io_uring"/>
+<text x="288.0" y="174.0" class="t-value">22.0</text>
+</g>
+<g class="row" data-tip="compio · GET /json [open-loop 50000 req/s] · 64 conns · 50k req/s · p50 0.18 ms · p90 1.97 ms · p99 4.06 ms · CPU 118% · 23.5 µs CPU/req · ctx 0.00/req · RSS 6.9 MB · disk 0 B · median of 3 (50k–50k)">
+<rect x="0" y="184" width="560" height="28" class="hit"/>
+<text x="110" y="202.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,189.0 h171.17696460707856 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-171.17696460707856 z" class="bar fam-io_uring"/>
+<text x="299.2" y="202.0" class="t-value">23.5</text>
+</g>
+<g class="row" data-tip="tokio-uring · GET /json [open-loop 50000 req/s] · 64 conns · 50k req/s · p50 0.21 ms · p90 2.08 ms · p99 4.40 ms · CPU 121% · 24.2 µs CPU/req · ctx 0.00/req · RSS 6.9 MB · disk 0 B · median of 3 (50k–50k)">
+<rect x="0" y="212" width="560" height="28" class="hit"/>
+<text x="110" y="230.0" class="t-label" text-anchor="end">tokio-uring</text>
+<path d="M118,217.0 h176.3740046288196 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-176.3740046288196 z" class="bar fam-io_uring"/>
+<text x="304.4" y="230.0" class="t-value">24.2</text>
+</g>
+<g class="row" data-tip="monoio · GET /json [open-loop 50000 req/s] · 64 conns · 50k req/s · p50 0.19 ms · p90 2.10 ms · p99 4.38 ms · CPU 122% · 24.3 µs CPU/req · ctx 0.00/req · RSS 9.0 MB · disk 0 B · median of 3 (50k–50k)">
+<rect x="0" y="240" width="560" height="28" class="hit"/>
+<text x="110" y="258.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,245.0 h177.15131940764164 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-177.15131940764164 z" class="bar fam-io_uring"/>
+<text x="305.2" y="258.0" class="t-value">24.3</text>
+</g>
+<g class="row" data-tip="threads · GET /json [open-loop 50000 req/s] · 64 conns · 50k req/s · p50 0.14 ms · p90 0.93 ms · p99 4.75 ms · CPU 129% · 25.7 µs CPU/req · ctx 0.00/req · RSS 10.6 MB · disk 0 B · median of 3 (50k–50k)">
+<rect x="0" y="268" width="560" height="28" class="hit"/>
+<text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
+<path d="M118,273.0 h187.56180162884522 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-187.56180162884522 z" class="bar fam-blocking"/>
+<text x="315.6" y="286.0" class="t-value">25.7</text>
+</g>
+<g class="row" data-tip="glommio · GET /json [open-loop 50000 req/s] · 64 conns · 50k req/s · p50 0.80 ms · p90 3.37 ms · p99 7.61 ms · CPU 166% · 33.2 µs CPU/req · ctx 0.00/req · RSS 53.2 MB · disk 0 B · median of 3 (50k–50k)">
+<rect x="0" y="296" width="560" height="28" class="hit"/>
+<text x="110" y="314.0" class="t-label" text-anchor="end">glommio</text>
+<path d="M118,301.0 h243.0092350461753 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-243.0092350461753 z" class="bar fam-io_uring"/>
+<text x="371.0" y="314.0" class="t-value">33.2</text>
+</g>
+</svg>

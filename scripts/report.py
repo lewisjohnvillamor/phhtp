@@ -39,10 +39,25 @@ ORDINAL_DARK = ["#6da7ec", "#3987e5", "#184f95"]
 RUNTIME_ORDER = ["uring-async", "uring", "monoio", "compio", "glommio", "tokio-uring", "tokio", "tokio-st", "mio", "threads", "pool"]
 
 
+def mode_slug(row):
+    m = row.get("mode", "")
+    if "connection per request" in m:
+        return "churn"
+    if m.startswith("open-loop"):
+        return "openloop"
+    return ""
+
+
 def endpoint_of(row):
     url = row["url"]
     path = "/" + url.split("/", 3)[3] if url.count("/") >= 3 else "/"
-    return f'{row["method"]} {path}'
+    m = row.get("mode", "")
+    tag = ""
+    if "connection per request" in m:
+        tag = " [connection per request]"
+    elif m.startswith("open-loop"):
+        tag = f' [{m.split(",")[0]}]'
+    return f'{row["method"]} {path}{tag}'
 
 
 def k(v):
@@ -479,6 +494,9 @@ def main():
         for ep, by_rt in by_ep.items():
             items = [dict(label=rt, family=FAMILY.get(rt, "io_uring"), ours=rt in OURS, tip=tip_for(r), value=r["rps"]) for rt, r in by_rt.items()]
             name = ep.split()[1].strip("/").split("?")[0] or "root"
+            first = next(iter(by_rt.values()))
+            if mode_slug(first):
+                name += "-" + mode_slug(first)
             conns = next(iter(by_rt.values()))["connections"]
             with open(os.path.join(a.svg_dir, f"matrix-{name}-rps.svg"), "w") as f:
                 f.write(static_svg(hbar_chart(f"{ep} — throughput", f"{conns} keep-alive connections · higher is better", items, k, "req/s")))

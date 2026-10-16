@@ -330,6 +330,32 @@ What the eleven-way comparison shows:
   limit); everything event-driven serves them. `pool`'s CPU is not sampled
   because its 64 workers are all busy and cannot serve the `/stats` probe.
 
+Three further load shapes (medians of 3; the client at 180–280 % of its two
+cores in all of them, so top-end differences are client-limited):
+
+![16 KiB responses, all runtimes](bench/charts/matrix-blob-rps.svg)
+
+![Connection per request, all runtimes](bench/charts/matrix-root-churn-rps.svg)
+
+* **16 KiB responses** (`/blob`, 1.9 GB/s at the top): `uring` 119k, mio 116k,
+  `uring-async` 115k, tokio 99k, monoio 94k, compio 88k, glommio 65k. Tokio
+  keeps the best p99 (1.57 ms vs 2.0 ms).
+* **Connection per request** (`--close`): every event-driven runtime lands at
+  30–35k connections/s with `uring` on top (35.3k) and the server spending
+  36–46 µs of CPU per connection; `threads` collapses to 6k at 345 µs per
+  connection because it spawns a thread per connection. The client spends
+  55–87 µs per connection here, so this scenario measures it as much as the
+  server.
+* **Open loop at 50k req/s** (`--rate 50000`, well under capacity): every
+  runtime holds the rate; the true unloaded p50 is 0.11–0.13 ms for mio and
+  the io_uring loops against 0.27 ms for Tokio (scheduler hop), while Tokio has
+  the best p90 (1.30 ms). **At this moderate load Tokio is the most
+  CPU-efficient by a wide margin: 13 µs per request against 21–24 µs for the
+  io_uring runtimes and mio.** io_uring's per-operation kernel work is only
+  amortised when the ring is busy; at saturation `uring` matches Tokio's
+  9–10 µs, at half load it costs 65 % more. For a droplet that runs at
+  moderate utilisation most of the day, this is the deciding column.
+
 ### Scale and failure modes
 
 [`docs/SCALE.md`](docs/SCALE.md) has the connection sweep to 16 000 keep-alive
