@@ -1,0 +1,18 @@
+[package]
+name = "phhtp-bench"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Keep-alive HTTP/1.1 load generator reporting p50/p90/p99 latency"
+
+[[bin]]
+name = "phhtp-bench"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+tokio.workspace = true
+httparse.workspace = true
+hdrhistogram.workspace = true
+serde.workspace = true
+serde_json.workspace = true

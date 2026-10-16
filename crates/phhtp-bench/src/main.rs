@@ -1,0 +1,487 @@
+//! `phhtp-bench`: a keep-alive HTTP/1.1 load generator.
+//!
+//! Opens `-c` connections, sends the same request back-to-back on each one
+//! (one in flight per connection, no pipelining), and records every
+//! request's latency in an HDR histogram. Reports p50/p90/p99/p99.9/max.
+//!
+//! ```text
+//! phhtp-bench run http://127.0.0.1:8080/json -c 64 -d 10
+//! phhtp-bench run http://127.0.0.1:8080/sign -X POST --body-size 256 --json >> results.jsonl
+//! phhtp-bench report results.jsonl
+//! ```
+
+use std::io::{self, BufRead, Write};
+use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use clap::{Parser, Subcommand};
+use hdrhistogram::Histogram;
+use serde::{Deserialize, Serialize};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
+
+#[derive(Parser)]
+#[command(name = "phhtp-bench", version, about)]
+struct Cli {
+    #[command(subcommand)]
+    cmd: Cmd,
+}
+
+#[derive(Subcommand)]
+enum Cmd {
+    /// Run a load test against one URL.
+    Run(RunArgs),
+    /// Render JSONL results (from `run --json`) as a Markdown table.
+    Report { file: String },
+}
+
+#[derive(Parser, Clone)]
+struct RunArgs {
+    /// Target, e.g. http://127.0.0.1:8080/json
+    url: String,
+    /// Concurrent keep-alive connections.
+    #[arg(short, long, default_value_t = 64)]
+    connections: usize,
+    /// Measured duration in seconds.
+    #[arg(short, long, default_value_t = 10)]
+    duration: u64,
+    /// Warm-up seconds (traffic is sent but not recorded).
+    #[arg(short, long, default_value_t = 2)]
+    warmup: u64,
+    /// HTTP method.
+    #[arg(short = 'X', long, default_value = "GET")]
+    method: String,
+    /// Literal request body.
+    #[arg(long, conflicts_with = "body_size")]
+    body: Option<String>,
+    /// Send a body of this many pseudo-random bytes instead of `--body`.
+    #[arg(long)]
+    body_size: Option<usize>,
+    /// Extra header(s), `Name: value`.
+    #[arg(short = 'H', long = "header")]
+    headers: Vec<String>,
+    /// Label stored with `--json` output (e.g. the server runtime).
+    #[arg(long, default_value = "")]
+    label: String,
+    /// Emit one JSON object instead of the human-readable summary.
+    #[arg(long)]
+    json: bool,
+    /// Client worker threads (default: all cores).
+    #[arg(long)]
+    threads: Option<usize>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Summary {
+    label: String,
+    url: String,
+    method: String,
+    connections: usize,
+    duration_s: u64,
+    requests: u64,
+    rps: f64,
+    errors: u64,
+    non_2xx: u64,
+    bytes_read: u64,
+    p50_us: u64,
+    p90_us: u64,
+    p99_us: u64,
+    p999_us: u64,
+    max_us: u64,
+    mean_us: f64,
+}
+
+struct WorkerOut {
+    hist: Histogram<u64>,
+    requests: u64,
+    errors: u64,
+    non_2xx: u64,
+    bytes: u64,
+}
+
+fn main() {
+    let cli = Cli::parse();
+    match cli.cmd {
+        Cmd::Run(args) => run(args),
+        Cmd::Report { file } => {
+            if let Err(e) = report(&file) {
+                eprintln!("report: {e}");
+                std::process::exit(1);
+            }
+        }
+    }
+}
+
+fn parse_url(url: &str) -> Result<(String, u16, String), String> {
+    let rest = url
+        .strip_prefix("http://")
+        .ok_or("only http:// URLs are supported")?;
+    let (hostport, path) = match rest.find('/') {
+        Some(i) => (&rest[..i], &rest[i..]),
+        None => (rest, "/"),
+    };
+    let (host, port) = match hostport.rsplit_once(':') {
+        Some((h, p)) => (h, p.parse::<u16>().map_err(|_| "bad port")?),
+        None => (hostport, 80),
+    };
+    Ok((host.to_string(), port, path.to_string()))
+}
+
+fn build_request(args: &RunArgs, host: &str, port: u16, path: &str) -> Vec<u8> {
+    let body: Vec<u8> = match (&args.body, args.body_size) {
+        (Some(b), _) => b.as_bytes().to_vec(),
+        (None, Some(n)) => {
+            // xorshift so the payload is not trivially compressible.
+            let mut x: u32 = 0x9E37_79B9;
+            (0..n)
+                .map(|_| {
+                    x ^= x << 13;
+                    x ^= x >> 17;
+                    x ^= x << 5;
+                    b'a' + (x % 26) as u8
+                })
+                .collect()
+        }
+        (None, None) => Vec::new(),
+    };
+    let mut req = format!(
+        "{} {} HTTP/1.1\r\nHost: {}:{}\r\nUser-Agent: phhtp-bench\r\nAccept: */*\r\n",
+        args.method, path, host, port
+    );
+    let mut has_ct = false;
+    for h in &args.headers {
+        req.push_str(h);
+        req.push_str("\r\n");
+        if h.to_ascii_lowercase().starts_with("content-type:") {
+            has_ct = true;
+        }
+    }
+    if !body.is_empty() || args.method != "GET" {
+        if !has_ct && !body.is_empty() {
+            req.push_str("Content-Type: application/octet-stream\r\n");
+        }
+        req.push_str(&format!("Content-Length: {}\r\n", body.len()));
+    }
+    req.push_str("\r\n");
+    let mut out = req.into_bytes();
+    out.extend_from_slice(&body);
+    out
+}
+
+fn run(args: RunArgs) {
+    let (host, port, path) = match parse_url(&args.url) {
+        Ok(x) => x,
+        Err(e) => {
+            eprintln!("bad url: {e}");
+            std::process::exit(2);
+        }
+    };
+    let addr: SocketAddr = match std::net::ToSocketAddrs::to_socket_addrs(&(host.as_str(), port))
+        .ok()
+        .and_then(|mut it| it.next())
+    {
+        Some(a) => a,
+        None => {
+            eprintln!("cannot resolve {host}:{port}");
+            std::process::exit(2);
+        }
+    };
+    let request = Arc::new(build_request(&args, &host, port, &path));
+    let threads = args.threads.unwrap_or_else(|| {
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1)
+    });
+
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(threads.max(1))
+        .enable_all()
+        .build()
+        .expect("tokio runtime");
+
+    let total = rt.block_on(async {
+        let start = Instant::now();
+        let warm_end = start + Duration::from_secs(args.warmup);
+        let deadline = warm_end + Duration::from_secs(args.duration);
+        let mut tasks = Vec::with_capacity(args.connections);
+        for _ in 0..args.connections {
+            let req = Arc::clone(&request);
+            tasks.push(tokio::spawn(worker(addr, req, warm_end, deadline)));
+        }
+        let mut total = WorkerOut {
+            hist: Histogram::new_with_bounds(1, 60_000_000, 3).unwrap(),
+            requests: 0,
+            errors: 0,
+            non_2xx: 0,
+            bytes: 0,
+        };
+        for t in tasks {
+            let w = t.await.expect("worker task panicked");
+            total.hist.add(&w.hist).unwrap();
+            total.requests += w.requests;
+            total.errors += w.errors;
+            total.non_2xx += w.non_2xx;
+            total.bytes += w.bytes;
+        }
+        total
+    });
+
+    let h = &total.hist;
+    let summary = Summary {
+        label: args.label.clone(),
+        url: args.url.clone(),
+        method: args.method.clone(),
+        connections: args.connections,
+        duration_s: args.duration,
+        requests: total.requests,
+        rps: total.requests as f64 / args.duration as f64,
+        errors: total.errors,
+        non_2xx: total.non_2xx,
+        bytes_read: total.bytes,
+        p50_us: h.value_at_quantile(0.50),
+        p90_us: h.value_at_quantile(0.90),
+        p99_us: h.value_at_quantile(0.99),
+        p999_us: h.value_at_quantile(0.999),
+        max_us: h.max(),
+        mean_us: h.mean(),
+    };
+
+    if args.json {
+        println!("{}", serde_json::to_string(&summary).unwrap());
+    } else {
+        print_human(&summary);
+    }
+}
+
+async fn worker(
+    addr: SocketAddr,
+    req: Arc<Vec<u8>>,
+    warm_end: Instant,
+    deadline: Instant,
+) -> WorkerOut {
+    let mut out = WorkerOut {
+        hist: Histogram::new_with_bounds(1, 60_000_000, 3).unwrap(),
+        requests: 0,
+        errors: 0,
+        non_2xx: 0,
+        bytes: 0,
+    };
+    let mut stream: Option<TcpStream> = None;
+    let mut buf: Vec<u8> = Vec::with_capacity(64 * 1024);
+
+    loop {
+        let now = Instant::now();
+        if now >= deadline {
+            break;
+        }
+        let s = match stream.as_mut() {
+            Some(s) => s,
+            None => {
+                buf.clear();
+                match tokio::time::timeout(Duration::from_secs(5), TcpStream::connect(addr)).await {
+                    Ok(Ok(s)) => {
+                        let _ = s.set_nodelay(true);
+                        stream.insert(s)
+                    }
+                    _ => {
+                        if now >= warm_end {
+                            out.errors += 1;
+                        }
+                        tokio::time::sleep(Duration::from_millis(20)).await;
+                        continue;
+                    }
+                }
+            }
+        };
+
+        let t0 = Instant::now();
+        if s.write_all(&req).await.is_err() {
+            stream = None;
+            if t0 >= warm_end {
+                out.errors += 1;
+            }
+            continue;
+        }
+        match read_response(s, &mut buf).await {
+            Ok(resp) => {
+                let latency = t0.elapsed();
+                if t0 >= warm_end {
+                    out.requests += 1;
+                    out.bytes += resp.len as u64;
+                    if !(200..300).contains(&resp.status) {
+                        out.non_2xx += 1;
+                    }
+                    let _ = out.hist.record(latency.as_micros().max(1) as u64);
+                }
+                buf.drain(..resp.len);
+                if resp.close {
+                    stream = None;
+                    buf.clear();
+                }
+            }
+            Err(_) => {
+                stream = None;
+                if t0 >= warm_end {
+                    out.errors += 1;
+                }
+            }
+        }
+    }
+    out
+}
+
+struct Resp {
+    status: u16,
+    len: usize,
+    close: bool,
+}
+
+async fn read_response(s: &mut TcpStream, buf: &mut Vec<u8>) -> io::Result<Resp> {
+    loop {
+        if !buf.is_empty() {
+            let mut hdrs = [httparse::EMPTY_HEADER; 64];
+            let mut r = httparse::Response::new(&mut hdrs);
+            match r.parse(buf) {
+                Ok(httparse::Status::Complete(head)) => {
+                    let status = r.code.unwrap_or(0);
+                    let mut cl: Option<usize> = None;
+                    let mut close = r.version == Some(0);
+                    for h in r.headers.iter() {
+                        if h.name.eq_ignore_ascii_case("content-length") {
+                            cl = std::str::from_utf8(h.value)
+                                .ok()
+                                .and_then(|v| v.trim().parse().ok());
+                        } else if h.name.eq_ignore_ascii_case("connection") {
+                            if h.value.eq_ignore_ascii_case(b"close") {
+                                close = true;
+                            } else if h.value.eq_ignore_ascii_case(b"keep-alive") {
+                                close = false;
+                            }
+                        } else if h.name.eq_ignore_ascii_case("transfer-encoding") {
+                            return Err(io::Error::other("chunked responses unsupported"));
+                        }
+                    }
+                    let cl = cl.ok_or_else(|| io::Error::other("no content-length"))?;
+                    if buf.len() >= head + cl {
+                        return Ok(Resp {
+                            status,
+                            len: head + cl,
+                            close,
+                        });
+                    }
+                }
+                Ok(httparse::Status::Partial) => {}
+                Err(e) => return Err(io::Error::other(e)),
+            }
+        }
+        let start = buf.len();
+        buf.resize(start + 16 * 1024, 0);
+        let n = s.read(&mut buf[start..]).await;
+        let n = match n {
+            Ok(n) => n,
+            Err(e) => {
+                buf.truncate(start);
+                return Err(e);
+            }
+        };
+        buf.truncate(start + n);
+        if n == 0 {
+            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "eof"));
+        }
+    }
+}
+
+fn ms(us: u64) -> String {
+    format!("{:.2}ms", us as f64 / 1000.0)
+}
+
+fn print_human(s: &Summary) {
+    let label = if s.label.is_empty() {
+        String::new()
+    } else {
+        format!("[{}] ", s.label)
+    };
+    println!("{label}{} {}", s.method, s.url);
+    println!(
+        "  connections {:<6} duration {}s   threads(client) {}",
+        s.connections,
+        s.duration_s,
+        std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1)
+    );
+    println!(
+        "  requests    {:<10} {:>12.1} req/s   errors {}   non-2xx {}   read {:.1} MiB",
+        s.requests,
+        s.rps,
+        s.errors,
+        s.non_2xx,
+        s.bytes_read as f64 / (1024.0 * 1024.0)
+    );
+    println!(
+        "  latency     p50 {}  p90 {}  p99 {}  p99.9 {}  max {}  mean {}",
+        ms(s.p50_us),
+        ms(s.p90_us),
+        ms(s.p99_us),
+        ms(s.p999_us),
+        ms(s.max_us),
+        ms(s.mean_us as u64)
+    );
+}
+
+fn report(file: &str) -> io::Result<()> {
+    let f = std::fs::File::open(file)?;
+    let mut rows: Vec<Summary> = Vec::new();
+    for line in io::BufReader::new(f).lines() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+        match serde_json::from_str::<Summary>(&line) {
+            Ok(s) => rows.push(s),
+            Err(e) => eprintln!("skipping line: {e}"),
+        }
+    }
+    let endpoint = |s: &Summary| {
+        let path = s
+            .url
+            .splitn(4, '/')
+            .nth(3)
+            .map(|p| format!("/{p}"))
+            .unwrap_or_else(|| "/".into());
+        format!("{} {}", s.method, path)
+    };
+    let mut out = io::stdout().lock();
+    writeln!(
+        out,
+        "| runtime | endpoint | conns | req/s | p50 | p90 | p99 | max | errors |"
+    )?;
+    writeln!(out, "|---|---|---:|---:|---:|---:|---:|---:|---:|")?;
+    // Group by endpoint so runtimes line up next to each other.
+    let mut endpoints: Vec<String> = rows.iter().map(endpoint).collect();
+    endpoints.dedup();
+    let mut seen = Vec::new();
+    for ep in endpoints {
+        if seen.contains(&ep) {
+            continue;
+        }
+        seen.push(ep.clone());
+        for s in rows.iter().filter(|s| endpoint(s) == ep) {
+            writeln!(
+                out,
+                "| {} | `{}` | {} | {:.0} | {} | {} | {} | {} | {} |",
+                if s.label.is_empty() { "-" } else { &s.label },
+                ep,
+                s.connections,
+                s.rps,
+                ms(s.p50_us),
+                ms(s.p90_us),
+                ms(s.p99_us),
+                ms(s.max_us),
+                s.errors + s.non_2xx
+            )?;
+        }
+    }
+    Ok(())
+}
