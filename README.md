@@ -251,7 +251,7 @@ and syscall counts (needs `perf`/`strace`, both of which distort the run).
 
 ### Results: eleven runtimes, charted
 
-The full dataset (every row `phhtp-bench` recorded, 129 measurements) is committed
+The full dataset (every row `phhtp-bench` recorded, 129 measurements, each with the server's CPU, memory, context-switch and disk counters) is committed
 in [`bench/results/dataset/`](bench/results/dataset/) and rendered as an
 interactive report with charts, hover tooltips and a sortable table in
 [`bench/report.html`](bench/report.html), also hosted at
@@ -266,43 +266,49 @@ Color is the I/O-model family; ◆ marks the runtimes written in this repository
 
 ![GET /sleep throughput, all runtimes](bench/charts/matrix-sleep-rps.svg)
 
+![GET /json server CPU per request, all runtimes](bench/charts/matrix-json-cpu.svg)
+
 ![Throughput versus connections, one panel per runtime](bench/charts/conns-rps.svg)
 
-| runtime | `GET /json` req/s (median of 3, range) | p50 | p99 | `/sleep?ms=5` ×256 req/s | 16 000 conns req/s | RSS at 16 000 |
-|---|---:|---:|---:|---:|---:|---:|
-| ◆ uring       | **145k** (138–151k) | **0.35ms** | 1.59ms | 45.9k | 89k | 122 MB |
-| ◆ uring-async | 144k (139–149k) | **0.35ms** | 1.62ms | 45.6k | 87k | 126 MB |
-| ◆ mio         | 136k (131–149k) | 0.36ms | 1.75ms | 41.5k | 93k | 192 MB |
-| ◆ tokio       | 126k (124–127k) | 0.47ms | **1.26ms** | 37.4k | **110k** | 251 MB |
-| compio        | 117k (109–120k) | 0.42ms | 2.19ms | **46.2k** | 65k | 197 MB |
-| ◆ pool(64)    | 114k (97–130k) | 0.52ms | 1.59ms | 11.9k | fails | – |
-| monoio        | 110k (99–110k) | 0.45ms | 2.37ms | 38.2k | 73k | 198 MB |
-| tokio-uring   | 106k (97–110k) | 0.46ms | 2.60ms | 37.4k | 83k | 194 MB |
-| ◆ tokio-st    | 103k (100–111k) | 0.59ms | 1.36ms | 34.3k | 61k | 388 MB |
-| ◆ threads     | 95k (94–98k) | 0.61ms | 2.05ms | 44.4k | fails | – |
-| glommio       | 75k (73–76k) | 0.64ms | 4.55ms | 41.9k | 56k | 231 MB |
+| runtime | `GET /json` req/s (median of 3, range) | p50 | p99 | CPU per request | `/sleep?ms=5` ×256 req/s | 16 000 conns req/s | RSS at 16 000 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| ◆ uring | 147k (139–148k) | 0.34ms | 1.59ms | 9.9 µs | 45.2k | 100k | 138 MB |
+| ◆ mio | 139k (127–140k) | 0.36ms | 1.77ms | 10.6 µs | 41.3k | 87k | 260 MB |
+| ◆ uring-async | 131k (120–131k) | 0.39ms | 1.83ms | 11.6 µs | 44.8k | 108k | 145 MB |
+| ◆ tokio | 130k (128–133k) | 0.44ms | 1.29ms | 9.3 µs | 37.6k | 113k | 274 MB |
+| ◆ pool | 123k (106–135k) | 0.49ms | 1.33ms | not sampled | 11.9k | 45k | fails |
+| ◆ tokio-st | 115k (104–117k) | 0.52ms | 1.41ms | 7.8 µs | 34.0k | 70k | 388 MB |
+| compio | 105k (105–109k) | 0.47ms | 2.41ms | 15.3 µs | 46.2k | 74k | 213 MB |
+| tokio-uring | 103k (101–105k) | 0.48ms | 2.42ms | 15.8 µs | 37.5k | 81k | 205 MB |
+| monoio | 103k (102–112k) | 0.49ms | 2.43ms | 15.1 µs | 37.7k | 75k | 214 MB |
+| ◆ threads | 98k (95–99k) | 0.59ms | 2.00ms | 18.4 µs | 44.9k | fails | 50 MB |
+| glommio | 75k (70–77k) | 0.64ms | 4.47ms | 31.1 µs | 42.0k | 57k | 286 MB |
 
 What the eleven-way comparison shows:
 
 * **The from-scratch runtimes top the throughput and p50 columns on this box.**
-  `uring` and `uring-async` lead every published io_uring runtime on `/json`,
-  by 25 % over compio, 30 % over monoio and tokio-uring, and nearly 2× glommio.
-  All of them drive the same handler and the same per-worker listener layout,
-  so the difference is runtime overhead: the executors in the published crates
-  carry task machinery, buffer traits and cross-platform abstraction that a
-  600-line single-purpose runtime does not.
-* **Tokio still wins p99 at moderate load and the 16 000-connection point**,
-  which is where work stealing earns its keep. It also uses the most memory per
-  connection after `tokio-st`.
-* **Under `/sleep` (waiting on an upstream), the completion runtimes with
-  kernel timers cluster at the top**: compio, uring, uring-async, then the
-  blocking `threads` model, with Tokio and tokio-uring 20 % behind.
-* **glommio is the outlier**, slowest on every endpoint here. It was designed for
-  storage-heavy workloads with its own buffered I/O layer; the `futures`-trait
-  path we used copies through its internal buffer on every read. Its own
-  reactor-level API may do better; this benchmark measures the portable path.
+  `uring` leads every published io_uring runtime on `/json` by 40 % over compio,
+  monoio and tokio-uring and nearly 2× glommio, driving the same handler and the
+  same per-worker listener layout. The difference is runtime overhead.
+* **CPU per request is where Tokio holds its ground.** At equal throughput Tokio
+  spends 9.3 µs of CPU per request, `uring` 9.9, `uring-async` 11.6, the
+  published io_uring runtimes 15–16, glommio 31. Nearly all of it is kernel time
+  in the TCP stack; the user-mode slice is under 15 %. On a 1-vCPU droplet this
+  column decides.
+* **One worker is the droplet case** (pinned, 1 024 connections): `uring` 112k
+  req/s at 8.7 µs/req with a 16 ms p99; Tokio 107k at 9.1 µs but a 164 ms p99,
+  because its multi-thread scheduler starves connections with nothing to steal
+  from; `uring-async` 96k at 10.1 µs with a 19 ms p99.
+* **At 16 000 connections** Tokio (113k) and `uring-async` (108k) lead, at
+  274 MB and 145 MB resident respectively; the published runtimes sit at
+  57–81k and burn 19–33 µs of CPU per request there.
+* **Under `/sleep`** the completion runtimes with kernel timers win throughput
+  (compio and ours at 45–46k against Tokio's 38k), but mio is the most
+  CPU-efficient by far at 13 µs/req: a user-space timer heap is cheaper than a
+  kernel `TIMEOUT` op per request.
 * **`pool` and `threads` fail at 16 000 connections** (the queue and the thread
-  limit respectively); everything event-driven serves them.
+  limit); everything event-driven serves them. `pool`'s CPU is not sampled
+  because its 64 workers are all busy and cannot serve the `/stats` probe.
 
 ### Scale and failure modes
 

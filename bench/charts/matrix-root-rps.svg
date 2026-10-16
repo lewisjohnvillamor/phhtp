@@ -30,70 +30,70 @@
 <line x1="490.0" y1="44" x2="490.0" y2="352" class="grid"/>
 <text x="490.0" y="368" class="t-tick" text-anchor="middle">200k</text>
 <line x1="118" y1="44" x2="118" y2="352" class="axis"/>
-<g class="row" data-tip="uring-async · GET / · 64 conns · 151k req/s · p50 0.34 ms · p90 0.81 ms · p99 1.54 ms · median of 3 (147k–159k)">
+<g class="row" data-tip="uring · GET / · 64 conns · 147k req/s · p50 0.34 ms · p90 0.83 ms · p99 1.58 ms · CPU 147% · 10.2 µs CPU/req · ctx 0.00/req · RSS 10.8 MB · disk 0 B · median of 3 (133k–150k)">
 <rect x="0" y="44" width="560" height="28" class="hit"/>
-<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
-<path d="M118,49.0 h276.883715 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-276.883715 z" class="bar fam-io_uring"/>
-<text x="404.9" y="62.0" class="t-value">151k</text>
+<text x="110" y="62.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
+<path d="M118,49.0 h269.30561 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-269.30561 z" class="bar fam-io_uring"/>
+<text x="397.3" y="62.0" class="t-value">147k</text>
 </g>
-<g class="row" data-tip="uring · GET / · 64 conns · 147k req/s · p50 0.35 ms · p90 0.84 ms · p99 1.56 ms · median of 3 (129k–147k)">
+<g class="row" data-tip="mio · GET / · 64 conns · 138k req/s · p50 0.36 ms · p90 0.91 ms · p99 1.72 ms · CPU 134% · 9.8 µs CPU/req · ctx 0.00/req · RSS 5.6 MB · disk 0 B · median of 3 (136k–142k)">
 <rect x="0" y="72" width="560" height="28" class="hit"/>
-<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ uring</text>
-<path d="M118,77.0 h269.04521 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-269.04521 z" class="bar fam-io_uring"/>
-<text x="397.0" y="90.0" class="t-value">147k</text>
+<text x="110" y="90.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
+<path d="M118,77.0 h251.85695 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-251.85695 z" class="bar fam-epoll"/>
+<text x="379.9" y="90.0" class="t-value">138k</text>
 </g>
-<g class="row" data-tip="mio · GET / · 64 conns · 145k req/s · p50 0.34 ms · p90 0.87 ms · p99 1.65 ms · median of 3 (135k–146k)">
+<g class="row" data-tip="uring-async · GET / · 64 conns · 133k req/s · p50 0.37 ms · p90 0.94 ms · p99 1.92 ms · CPU 133% · 10.1 µs CPU/req · ctx 0.00/req · RSS 10.9 MB · disk 0 B · median of 3 (131k–135k)">
 <rect x="0" y="100" width="560" height="28" class="hit"/>
-<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ mio</text>
-<path d="M118,105.0 h266.0999 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-266.0999 z" class="bar fam-epoll"/>
-<text x="394.1" y="118.0" class="t-value">145k</text>
+<text x="110" y="118.0" class="t-label t-ours" text-anchor="end">◆ uring-async</text>
+<path d="M118,105.0 h243.102395 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-243.102395 z" class="bar fam-io_uring"/>
+<text x="371.1" y="118.0" class="t-value">133k</text>
 </g>
-<g class="row" data-tip="tokio · GET / · 64 conns · 127k req/s · p50 0.46 ms · p90 0.79 ms · p99 1.25 ms · median of 3 (125k–129k)">
+<g class="row" data-tip="tokio · GET / · 64 conns · 128k req/s · p50 0.46 ms · p90 0.77 ms · p99 1.28 ms · CPU 118% · 9.4 µs CPU/req · ctx 0.00/req · RSS 5.0 MB · disk 0 B · median of 3 (123k–137k)">
 <rect x="0" y="128" width="560" height="28" class="hit"/>
 <text x="110" y="146.0" class="t-label t-ours" text-anchor="end">◆ tokio</text>
-<path d="M118,133.0 h232.672445 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-232.672445 z" class="bar fam-epoll"/>
-<text x="360.7" y="146.0" class="t-value">127k</text>
+<path d="M118,133.0 h234.09580999999997 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-234.09580999999997 z" class="bar fam-epoll"/>
+<text x="362.1" y="146.0" class="t-value">128k</text>
 </g>
-<g class="row" data-tip="compio · GET / · 64 conns · 112k req/s · p50 0.43 ms · p90 1.13 ms · p99 2.29 ms · median of 3 (111k–113k)">
+<g class="row" data-tip="tokio-st · GET / · 64 conns · 125k req/s · p50 0.46 ms · p90 0.77 ms · p99 1.37 ms · CPU 91% · 7.2 µs CPU/req · ctx 0.02/req · RSS 6.0 MB · disk 0 B · median of 3 (121k–128k)">
 <rect x="0" y="156" width="560" height="28" class="hit"/>
-<text x="110" y="174.0" class="t-label" text-anchor="end">compio</text>
-<path d="M118,161.0 h204.83801 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-204.83801 z" class="bar fam-io_uring"/>
-<text x="332.8" y="174.0" class="t-value">112k</text>
+<text x="110" y="174.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
+<path d="M118,161.0 h228.99615500000002 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-228.99615500000002 z" class="bar fam-epoll"/>
+<text x="357.0" y="174.0" class="t-value">125k</text>
 </g>
-<g class="row" data-tip="tokio-uring · GET / · 64 conns · 108k req/s · p50 0.45 ms · p90 1.15 ms · p99 2.38 ms · median of 3 (103k–112k)">
+<g class="row" data-tip="tokio-uring · GET / · 64 conns · 107k req/s · p50 0.46 ms · p90 1.18 ms · p99 2.41 ms · CPU 167% · 15.8 µs CPU/req · ctx 0.00/req · RSS 5.2 MB · disk 0 B · median of 3 (96k–109k)">
 <rect x="0" y="184" width="560" height="28" class="hit"/>
 <text x="110" y="202.0" class="t-label" text-anchor="end">tokio-uring</text>
-<path d="M118,189.0 h196.91627 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-196.91627 z" class="bar fam-io_uring"/>
-<text x="324.9" y="202.0" class="t-value">108k</text>
+<path d="M118,189.0 h194.32157 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-194.32157 z" class="bar fam-io_uring"/>
+<text x="322.3" y="202.0" class="t-value">107k</text>
 </g>
-<g class="row" data-tip="monoio · GET / · 64 conns · 107k req/s · p50 0.45 ms · p90 1.16 ms · p99 2.23 ms · median of 3 (107k–114k)">
+<g class="row" data-tip="compio · GET / · 64 conns · 104k req/s · p50 0.47 ms · p90 1.22 ms · p99 2.33 ms · CPU 163% · 14.9 µs CPU/req · ctx 0.00/req · RSS 5.6 MB · disk 0 B · median of 3 (103k–115k)">
 <rect x="0" y="212" width="560" height="28" class="hit"/>
-<text x="110" y="230.0" class="t-label" text-anchor="end">monoio</text>
-<path d="M118,217.0 h195.94813999999997 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-195.94813999999997 z" class="bar fam-io_uring"/>
-<text x="323.9" y="230.0" class="t-value">107k</text>
+<text x="110" y="230.0" class="t-label" text-anchor="end">compio</text>
+<path d="M118,217.0 h188.58532999999997 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-188.58532999999997 z" class="bar fam-io_uring"/>
+<text x="316.6" y="230.0" class="t-value">104k</text>
 </g>
-<g class="row" data-tip="tokio-st · GET / · 64 conns · 107k req/s · p50 0.56 ms · p90 0.89 ms · p99 1.44 ms · median of 3 (107k–108k)">
+<g class="row" data-tip="monoio · GET / · 64 conns · 102k req/s · p50 0.48 ms · p90 1.22 ms · p99 2.44 ms · CPU 160% · 15.6 µs CPU/req · ctx 0.00/req · RSS 7.1 MB · disk 0 B · median of 3 (101k–114k)">
 <rect x="0" y="240" width="560" height="28" class="hit"/>
-<text x="110" y="258.0" class="t-label t-ours" text-anchor="end">◆ tokio-st</text>
-<path d="M118,245.0 h195.75284 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-195.75284 z" class="bar fam-epoll"/>
-<text x="323.8" y="258.0" class="t-value">107k</text>
+<text x="110" y="258.0" class="t-label" text-anchor="end">monoio</text>
+<path d="M118,245.0 h185.956685 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-185.956685 z" class="bar fam-io_uring"/>
+<text x="314.0" y="258.0" class="t-value">102k</text>
 </g>
-<g class="row" data-tip="pool · GET / · 64 conns · 97k req/s · p50 0.60 ms · p90 1.03 ms · p99 2.02 ms · median of 3 (71k–99k)">
+<g class="row" data-tip="pool · GET / · 64 conns · 98k req/s · p50 0.60 ms · p90 1.02 ms · p99 1.88 ms · median of 3 (95k–98k)">
 <rect x="0" y="268" width="560" height="28" class="hit"/>
 <text x="110" y="286.0" class="t-label t-ours" text-anchor="end">◆ pool</text>
-<path d="M118,273.0 h177.16028 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-177.16028 z" class="bar fam-blocking"/>
-<text x="305.2" y="286.0" class="t-value">97k</text>
+<path d="M118,273.0 h178.097255 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-178.097255 z" class="bar fam-blocking"/>
+<text x="306.1" y="286.0" class="t-value">98k</text>
 </g>
-<g class="row" data-tip="threads · GET / · 64 conns · 89k req/s · p50 0.65 ms · p90 1.12 ms · p99 2.22 ms · median of 3 (76k–97k)">
+<g class="row" data-tip="threads · GET / · 64 conns · 90k req/s · p50 0.66 ms · p90 1.11 ms · p99 2.40 ms · CPU 179% · 20.5 µs CPU/req · ctx 0.00/req · RSS 6.9 MB · disk 0 B · median of 3 (80k–93k)">
 <rect x="0" y="296" width="560" height="28" class="hit"/>
 <text x="110" y="314.0" class="t-label t-ours" text-anchor="end">◆ threads</text>
-<path d="M118,301.0 h161.9585 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-161.9585 z" class="bar fam-blocking"/>
-<text x="290.0" y="314.0" class="t-value">89k</text>
+<path d="M118,301.0 h162.973595 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-162.973595 z" class="bar fam-blocking"/>
+<text x="291.0" y="314.0" class="t-value">90k</text>
 </g>
-<g class="row" data-tip="glommio · GET / · 64 conns · 74k req/s · p50 0.64 ms · p90 1.61 ms · p99 4.57 ms · median of 3 (72k–75k)">
+<g class="row" data-tip="glommio · GET / · 64 conns · 74k req/s · p50 0.68 ms · p90 1.59 ms · p99 4.48 ms · CPU 226% · 30.9 µs CPU/req · ctx 0.00/req · RSS 46.7 MB · disk 0 B · median of 3 (69k–79k)">
 <rect x="0" y="324" width="560" height="28" class="hit"/>
 <text x="110" y="342.0" class="t-label" text-anchor="end">glommio</text>
-<path d="M118,329.0 h132.995045 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-132.995045 z" class="bar fam-io_uring"/>
-<text x="261.0" y="342.0" class="t-value">74k</text>
+<path d="M118,329.0 h134.39423 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-134.39423 z" class="bar fam-io_uring"/>
+<text x="262.4" y="342.0" class="t-value">74k</text>
 </g>
 </svg>

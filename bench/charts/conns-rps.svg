@@ -26,12 +26,12 @@
 <text x="36" y="107.0" class="t-tick" text-anchor="end">100k</text>
 <line x1="40" y1="62.0" x2="156" y2="62.0" class="grid"/>
 <text x="36" y="65.0" class="t-tick" text-anchor="end">200k</text>
-<path d="M40.0,77.7 L78.7,89.7 L117.3,99.7 L156.0,109.5" class="line fam-io_uring"/>
-<g class="pt" data-tip="uring-async · 64 connections · 163k"><circle cx="40.0" cy="77.7" r="12" class="hit"/><circle cx="40.0" cy="77.7" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="uring-async · 1024 connections · 134k"><circle cx="78.7" cy="89.7" r="12" class="hit"/><circle cx="78.7" cy="89.7" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="uring-async · 4096 connections · 110k"><circle cx="117.3" cy="99.7" r="12" class="hit"/><circle cx="117.3" cy="99.7" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="uring-async · 16000 connections · 87k"><circle cx="156.0" cy="109.5" r="12" class="hit"/><circle cx="156.0" cy="109.5" r="4" class="dot fam-io_uring"/></g>
-<text x="164.0" y="113.5" class="t-value">87k</text>
+<path d="M40.0,77.8 L78.7,90.7 L117.3,92.4 L156.0,100.8" class="line fam-io_uring"/>
+<g class="pt" data-tip="uring-async · 64 connections · 162k"><circle cx="40.0" cy="77.8" r="12" class="hit"/><circle cx="40.0" cy="77.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 1024 connections · 132k"><circle cx="78.7" cy="90.7" r="12" class="hit"/><circle cx="78.7" cy="90.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 4096 connections · 128k"><circle cx="117.3" cy="92.4" r="12" class="hit"/><circle cx="117.3" cy="92.4" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring-async · 16000 connections · 108k"><circle cx="156.0" cy="100.8" r="12" class="hit"/><circle cx="156.0" cy="100.8" r="4" class="dot fam-io_uring"/></g>
+<text x="164.0" y="104.8" class="t-value">108k</text>
 <text x="40.0" y="160" class="t-tick" text-anchor="middle">64</text>
 <text x="78.7" y="160" class="t-tick" text-anchor="middle">1024</text>
 <text x="117.3" y="160" class="t-tick" text-anchor="middle">4096</text>
@@ -43,12 +43,12 @@
 <text x="236" y="107.0" class="t-tick" text-anchor="end">100k</text>
 <line x1="240" y1="62.0" x2="356" y2="62.0" class="grid"/>
 <text x="236" y="65.0" class="t-tick" text-anchor="end">200k</text>
-<path d="M240.0,74.2 L278.7,86.1 L317.3,93.2 L356.0,108.5" class="line fam-io_uring"/>
-<g class="pt" data-tip="uring · 64 connections · 171k"><circle cx="240.0" cy="74.2" r="12" class="hit"/><circle cx="240.0" cy="74.2" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="uring · 1024 connections · 143k"><circle cx="278.7" cy="86.1" r="12" class="hit"/><circle cx="278.7" cy="86.1" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="uring · 4096 connections · 126k"><circle cx="317.3" cy="93.2" r="12" class="hit"/><circle cx="317.3" cy="93.2" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="uring · 16000 connections · 89k"><circle cx="356.0" cy="108.5" r="12" class="hit"/><circle cx="356.0" cy="108.5" r="4" class="dot fam-io_uring"/></g>
-<text x="364.0" y="112.5" class="t-value">89k</text>
+<path d="M240.0,73.3 L278.7,95.8 L317.3,86.8 L356.0,104.1" class="line fam-io_uring"/>
+<g class="pt" data-tip="uring · 64 connections · 173k"><circle cx="240.0" cy="73.3" r="12" class="hit"/><circle cx="240.0" cy="73.3" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 1024 connections · 120k"><circle cx="278.7" cy="95.8" r="12" class="hit"/><circle cx="278.7" cy="95.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 4096 connections · 141k"><circle cx="317.3" cy="86.8" r="12" class="hit"/><circle cx="317.3" cy="86.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="uring · 16000 connections · 100k"><circle cx="356.0" cy="104.1" r="12" class="hit"/><circle cx="356.0" cy="104.1" r="4" class="dot fam-io_uring"/></g>
+<text x="364.0" y="108.1" class="t-value">100k</text>
 <text x="240.0" y="160" class="t-tick" text-anchor="middle">64</text>
 <text x="278.7" y="160" class="t-tick" text-anchor="middle">1024</text>
 <text x="317.3" y="160" class="t-tick" text-anchor="middle">4096</text>
@@ -60,12 +60,12 @@
 <text x="436" y="107.0" class="t-tick" text-anchor="end">100k</text>
 <line x1="440" y1="62.0" x2="556" y2="62.0" class="grid"/>
 <text x="436" y="65.0" class="t-tick" text-anchor="end">200k</text>
-<path d="M440.0,94.2 L478.7,97.3 L517.3,100.7 L556.0,115.2" class="line fam-io_uring"/>
-<g class="pt" data-tip="monoio · 64 connections · 123k"><circle cx="440.0" cy="94.2" r="12" class="hit"/><circle cx="440.0" cy="94.2" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="monoio · 1024 connections · 116k"><circle cx="478.7" cy="97.3" r="12" class="hit"/><circle cx="478.7" cy="97.3" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="monoio · 4096 connections · 108k"><circle cx="517.3" cy="100.7" r="12" class="hit"/><circle cx="517.3" cy="100.7" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="monoio · 16000 connections · 73k"><circle cx="556.0" cy="115.2" r="12" class="hit"/><circle cx="556.0" cy="115.2" r="4" class="dot fam-io_uring"/></g>
-<text x="564.0" y="119.2" class="t-value">73k</text>
+<path d="M440.0,92.9 L478.7,103.2 L517.3,97.8 L556.0,114.6" class="line fam-io_uring"/>
+<g class="pt" data-tip="monoio · 64 connections · 126k"><circle cx="440.0" cy="92.9" r="12" class="hit"/><circle cx="440.0" cy="92.9" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 1024 connections · 102k"><circle cx="478.7" cy="103.2" r="12" class="hit"/><circle cx="478.7" cy="103.2" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 4096 connections · 115k"><circle cx="517.3" cy="97.8" r="12" class="hit"/><circle cx="517.3" cy="97.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="monoio · 16000 connections · 75k"><circle cx="556.0" cy="114.6" r="12" class="hit"/><circle cx="556.0" cy="114.6" r="4" class="dot fam-io_uring"/></g>
+<text x="564.0" y="118.6" class="t-value">75k</text>
 <text x="440.0" y="160" class="t-tick" text-anchor="middle">64</text>
 <text x="478.7" y="160" class="t-tick" text-anchor="middle">1024</text>
 <text x="517.3" y="160" class="t-tick" text-anchor="middle">4096</text>
@@ -77,12 +77,12 @@
 <text x="636" y="107.0" class="t-tick" text-anchor="end">100k</text>
 <line x1="640" y1="62.0" x2="756" y2="62.0" class="grid"/>
 <text x="636" y="65.0" class="t-tick" text-anchor="end">200k</text>
-<path d="M640.0,90.3 L678.7,103.7 L717.3,92.5 L756.0,118.9" class="line fam-io_uring"/>
-<g class="pt" data-tip="compio · 64 connections · 133k"><circle cx="640.0" cy="90.3" r="12" class="hit"/><circle cx="640.0" cy="90.3" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="compio · 1024 connections · 101k"><circle cx="678.7" cy="103.7" r="12" class="hit"/><circle cx="678.7" cy="103.7" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="compio · 4096 connections · 127k"><circle cx="717.3" cy="92.5" r="12" class="hit"/><circle cx="717.3" cy="92.5" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="compio · 16000 connections · 65k"><circle cx="756.0" cy="118.9" r="12" class="hit"/><circle cx="756.0" cy="118.9" r="4" class="dot fam-io_uring"/></g>
-<text x="764.0" y="122.9" class="t-value">65k</text>
+<path d="M640.0,92.8 L678.7,97.4 L717.3,97.1 L756.0,114.8" class="line fam-io_uring"/>
+<g class="pt" data-tip="compio · 64 connections · 127k"><circle cx="640.0" cy="92.8" r="12" class="hit"/><circle cx="640.0" cy="92.8" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 1024 connections · 116k"><circle cx="678.7" cy="97.4" r="12" class="hit"/><circle cx="678.7" cy="97.4" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 4096 connections · 116k"><circle cx="717.3" cy="97.1" r="12" class="hit"/><circle cx="717.3" cy="97.1" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="compio · 16000 connections · 74k"><circle cx="756.0" cy="114.8" r="12" class="hit"/><circle cx="756.0" cy="114.8" r="4" class="dot fam-io_uring"/></g>
+<text x="764.0" y="118.8" class="t-value">74k</text>
 <text x="640.0" y="160" class="t-tick" text-anchor="middle">64</text>
 <text x="678.7" y="160" class="t-tick" text-anchor="middle">1024</text>
 <text x="717.3" y="160" class="t-tick" text-anchor="middle">4096</text>
@@ -94,12 +94,12 @@
 <text x="36" y="237.0" class="t-tick" text-anchor="end">100k</text>
 <line x1="40" y1="192.0" x2="156" y2="192.0" class="grid"/>
 <text x="36" y="195.0" class="t-tick" text-anchor="end">200k</text>
-<path d="M40.0,233.6 L78.7,236.0 L117.3,240.2 L156.0,252.5" class="line fam-io_uring"/>
+<path d="M40.0,233.6 L78.7,238.7 L117.3,237.3 L156.0,252.2" class="line fam-io_uring"/>
 <g class="pt" data-tip="glommio · 64 connections · 101k"><circle cx="40.0" cy="233.6" r="12" class="hit"/><circle cx="40.0" cy="233.6" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="glommio · 1024 connections · 95k"><circle cx="78.7" cy="236.0" r="12" class="hit"/><circle cx="78.7" cy="236.0" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="glommio · 4096 connections · 85k"><circle cx="117.3" cy="240.2" r="12" class="hit"/><circle cx="117.3" cy="240.2" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="glommio · 16000 connections · 56k"><circle cx="156.0" cy="252.5" r="12" class="hit"/><circle cx="156.0" cy="252.5" r="4" class="dot fam-io_uring"/></g>
-<text x="164.0" y="256.5" class="t-value">56k</text>
+<g class="pt" data-tip="glommio · 1024 connections · 89k"><circle cx="78.7" cy="238.7" r="12" class="hit"/><circle cx="78.7" cy="238.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 4096 connections · 92k"><circle cx="117.3" cy="237.3" r="12" class="hit"/><circle cx="117.3" cy="237.3" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="glommio · 16000 connections · 57k"><circle cx="156.0" cy="252.2" r="12" class="hit"/><circle cx="156.0" cy="252.2" r="4" class="dot fam-io_uring"/></g>
+<text x="164.0" y="256.2" class="t-value">57k</text>
 <text x="40.0" y="290" class="t-tick" text-anchor="middle">64</text>
 <text x="78.7" y="290" class="t-tick" text-anchor="middle">1024</text>
 <text x="117.3" y="290" class="t-tick" text-anchor="middle">4096</text>
@@ -111,12 +111,12 @@
 <text x="236" y="237.0" class="t-tick" text-anchor="end">100k</text>
 <line x1="240" y1="192.0" x2="356" y2="192.0" class="grid"/>
 <text x="236" y="195.0" class="t-tick" text-anchor="end">200k</text>
-<path d="M240.0,221.9 L278.7,227.8 L317.3,226.8 L356.0,241.3" class="line fam-io_uring"/>
-<g class="pt" data-tip="tokio-uring · 64 connections · 129k"><circle cx="240.0" cy="221.9" r="12" class="hit"/><circle cx="240.0" cy="221.9" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="tokio-uring · 1024 connections · 115k"><circle cx="278.7" cy="227.8" r="12" class="hit"/><circle cx="278.7" cy="227.8" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="tokio-uring · 4096 connections · 117k"><circle cx="317.3" cy="226.8" r="12" class="hit"/><circle cx="317.3" cy="226.8" r="4" class="dot fam-io_uring"/></g>
-<g class="pt" data-tip="tokio-uring · 16000 connections · 83k"><circle cx="356.0" cy="241.3" r="12" class="hit"/><circle cx="356.0" cy="241.3" r="4" class="dot fam-io_uring"/></g>
-<text x="364.0" y="245.3" class="t-value">83k</text>
+<path d="M240.0,224.7 L278.7,229.7 L317.3,229.9 L356.0,242.0" class="line fam-io_uring"/>
+<g class="pt" data-tip="tokio-uring · 64 connections · 122k"><circle cx="240.0" cy="224.7" r="12" class="hit"/><circle cx="240.0" cy="224.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 1024 connections · 110k"><circle cx="278.7" cy="229.7" r="12" class="hit"/><circle cx="278.7" cy="229.7" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 4096 connections · 110k"><circle cx="317.3" cy="229.9" r="12" class="hit"/><circle cx="317.3" cy="229.9" r="4" class="dot fam-io_uring"/></g>
+<g class="pt" data-tip="tokio-uring · 16000 connections · 81k"><circle cx="356.0" cy="242.0" r="12" class="hit"/><circle cx="356.0" cy="242.0" r="4" class="dot fam-io_uring"/></g>
+<text x="364.0" y="246.0" class="t-value">81k</text>
 <text x="240.0" y="290" class="t-tick" text-anchor="middle">64</text>
 <text x="278.7" y="290" class="t-tick" text-anchor="middle">1024</text>
 <text x="317.3" y="290" class="t-tick" text-anchor="middle">4096</text>
@@ -128,12 +128,12 @@
 <text x="436" y="237.0" class="t-tick" text-anchor="end">100k</text>
 <line x1="440" y1="192.0" x2="556" y2="192.0" class="grid"/>
 <text x="436" y="195.0" class="t-tick" text-anchor="end">200k</text>
-<path d="M440.0,206.6 L478.7,209.8 L517.3,215.2 L556.0,230.0" class="line fam-epoll"/>
-<g class="pt" data-tip="tokio · 64 connections · 165k"><circle cx="440.0" cy="206.6" r="12" class="hit"/><circle cx="440.0" cy="206.6" r="4" class="dot fam-epoll"/></g>
-<g class="pt" data-tip="tokio · 1024 connections · 158k"><circle cx="478.7" cy="209.8" r="12" class="hit"/><circle cx="478.7" cy="209.8" r="4" class="dot fam-epoll"/></g>
-<g class="pt" data-tip="tokio · 4096 connections · 145k"><circle cx="517.3" cy="215.2" r="12" class="hit"/><circle cx="517.3" cy="215.2" r="4" class="dot fam-epoll"/></g>
-<g class="pt" data-tip="tokio · 16000 connections · 110k"><circle cx="556.0" cy="230.0" r="12" class="hit"/><circle cx="556.0" cy="230.0" r="4" class="dot fam-epoll"/></g>
-<text x="564.0" y="234.0" class="t-value">110k</text>
+<path d="M440.0,201.8 L478.7,204.2 L517.3,219.2 L556.0,228.5" class="line fam-epoll"/>
+<g class="pt" data-tip="tokio · 64 connections · 177k"><circle cx="440.0" cy="201.8" r="12" class="hit"/><circle cx="440.0" cy="201.8" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 1024 connections · 171k"><circle cx="478.7" cy="204.2" r="12" class="hit"/><circle cx="478.7" cy="204.2" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 4096 connections · 135k"><circle cx="517.3" cy="219.2" r="12" class="hit"/><circle cx="517.3" cy="219.2" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio · 16000 connections · 113k"><circle cx="556.0" cy="228.5" r="12" class="hit"/><circle cx="556.0" cy="228.5" r="4" class="dot fam-epoll"/></g>
+<text x="564.0" y="232.5" class="t-value">113k</text>
 <text x="440.0" y="290" class="t-tick" text-anchor="middle">64</text>
 <text x="478.7" y="290" class="t-tick" text-anchor="middle">1024</text>
 <text x="517.3" y="290" class="t-tick" text-anchor="middle">4096</text>
@@ -145,12 +145,12 @@
 <text x="636" y="237.0" class="t-tick" text-anchor="end">100k</text>
 <line x1="640" y1="192.0" x2="756" y2="192.0" class="grid"/>
 <text x="636" y="195.0" class="t-tick" text-anchor="end">200k</text>
-<path d="M640.0,215.9 L678.7,240.6 L717.3,240.1 L756.0,250.4" class="line fam-epoll"/>
-<g class="pt" data-tip="tokio-st · 64 connections · 143k"><circle cx="640.0" cy="215.9" r="12" class="hit"/><circle cx="640.0" cy="215.9" r="4" class="dot fam-epoll"/></g>
-<g class="pt" data-tip="tokio-st · 1024 connections · 84k"><circle cx="678.7" cy="240.6" r="12" class="hit"/><circle cx="678.7" cy="240.6" r="4" class="dot fam-epoll"/></g>
-<g class="pt" data-tip="tokio-st · 4096 connections · 85k"><circle cx="717.3" cy="240.1" r="12" class="hit"/><circle cx="717.3" cy="240.1" r="4" class="dot fam-epoll"/></g>
-<g class="pt" data-tip="tokio-st · 16000 connections · 61k"><circle cx="756.0" cy="250.4" r="12" class="hit"/><circle cx="756.0" cy="250.4" r="4" class="dot fam-epoll"/></g>
-<text x="764.0" y="254.4" class="t-value">61k</text>
+<path d="M640.0,215.6 L678.7,236.9 L717.3,241.1 L756.0,246.5" class="line fam-epoll"/>
+<g class="pt" data-tip="tokio-st · 64 connections · 144k"><circle cx="640.0" cy="215.6" r="12" class="hit"/><circle cx="640.0" cy="215.6" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 1024 connections · 93k"><circle cx="678.7" cy="236.9" r="12" class="hit"/><circle cx="678.7" cy="236.9" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 4096 connections · 83k"><circle cx="717.3" cy="241.1" r="12" class="hit"/><circle cx="717.3" cy="241.1" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="tokio-st · 16000 connections · 70k"><circle cx="756.0" cy="246.5" r="12" class="hit"/><circle cx="756.0" cy="246.5" r="4" class="dot fam-epoll"/></g>
+<text x="764.0" y="250.5" class="t-value">70k</text>
 <text x="640.0" y="290" class="t-tick" text-anchor="middle">64</text>
 <text x="678.7" y="290" class="t-tick" text-anchor="middle">1024</text>
 <text x="717.3" y="290" class="t-tick" text-anchor="middle">4096</text>
@@ -162,12 +162,12 @@
 <text x="36" y="367.0" class="t-tick" text-anchor="end">100k</text>
 <line x1="40" y1="322.0" x2="156" y2="322.0" class="grid"/>
 <text x="36" y="325.0" class="t-tick" text-anchor="end">200k</text>
-<path d="M40.0,346.7 L78.7,361.8 L117.3,353.6 L156.0,367.0" class="line fam-epoll"/>
-<g class="pt" data-tip="mio · 64 connections · 141k"><circle cx="40.0" cy="346.7" r="12" class="hit"/><circle cx="40.0" cy="346.7" r="4" class="dot fam-epoll"/></g>
-<g class="pt" data-tip="mio · 1024 connections · 105k"><circle cx="78.7" cy="361.8" r="12" class="hit"/><circle cx="78.7" cy="361.8" r="4" class="dot fam-epoll"/></g>
-<g class="pt" data-tip="mio · 4096 connections · 125k"><circle cx="117.3" cy="353.6" r="12" class="hit"/><circle cx="117.3" cy="353.6" r="4" class="dot fam-epoll"/></g>
-<g class="pt" data-tip="mio · 16000 connections · 93k"><circle cx="156.0" cy="367.0" r="12" class="hit"/><circle cx="156.0" cy="367.0" r="4" class="dot fam-epoll"/></g>
-<text x="164.0" y="371.0" class="t-value">93k</text>
+<path d="M40.0,350.2 L78.7,358.5 L117.3,360.8 L156.0,369.3" class="line fam-epoll"/>
+<g class="pt" data-tip="mio · 64 connections · 133k"><circle cx="40.0" cy="350.2" r="12" class="hit"/><circle cx="40.0" cy="350.2" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 1024 connections · 113k"><circle cx="78.7" cy="358.5" r="12" class="hit"/><circle cx="78.7" cy="358.5" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 4096 connections · 108k"><circle cx="117.3" cy="360.8" r="12" class="hit"/><circle cx="117.3" cy="360.8" r="4" class="dot fam-epoll"/></g>
+<g class="pt" data-tip="mio · 16000 connections · 87k"><circle cx="156.0" cy="369.3" r="12" class="hit"/><circle cx="156.0" cy="369.3" r="4" class="dot fam-epoll"/></g>
+<text x="164.0" y="373.3" class="t-value">87k</text>
 <text x="40.0" y="420" class="t-tick" text-anchor="middle">64</text>
 <text x="78.7" y="420" class="t-tick" text-anchor="middle">1024</text>
 <text x="117.3" y="420" class="t-tick" text-anchor="middle">4096</text>
@@ -179,12 +179,12 @@
 <text x="236" y="367.0" class="t-tick" text-anchor="end">100k</text>
 <line x1="240" y1="322.0" x2="356" y2="322.0" class="grid"/>
 <text x="236" y="325.0" class="t-tick" text-anchor="end">200k</text>
-<path d="M240.0,355.7 L278.7,364.5 L317.3,366.8 L356.0,404.5" class="line fam-blocking"/>
-<g class="pt" data-tip="threads · 64 connections · 120k"><circle cx="240.0" cy="355.7" r="12" class="hit"/><circle cx="240.0" cy="355.7" r="4" class="dot fam-blocking"/></g>
-<g class="pt" data-tip="threads · 1024 connections · 99k"><circle cx="278.7" cy="364.5" r="12" class="hit"/><circle cx="278.7" cy="364.5" r="4" class="dot fam-blocking"/></g>
-<g class="pt" data-tip="threads · 4096 connections · 93k"><circle cx="317.3" cy="366.8" r="12" class="hit"/><circle cx="317.3" cy="366.8" r="4" class="dot fam-blocking"/></g>
-<g class="pt" data-tip="threads · 16000 connections · 3.6k"><circle cx="356.0" cy="404.5" r="12" class="hit"/><circle cx="356.0" cy="404.5" r="4" class="dot fam-blocking"/></g>
-<text x="364.0" y="408.5" class="t-value">3.6k</text>
+<path d="M240.0,357.6 L278.7,366.5 L317.3,369.2 L356.0,403.9" class="line fam-blocking"/>
+<g class="pt" data-tip="threads · 64 connections · 115k"><circle cx="240.0" cy="357.6" r="12" class="hit"/><circle cx="240.0" cy="357.6" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 1024 connections · 94k"><circle cx="278.7" cy="366.5" r="12" class="hit"/><circle cx="278.7" cy="366.5" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 4096 connections · 88k"><circle cx="317.3" cy="369.2" r="12" class="hit"/><circle cx="317.3" cy="369.2" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="threads · 16000 connections · 4.9k"><circle cx="356.0" cy="403.9" r="12" class="hit"/><circle cx="356.0" cy="403.9" r="4" class="dot fam-blocking"/></g>
+<text x="364.0" y="407.9" class="t-value">4.9k</text>
 <text x="240.0" y="420" class="t-tick" text-anchor="middle">64</text>
 <text x="278.7" y="420" class="t-tick" text-anchor="middle">1024</text>
 <text x="317.3" y="420" class="t-tick" text-anchor="middle">4096</text>
@@ -196,12 +196,12 @@
 <text x="436" y="367.0" class="t-tick" text-anchor="end">100k</text>
 <line x1="440" y1="322.0" x2="556" y2="322.0" class="grid"/>
 <text x="436" y="325.0" class="t-tick" text-anchor="end">200k</text>
-<path d="M440.0,355.4 L478.7,355.4 L517.3,356.5 L556.0,404.2" class="line fam-blocking"/>
-<g class="pt" data-tip="pool · 64 connections · 120k"><circle cx="440.0" cy="355.4" r="12" class="hit"/><circle cx="440.0" cy="355.4" r="4" class="dot fam-blocking"/></g>
-<g class="pt" data-tip="pool · 1024 connections · 121k"><circle cx="478.7" cy="355.4" r="12" class="hit"/><circle cx="478.7" cy="355.4" r="4" class="dot fam-blocking"/></g>
-<g class="pt" data-tip="pool · 4096 connections · 118k"><circle cx="517.3" cy="356.5" r="12" class="hit"/><circle cx="517.3" cy="356.5" r="4" class="dot fam-blocking"/></g>
-<g class="pt" data-tip="pool · 16000 connections · 4.3k"><circle cx="556.0" cy="404.2" r="12" class="hit"/><circle cx="556.0" cy="404.2" r="4" class="dot fam-blocking"/></g>
-<text x="564.0" y="408.2" class="t-value">4.3k</text>
+<path d="M440.0,357.6 L478.7,364.3 L517.3,360.0 L556.0,387.1" class="line fam-blocking"/>
+<g class="pt" data-tip="pool · 64 connections · 115k"><circle cx="440.0" cy="357.6" r="12" class="hit"/><circle cx="440.0" cy="357.6" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 1024 connections · 99k"><circle cx="478.7" cy="364.3" r="12" class="hit"/><circle cx="478.7" cy="364.3" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 4096 connections · 109k"><circle cx="517.3" cy="360.0" r="12" class="hit"/><circle cx="517.3" cy="360.0" r="4" class="dot fam-blocking"/></g>
+<g class="pt" data-tip="pool · 16000 connections · 45k"><circle cx="556.0" cy="387.1" r="12" class="hit"/><circle cx="556.0" cy="387.1" r="4" class="dot fam-blocking"/></g>
+<text x="564.0" y="391.1" class="t-value">45k</text>
 <text x="440.0" y="420" class="t-tick" text-anchor="middle">64</text>
 <text x="478.7" y="420" class="t-tick" text-anchor="middle">1024</text>
 <text x="517.3" y="420" class="t-tick" text-anchor="middle">4096</text>
