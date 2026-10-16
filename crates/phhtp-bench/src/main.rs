@@ -70,11 +70,20 @@ struct RunArgs {
     /// Client worker threads (default: all cores).
     #[arg(long)]
     threads: Option<usize>,
+    /// Per-request timeout in seconds; a timed-out request counts as an error
+    /// and its connection is re-opened.
+    #[arg(long, default_value_t = 10)]
+    timeout: u64,
+    /// Free-form note stored with `--json` output (e.g. "workers=2").
+    #[arg(long, default_value = "")]
+    note: String,
 }
 
 #[derive(Serialize, Deserialize)]
 struct Summary {
     label: String,
+    #[serde(default)]
+    note: String,
     url: String,
     method: String,
     connections: usize,
@@ -207,7 +216,13 @@ fn run(args: RunArgs) {
         let mut tasks = Vec::with_capacity(args.connections);
         for _ in 0..args.connections {
             let req = Arc::clone(&request);
-            tasks.push(tokio::spawn(worker(addr, req, warm_end, deadline)));
+            tasks.push(tokio::spawn(worker(
+                addr,
+                req,
+                warm_end,
+                deadline,
+                Duration::from_secs(args.timeout),
+            )));
         }
         let mut total = WorkerOut {
             hist: Histogram::new_with_bounds(1, 60_000_000, 3).unwrap(),
@@ -230,6 +245,7 @@ fn run(args: RunArgs) {
     let h = &total.hist;
     let summary = Summary {
         label: args.label.clone(),
+        note: args.note.clone(),
         url: args.url.clone(),
         method: args.method.clone(),
         connections: args.connections,
@@ -259,6 +275,7 @@ async fn worker(
     req: Arc<Vec<u8>>,
     warm_end: Instant,
     deadline: Instant,
+    timeout: Duration,
 ) -> WorkerOut {
     let mut out = WorkerOut {
         hist: Histogram::new_with_bounds(1, 60_000_000, 3).unwrap(),
@@ -303,7 +320,11 @@ async fn worker(
             }
             continue;
         }
-        match read_response(s, &mut buf).await {
+        let resp = match tokio::time::timeout(timeout, read_response(s, &mut buf)).await {
+            Ok(r) => r,
+            Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "request timed out")),
+        };
+        match resp {
             Ok(resp) => {
                 let latency = t0.elapsed();
                 if t0 >= warm_end {

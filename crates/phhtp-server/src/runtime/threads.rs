@@ -26,12 +26,19 @@ pub fn run(cfg: Config, app: Arc<App>) -> io::Result<()> {
             }
         };
         let app = Arc::clone(&app);
-        std::thread::Builder::new()
+        let spawned = std::thread::Builder::new()
             .name("phhtp-conn".into())
             .stack_size(256 * 1024)
             .spawn(move || {
                 let _ = serve_connection(&app, &mut stream);
-            })?;
+            });
+        if let Err(e) = spawned {
+            // Out of threads (EAGAIN: RLIMIT_NPROC, pid_max, max_map_count).
+            // The closure owned `stream`, so the connection is already closed.
+            // Shed load instead of taking the whole server down.
+            eprintln!("spawn: {e}; dropping connection");
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
     }
     Ok(())
 }
